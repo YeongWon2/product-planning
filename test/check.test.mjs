@@ -99,3 +99,14 @@ test('우선순위가 없거나 틀린 요구사항은 경고한다', () => {
   assert.deepEqual(found.map((i) => [i.level, i.targets[0].id]), [['warn', 'R1'], ['warn', 'R2']]);
   assert.equal(runPipeline(example()).report.issues.some((i) => i.rule === 'requirement-priority'), false);
 });
+
+test('사람이 읽는 글에 § 같은 기호가 있으면 경고한다', () => {
+  const spec = example();
+  spec.decisions = [{ id: 'D9', name: '§5.2.2를 대체한다', source: { kind: 'decision' } }];
+  spec.actions[0].success = '저장했습니다 ¶';
+  const { report } = runPipeline(parseSpec(JSON.stringify(spec)).spec);
+  const found = report.issues.filter((i) => i.rule === 'plain-text');
+  assert.deepEqual(found.map((i) => i.level), ['warn', 'warn']);
+  assert.ok(found.every((i) => /기호/.test(i.message)));
+  assert.equal(runPipeline(example()).report.issues.some((i) => i.rule === 'plain-text'), false);
+});

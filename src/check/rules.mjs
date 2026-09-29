@@ -363,7 +363,33 @@ export function requirementPriority({ spec, index }) {
   return { checked: spec.requirements.length, issues };
 }
 
+// 사람이 읽는 글에는 문서 기호를 쓰지 않는다. '§5.2.2'보다 '5.2.2 과제 기한 설정'이 읽힌다.
+const SYMBOLS = /[§¶※]/;
+export function plainText({ spec, index }) {
+  const fields = [];
+  const add = (owner, label, value) => { if (typeof value === 'string') fields.push({ owner, label, value }); };
+  if (spec.summary.problem) add(null, '해결할 문제', spec.summary.problem.text);
+  spec.summary.outOfScope.forEach((text) => add(null, '이번에 하지 않는 것', text));
+  for (const [, items] of COLLECTIONS.map(([kind, pick]) => [kind, pick(spec)])) {
+    for (const item of items) add(item.id, '이름', item.name);
+  }
+  for (const userType of spec.userTypes) add(userType.id, '목표', userType.goal);
+  for (const action of spec.actions) {
+    add(action.id, '성공 안내', action.success);
+    for (const failure of action.failures) { add(action.id, '실패 이름', failure.name); add(action.id, '실패 안내', failure.message); }
+    for (const input of action.inputs) { add(action.id, '입력 이름', input.name); (Array.isArray(input.rules) ? input.rules : []).forEach((rule) => add(action.id, '입력 규칙', rule)); }
+    for (const target of action.crossApp) add(action.id, '다른 앱 영향', target.effect);
+  }
+  for (const scenario of spec.scenarios) scenario.steps.forEach((step) => add(scenario.id, '단계 글', step.text));
+  for (const condition of spec.acceptance) { add(condition.id, '상황', condition.situation); add(condition.id, '결과', condition.result); }
+  const issues = fields.filter((field) => SYMBOLS.test(field.value)).map((field) => {
+    const where = field.owner === null ? field.label : `${quote(index.name(field.owner))}의 ${field.label}`;
+    return issue('plain-text', 'warn', `${where}에 문서 기호(§ 등)가 있습니다. '5.2.2 과제 기한 설정'처럼 번호와 제목으로 쓰세요: ${quote(field.value)}`, field.owner === null ? [] : [target(index, field.owner)]);
+  });
+  return { checked: fields.length, issues };
+}
+
 export const RULES = [
   shape, required, idMissing, idDuplicate, names, referencesKnown, requirementCoverage, permissionGaps, states,
-  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, outOfScope, questionOwners, inputRules, asyncFeedback, requestScope, requirementPriority,
+  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, outOfScope, questionOwners, inputRules, asyncFeedback, requestScope, requirementPriority, plainText,
 ];

@@ -82,3 +82,12 @@ test('본문에 undefined·null·NaN 같은 값이 새어 나오지 않는다', 
 test('같은 입력이면 HTML이 바이트 단위로 같다', () => {
   assert.equal(renderHtml(runPipeline(example())), renderHtml(runPipeline(example())));
 });
+
+test('출처 위치의 § 기호는 장·절로 풀어 보여 준다', () => {
+  const spec = example();
+  spec.summary.problem.source = { kind: 'doc', ref: '기획 문서 §3, §5.1.2' };
+  const html = renderHtml(runPipeline(parseSpec(JSON.stringify(spec)).spec));
+  const body = html.split('<script type="application/json"')[0];
+  assert.ok(body.includes('기획 문서 3장, 5.1.2절'));
+  assert.ok(!body.includes('§'));
+});

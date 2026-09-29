@@ -40,3 +40,11 @@ export function josa(word, pair) {
 export function quote(word, pair) {
   return pair ? `'${word}'${particle(word, pair)}` : `'${word}'`;
 }
+
+// 문서 기호(§)는 읽는 사람이 뜻을 모를 수 있다. '§3'은 '3장', '§5.1.2'는 '5.1.2절'로 푼다.
+export function readableRef(text) {
+  return String(text)
+    .replace(/§\s*(\d+(?:\.\d+)+)/g, '$1절')
+    .replace(/§\s*(\d+)/g, '$1장')
+    .replace(/§/g, '');
+}

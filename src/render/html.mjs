@@ -1,4 +1,4 @@
-import { LABELS, quote } from '../model/labels.mjs';
+import { LABELS, quote, readableRef } from '../model/labels.mjs';
 import { escapeHtml as h, jsonForScript } from './escape.mjs';
 import { layoutFlow, renderFlowSvg } from './flow-svg.mjs';
 import { renderFlowchart } from './flowchart-svg.mjs';
@@ -42,7 +42,7 @@ const empty = (text) => `<p class="empty">${h(text)}</p>`;
 
 function sourceBadge(source) {
   const kind = Object.hasOwn(LABELS.source, source?.kind) ? source.kind : 'assumption';
-  const ref = typeof source?.ref === 'string' && source.ref !== '' ? ` <span class="source-ref">${h(source.ref)}</span>` : '';
+  const ref = typeof source?.ref === 'string' && source.ref !== '' ? ` <span class="source-ref">${h(readableRef(source.ref))}</span>` : '';
   return `<span class="badge badge-${kind}">${LABELS.source[kind]}</span>${ref}`;
 }
 

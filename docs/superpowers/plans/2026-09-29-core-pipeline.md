@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js 20 이상 (개발 환경 24.11.1), ESM `.mjs`, 테스트는 `node:test` + `node:assert/strict`. 외부 의존성 0.
 
-**Spec:** `docs/산출물-명세.md` (계약), `docs/설계서.md` §3·§4.1·§5.1·§8 (배경)
+**Spec:** `docs/산출물-명세.md` (계약), `docs/설계서.md` 3장·4.1절·5.1절·8장 (배경)
 
 ## Global Constraints
 
@@ -36,7 +36,7 @@ package.json                    type=module, test 스크립트, engines
 scripts/spec.mjs                CLI: check · build
 src/model/load.mjs              parseSpec(text) · loadSpec(path) · 기본값 채우기
 src/model/index.mjs             buildIndex(spec): ID 색인, 중복 ID, 이름 조회
-src/model/labels.mjs            표기 사전 (§3.4), 조사 josa()
+src/model/labels.mjs            표기 사전 (3.4절), 조사 josa()
 src/derive/permissions.mjs      permissionGrid(): 칸 목록과 빈칸
 src/derive/questions.mjs        deriveQuestions(): 자동 정할 것
 src/derive/acceptance.mjs       deriveAcceptanceDrafts(): 완료 조건 초안
@@ -66,7 +66,7 @@ skills/spec/SKILL.md            사용 흐름 스킬
   - `loadSpec(path: string) → { spec, error }`
   - `DEFAULT_PROFILE = { modalMaxInputs: 3, screenStates: [...5개], defaultOwner: '기획' }`
   - `buildIndex(spec) → { get(id) → {kind, item}|undefined, name(id) → string, has(id) → boolean, duplicates: Array<{id, kinds}> }`. kind는 `userType|app|requirement|entity|state|action|scenario|acceptance|metric|event|question|decision`
-  - `LABELS` (§3.4 표기), `josa(word, pair) → word+조사` (pair: `'이/가'`, `'을/를'`, `'은/는'`, `'으로/로'`)
+  - `LABELS` (3.4절 표기), `josa(word, pair) → word+조사` (pair: `'이/가'`, `'을/를'`, `'은/는'`, `'으로/로'`)
   - `quote(word, pair?) → "'word'" + 조사` — 따옴표로 감싼 이름 뒤에 받침에 맞는 조사를 붙인다. pair가 없으면 따옴표만
 
 - [ ] **Step 1: 실패하는 테스트 작성**
@@ -394,7 +394,7 @@ test('같은 화면으로 되돌아가는 고리가 있어도 끝난다', () => 
 
 **Interfaces:**
 - Consumes: Task 1~3 전부
-- Produces: `runPipeline(spec) → { spec, index, derived: {screens, edges, stepScreens, entries, permissionGaps, questions, acceptanceDrafts}, report }` (`report`는 산출물 명세 §4 구조)
+- Produces: `runPipeline(spec) → { spec, index, derived: {screens, edges, stepScreens, entries, permissionGaps, questions, acceptanceDrafts}, report }` (`report`는 산출물 명세 4장 구조)
 - 규칙 함수 형태: `(ctx) → { checked: number, issues: Issue[] }`, `Issue = { rule, level: 'block'|'warn', message, targets: [{id, name}] }`
 
 **규칙 목록 (P1):**
@@ -556,7 +556,7 @@ test('SVG는 이름을 이스케이프하고 ID를 속성에만 둔다', () => {
 
 **Interfaces:**
 - Consumes: `runPipeline` 결과, `renderFlowSvg`, `escapeHtml`, `jsonForScript`, `LABELS`, `josa`
-- Produces: `renderHtml(result) → string` — 산출물 명세 §3 그대로. 섹션마다 `<section id="s-{n}" data-section="{영문 키}">` (`summary`, `scenarios`, `entities`, `permissions`, `flow`, `screens`, `acceptance`, `metrics`, `review`, `questions`, `trace`)
+- Produces: `renderHtml(result) → string` — 산출물 명세 3장 그대로. 섹션마다 `<section id="s-{n}" data-section="{영문 키}">` (`summary`, `scenarios`, `entities`, `permissions`, `flow`, `screens`, `acceptance`, `metrics`, `review`, `questions`, `trace`)
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -677,7 +677,7 @@ test('깨진 JSON은 3, 사용법 오류는 2로 끝난다', () => {
 - Modify: `README.md` (사용법 섹션 추가, 로드맵 P1 체크)
 
 - [ ] **Step 1**: Claude Code 플러그인·마켓플레이스 매니페스트 형식을 공식 문서로 확인한다 (필드 이름, skills 위치). 확인하지 않은 필드는 쓰지 않는다.
-- [ ] **Step 2**: `skills/spec/SKILL.md` 작성 — 이 스킬이 하는 일: (1) 사용자와 짧게 인터뷰해 산출물 명세 §2 형식으로 `spec.json`을 쓰거나 고친다, (2) `node ${CLAUDE_PLUGIN_ROOT}/scripts/spec.mjs check`로 검사하고 차단 이슈를 사람의 언어로 설명한다, (3) 사실을 지어내지 않는다 — 모르는 것은 `questions`에 넣고 출처가 없으면 `assumption`, (4) `build`로 HTML을 만들고 경로를 알려 준다. 흐름·완료 조건 초안은 쓰지 않는다 (파생되기 때문).
+- [ ] **Step 2**: `skills/spec/SKILL.md` 작성 — 이 스킬이 하는 일: (1) 사용자와 짧게 인터뷰해 산출물 명세 2장 형식으로 `spec.json`을 쓰거나 고친다, (2) `node ${CLAUDE_PLUGIN_ROOT}/scripts/spec.mjs check`로 검사하고 차단 이슈를 사람의 언어로 설명한다, (3) 사실을 지어내지 않는다 — 모르는 것은 `questions`에 넣고 출처가 없으면 `assumption`, (4) `build`로 HTML을 만들고 경로를 알려 준다. 흐름·완료 조건 초안은 쓰지 않는다 (파생되기 때문).
 - [ ] **Step 3**: 로컬에서 `claude --plugin-dir .` 또는 문서가 안내하는 방법으로 스킬이 목록에 보이는지 확인한다. 확인하지 못하면 그 사실을 보고에 적는다.
 - [ ] **Step 4**: README에 사용법 (`npm test`, `node scripts/spec.mjs build examples/assignment/spec.json`)과 산출물 명세 링크를 추가한다.
 - [ ] **Step 5: 커밋** — `git commit -m "feat: 기획서 작성 스킬과 플러그인 매니페스트를 추가한다"`

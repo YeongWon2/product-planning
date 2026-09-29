@@ -1,9 +1,9 @@
 {
   "ready": false,
   "score": {
-    "checked": 190,
-    "passed": 188,
-    "ratio": 0.989,
+    "checked": 247,
+    "passed": 245,
+    "ratio": 0.992,
     "assumptionRatio": 0.125,
     "blockingQuestions": 1,
     "blockIssues": 1,
