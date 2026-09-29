@@ -88,7 +88,7 @@ disable-model-invocation: true
 
 1. `node <플러그인 루트>/scripts/spec.mjs review <spec.json>`으로 검토지를 받는다. 항목마다 기준·질문·대상·판단에 필요한 사실(context)이 있다.
 2. **첫째 판단**: 항목마다 `{ key, verdict: pass·issue·na, severity(issue면 1~4), evidence: [근거 요소 ID], finding, fix?, fingerprint }`. `fingerprint`는 검토지 항목의 값을 그대로 옮긴다. 기획서를 고친 뒤 `review-stale`이 나오면 그 항목만 다시 판단한다. 근거는 context에 나온 사실과 기획서의 요소·화면 ID만 쓴다. 추측으로 문제를 만들지 않는다.
-3. **둘째 판단**: 첫째를 보여 주지 않은 별도 에이전트에게 같은 검토지와 지침(`instructions`)만 주고 판단하게 한다.
+3. **둘째 판단**: 첫째를 보여 주지 않은 별도 에이전트에게 같은 검토지와 지침(`instructions`)만 주고 판단하게 한다. 이 에이전트는 Sonnet 5.5(Agent 도구의 `model: "sonnet"`)로 띄운다.
 4. 둘을 `reviewRounds: [첫째, 둘째]`에 넣고, 어긋난 항목만 근거를 다시 따져 `reviews`에 최종 판단을 적는다. 일치율이 80% 미만이면(`review-agreement`) 판단 기준을 context로 다시 읽고 어긋난 항목부터 다시 본다.
 5. 심각도 3~4(`review-severity`, 착수 불가)는 기획서를 고쳐 없앤다. 사용자가 그대로 가기로 하면 `decisions`에 사유를 남기고 판단의 `accepted`에 그 결정 ID를 적는다. 심각도 1~2는 고칠 수 있으면 고치고, 아니면 판단에 남겨 둔다.
 
