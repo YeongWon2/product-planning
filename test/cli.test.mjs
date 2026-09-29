@@ -61,3 +61,47 @@ test('저장소에 올린 예제 출력은 지금 코드로 다시 만든 것과
     );
   }
 });
+
+import { chmodSync } from 'node:fs';
+import { openerFor } from '../src/open-file.mjs';
+
+test('운영체제마다 기본 프로그램으로 파일을 여는 명령을 고른다', () => {
+  assert.deepEqual(openerFor('darwin', '/a/b.html'), { command: 'open', args: ['/a/b.html'] });
+  assert.deepEqual(openerFor('win32', 'C:\\a\\b.html'), { command: 'cmd', args: ['/c', 'start', '""', 'C:\\a\\b.html'] });
+  assert.deepEqual(openerFor('linux', '/a/b.html'), { command: 'xdg-open', args: ['/a/b.html'] });
+});
+
+// 실제 창을 띄우지 않도록 여는 명령을 받은 인자를 적는 가짜로 바꾼다.
+function fakeOpener() {
+  const dir = mkdtempSync(join(tmpdir(), 'opener-'));
+  const log = join(dir, 'opened.txt');
+  const script = join(dir, 'open.sh');
+  writeFileSync(script, `#!/bin/sh\nprintf '%s' "$1" > "${log}"\n`);
+  chmodSync(script, 0o755);
+  return { script, log };
+}
+const runWith = (env, ...args) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: { ...process.env, ...env } });
+
+test('build --open은 만든 HTML을 창으로 연다', () => {
+  const { script, log } = fakeOpener();
+  const out = mkdtempSync(join(tmpdir(), 'out-'));
+  const result = runWith({ SPEC_OPEN_COMMAND: script }, 'build', example, '--out', out, '--open');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(log, 'utf8'), join(out, 'assignment.html'));
+  assert.match(result.stdout, /창으로 열었습니다/);
+});
+
+test('--open이 없으면 창을 열지 않는다', () => {
+  const { script, log } = fakeOpener();
+  const out = mkdtempSync(join(tmpdir(), 'out-'));
+  assert.equal(runWith({ SPEC_OPEN_COMMAND: script }, 'build', example, '--out', out).status, 0);
+  assert.equal(existsSync(log), false);
+});
+
+test('창을 열지 못해도 빌드는 성공으로 끝나고 직접 열 경로를 알린다', () => {
+  const out = mkdtempSync(join(tmpdir(), 'out-'));
+  const result = runWith({ SPEC_OPEN_COMMAND: join(out, '없는-명령') }, 'build', example, '--out', out, '--open');
+  assert.equal(result.status, 0);
+  assert.match(result.stderr, /창을 열지 못했습니다.*직접 여세요/s);
+  assert.ok(existsSync(join(out, 'assignment.html')));
+});
