@@ -70,3 +70,25 @@ test('겹치면 간격을 넓혀 다시 그리고, 끝까지 겹치면 겹침 �
   assert.ok(drawn.spacing >= 1);
   assert.deepEqual(drawn.collisions, []);
 });
+
+test('시작 상태가 아닌 상태에서만 되는 기능은 그 상태로 바꿔 주는 요구사항에서 선을 잇는다', () => {
+  const { spec } = parseSpec(JSON.stringify({
+    meta: { title: 't' },
+    product: { kind: 'feature', systems: [{ id: 'S1', name: '코치 서비스', kind: 'service', apps: ['P1'] }, { id: 'S2', name: '선수 서비스', kind: 'service', apps: ['P2'] }] },
+    userTypes: [{ id: 'U1', name: '코치' }, { id: 'U2', name: '선수' }],
+    apps: [{ id: 'P1', name: '코치 웹', platform: 'web' }, { id: 'P2', name: '선수 앱', platform: 'ios' }],
+    entities: [{ id: 'E1', name: '회차', states: [{ id: 'TODO', name: '수행 전', initial: true }, { id: 'DONE', name: '수행 완료', terminal: true }], transitions: [{ from: 'TODO', to: 'DONE', action: 'DO' }] }],
+    actions: [{ id: 'DO', name: '회차 수행하기', entity: 'E1', kind: 'other' }, { id: 'OK', name: '제출물 확인하기', entity: 'E1', kind: 'update' }],
+    permissions: [
+      { userType: 'U2', action: 'DO', state: 'TODO', value: 'allow' }, { userType: 'U2', action: 'DO', state: 'DONE', value: 'deny' },
+      { userType: 'U1', action: 'OK', state: 'TODO', value: 'deny' }, { userType: 'U1', action: 'OK', state: 'DONE', value: 'allow' },
+    ],
+    requirements: [{ id: 'R1', name: '선수가 수행한다', userType: 'U2' }, { id: 'R2', name: '코치가 확인한다', userType: 'U1' }],
+    scenarios: [
+      { id: 'SC1', name: '수행', requirement: 'R1', steps: [{ userType: 'U2', app: 'P2', action: 'DO' }] },
+      { id: 'SC2', name: '확인', requirement: 'R2', steps: [{ userType: 'U1', app: 'P1', action: 'OK' }] },
+    ],
+  }));
+  const { overview } = runPipeline(spec).derived;
+  assert.deepEqual(overview.edges.filter((edge) => edge.kind !== 'call').map((edge) => [edge.kind, edge.from, edge.to, edge.label]), [['cross', 'R1', 'R2', "'회차' 수행 완료"]]);
+});

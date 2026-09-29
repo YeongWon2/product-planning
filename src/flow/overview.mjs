@@ -1,12 +1,15 @@
 // 전체 흐름의 데이터. 화면 단위가 아니라 요구사항 단위로 크게 본다.
 //   서비스(틀) 안에 앱(틀), 그 안에 요구사항. API 서버·외부 시스템은 서비스 바깥 상자.
-//   order 먼저 만들어야 쓸 수 있는 순서: 한 요구사항이 만든 개체를 다른 요구사항이 쓴다 (라벨: 개체 이름)
+//   order 먼저 해야 할 수 있는 순서 (같은 서비스 안). 두 가지에서 나온다:
+//         만든 개체를 다른 요구사항이 쓴다 (라벨: 개체 이름),
+//         시작 상태가 아닌 상태에서만 되는 기능은 그 상태로 바꿔 주는 요구사항 다음이다 (라벨: '개체' 상태)
+//         서비스를 넘나들면 cross 로 그린다
 //   cross 다른 서비스·앱에 주는 영향 (actions[].crossApp). 받는 쪽에 그 개체를 쓰는 요구사항이 없으면 앱 자체로 잇는다
 //   call  요구사항의 동작이 부르는 API 서버·외부 시스템 (actions[].calls)
 // 화면 사이 이동은 페이지·기능 플로우차트에 있으므로 여기에는 없다.
 const UNASSIGNED = '__unassigned';
 
-export function deriveOverview(spec, index) {
+export function deriveOverview(spec, index, cells = []) {
   const isAutomatic = (userType) => index.get(userType)?.kind === 'userType' && index.get(userType).item.automatic === true;
   const actionOf = (id) => (index.get(id)?.kind === 'action' ? index.get(id).item : null);
 
@@ -43,9 +46,29 @@ export function deriveOverview(spec, index) {
     for (const user of info) {
       if (maker.id === user.id) continue;
       const shared = [...maker.creates].filter((entity) => user.uses.has(entity) && !user.creates.has(entity));
-      if (shared.length > 0) add({ from: maker.id, to: user.id, kind: 'order', label: shared.map((entity) => index.name(entity)).join('·') });
+      if (shared.length > 0) add({ from: maker.id, to: user.id, kind: serviceOfApp.get(maker.app) === serviceOfApp.get(user.app) ? 'order' : 'cross', label: shared.map((entity) => index.name(entity)).join('·') });
     }
   }
+  // 상태로 이어지는 순서
+  const sameService = (a, b) => serviceOfApp.get(a.app) === serviceOfApp.get(b.app);
+  const linked = new Set(edges.map((edge) => `${edge.from}\u0000${edge.to}`));
+  for (const user of info) {
+    for (const action of user.actions) {
+      const entity = spec.entities.find((item) => item.id === action.entity);
+      if (!entity || entity.states.length === 0) continue;
+      const initial = new Set(entity.states.filter((state) => state.initial === true).map((state) => state.id));
+      const allowed = [...new Set(cells.filter((cell) => cell.action === action.id && cell.state !== null && cell.value === 'allow' && !isAutomatic(cell.userType)).map((cell) => cell.state))];
+      if (allowed.length === 0 || allowed.some((state) => initial.has(state))) continue;
+      for (const maker of info) {
+        if (maker.id === user.id || linked.has(`${maker.id}\u0000${user.id}`)) continue;
+        const reached = maker.actions.flatMap((item) => entity.transitions.filter((t) => t.action === item.id && allowed.includes(t.to)).map((t) => t.to));
+        if (reached.length === 0) continue;
+        linked.add(`${maker.id}\u0000${user.id}`);
+        add({ from: maker.id, to: user.id, kind: sameService(maker, user) ? 'order' : 'cross', label: `'${index.name(entity.id)}' ${[...new Set(reached)].map((id) => index.name(id)).join('·')}` });
+      }
+    }
+  }
+
   const names = Object.fromEntries(spec.requirements.map((requirement) => [requirement.id, index.name(requirement.id)]));
   const types = Object.fromEntries(info.map((item) => [item.id, item.automatic ? 'auto' : 'requirement']));
   for (const item of info) {
