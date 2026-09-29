@@ -1,4 +1,5 @@
 import { escapeHtml } from './escape.mjs';
+import { textWidth } from './text.mjs';
 
 // 도화지: 여러 그림을 프레임으로 한 판에 올리고, 확대·축소·이동해서 본다.
 // 스크립트가 없는 곳(문서 도구에 붙여 넣은 경우 등)에서는 그림을 원래 크기로 두고 스크롤로 본다.
@@ -27,7 +28,7 @@ const FRAME_STYLE = [
   '.fc-label{font:12px sans-serif;fill:#5b6372;text-anchor:middle;paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round}',
 ].join('');
 
-function layoutFrames(rows) {
+export function layoutBoardFrames(rows) {
   const placed = [];
   let y = BOARD_MARGIN;
   let width = 0;
@@ -35,7 +36,8 @@ function layoutFrames(rows) {
     let x = BOARD_MARGIN;
     let rowHeight = 0;
     for (const frame of row) {
-      const w = frame.width + FRAME_PADDING * 2;
+      // 제목(17px)·부제(13px)가 프레임보다 넓으면 프레임을 넓힌다.
+      const w = Math.max(frame.width, textWidth(frame.title ?? '', 17), textWidth(frame.subtitle ?? '', 13)) + FRAME_PADDING * 2;
       const h = frame.height + TITLE_HEIGHT + FRAME_PADDING;
       placed.push({ frame, x, y, w, h });
       x += w + FRAME_GAP;
@@ -75,7 +77,7 @@ export function packRows(frames, pinned = []) {
   let best = null;
   for (let limit = widest; limit <= total + widest; limit += 200) {
     const rows = [...base, ...wrapAt(limit)];
-    const { width, height } = layoutFrames(rows);
+    const { width, height } = layoutBoardFrames(rows);
     const distance = Math.abs(Math.log(width / height / TARGET_RATIO));
     if (best === null || distance < best.distance - 1e-9) best = { rows, distance };
   }
@@ -83,7 +85,7 @@ export function packRows(frames, pinned = []) {
 }
 
 export function renderBoard({ rows, withScript = true }) {
-  const { placed, width, height } = layoutFrames(rows);
+  const { placed, width, height } = layoutBoardFrames(rows);
   const frames = placed.map(({ frame, x, y, w, h }) => `<g class="board-frame" id="frame-${escapeHtml(frame.id)}" data-frame="${escapeHtml(frame.id)}" data-box="${x} ${y} ${w} ${h}" transform="translate(${x} ${y})">`
     + `<rect class="frame-bg" width="${w}" height="${h}" rx="10"/>`
     + `<text class="frame-title" x="${FRAME_PADDING}" y="30">${escapeHtml(frame.title)}</text>`

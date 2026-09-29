@@ -1,5 +1,6 @@
 import { escapeHtml, truncate } from './escape.mjs';
 import { layoutUntilClean } from './layout-check.mjs';
+import { wrapToWidth } from './text.mjs';
 
 // 플로우차트 한 장의 배치. 본 줄기는 왼쪽 한 열로 위에서 아래로, 판단의 갈래는 그 줄 오른쪽으로 뻗는다.
 // 갈래가 여러 개면 아래로 쌓고, 그만큼 그 줄의 높이를 늘려 다음 줄과 겹치지 않게 한다.
@@ -44,9 +45,14 @@ function wrapLine(text, max) {
   return lines.length === 0 ? [''] : lines;
 }
 
+// 상자 안에 글이 들어가는 폭: 네모는 좌우 여백을 뺀 폭, 마름모는 가운데 줄 기준 60%.
+const FONT = 13;
 function sizeOf(node) {
-  const lines = wrap(node.text, WRAP[node.type] ?? WRAP.default);
-  if (node.type === 'decision') return { lines, h: Math.max(84, lines.length * LINE_HEIGHT + 48) };
+  if (node.type === 'decision') {
+    const lines = wrapToWidth(node.text, FONT, NODE_WIDTH * 0.6);
+    return { lines, h: Math.max(84, Math.ceil((lines.length * LINE_HEIGHT) / 0.6) + 8) };
+  }
+  const lines = wrapToWidth(node.text, FONT, NODE_WIDTH - 20);
   if (node.type === 'start' || node.type === 'end') return { lines, h: Math.max(40, lines.length * LINE_HEIGHT + 16) };
   return { lines, h: lines.length * LINE_HEIGHT + 22 };
 }

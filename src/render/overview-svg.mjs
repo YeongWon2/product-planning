@@ -1,5 +1,5 @@
 import { escapeHtml, truncate } from './escape.mjs';
-import { wrap } from './flowchart-svg.mjs';
+import { wrapToWidth } from './text.mjs';
 import { findCollisions, layoutUntilClean } from './layout-check.mjs';
 
 // 전체 흐름도 배치. 서비스 틀을 왼쪽에서 오른쪽으로, 그 안에 앱 틀을 위에서 아래로, 앱 안의 화면은 진입점에서의 거리로 열을 정한다.
@@ -46,7 +46,8 @@ export function layoutOverview(overview, index, spacing = 1) {
     const screen = overview.names?.[id];
     return screen ?? id;
   };
-  const nodeH = (name) => wrap(name, WRAP_AT).length * LINE + 16;
+  const linesOf = (name) => wrapToWidth(name, 13, NODE_W - 20);
+  const nodeH = (name) => linesOf(name).length * LINE + 16;
 
   // 서비스마다 열 번호. 앱들이 열을 함께 쓴다.
   const placeOf = new Map();
@@ -126,7 +127,7 @@ export function layoutOverview(overview, index, spacing = 1) {
         const column = app.rank.get(id);
         const name = screenName(id);
         const h = nodeH(name);
-        nodes.push({ id, name, app: app.id, type: overview.types?.[id] ?? 'screen', x: xs[column], y: rowsTop + heights[column], w: NODE_W, h });
+        nodes.push({ id, name, lines: linesOf(name), app: app.id, type: overview.types?.[id] ?? 'screen', x: xs[column], y: rowsTop + heights[column], w: NODE_W, h });
         heights[column] += h + ROW_GAP;
       }
       appBox.h = APP_HEAD + Math.max(40, ...heights) + APP_PAD - (app.screens.length > 0 ? ROW_GAP : 0);
@@ -142,7 +143,7 @@ export function layoutOverview(overview, index, spacing = 1) {
   let sy = servicesTop + SVC_HEAD;
   for (const system of overview.systems) {
     const h = nodeH(system.name) + 8;
-    nodes.push({ id: system.id, name: system.name, type: system.kind, x: systemsX, y: sy, w: NODE_W, h });
+    nodes.push({ id: system.id, name: system.name, lines: linesOf(system.name), type: system.kind, x: systemsX, y: sy, w: NODE_W, h });
     sy += h + 24 * S;
     bottom = Math.max(bottom, sy);
   }
@@ -235,7 +236,7 @@ export function renderOverview(overview, index) {
     return `<g class="ov-edge ov-edge-${route.kind}"><path d="${d}" marker-end="url(#board-arrow)"/>${label}</g>`;
   }).join('');
   const shapes = nodes.map((node) => {
-    const lines = wrap(node.name, WRAP_AT);
+    const { lines } = node;
     const top = node.y + node.h / 2 - ((lines.length - 1) * LINE) / 2 + 5;
     const text = lines.map((line, i) => `<tspan x="${node.x + node.w / 2}" y="${top + i * LINE}">${escapeHtml(line)}</tspan>`).join('');
     return `<g data-overview-node="${escapeHtml(node.id)}"><rect class="${NODE_CLASS[node.type] ?? 'ov-screen'}" x="${node.x}" y="${node.y}" width="${node.w}" height="${node.h}" rx="${node.type === 'api' || node.type === 'external' ? 4 : 8}"/><text class="ov-name">${text}</text></g>`;

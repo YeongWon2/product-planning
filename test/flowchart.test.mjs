@@ -153,7 +153,8 @@ test('판단은 마름모, 시작·끝은 둥근 상자로 그리고 긴 글은 
   assert.ok(width > 0 && height > 0);
   assert.match(markup, /<polygon class="fc-decision"/);
   assert.match(markup, /class="fc-start"/);
-  assert.match(markup, /<tspan[^>]*>&#39;과제&#39;가 &#39;진행<\/tspan>/, '긴 판단 글은 줄을 바꾼다');
+  const decision = markup.split('<polygon class="fc-decision"')[1].split('</g>')[0];
+  assert.ok((decision.match(/<tspan/g) ?? []).length >= 2, '긴 판단 글은 줄을 바꾼다');
   assert.equal(markup, renderFlowchart(chartOf('function', 'CLOSE')).markup);
 });
 
@@ -176,20 +177,7 @@ test('갈래 선은 위로 올라갔다가 오른쪽으로 가서 상자 위로 
   }
 });
 
-test('긴 글도 상자 밖으로 넘치지 않는다', () => {
-  const long = { kind: 'function', of: 'X', name: 'x', nodes: [
-    { id: 'a', type: 'start', text: '아주아주긴이름이붙은기능을시작한다' },
-    { id: 'b', type: 'decision', text: '대상 선수가 모두 이 팀 목표의 상세 목표에 속해 있는가?' },
-    { id: 'c', type: 'end', text: '끝' },
-  ], edges: [{ from: 'a', to: 'b', kind: 'main', label: '' }, { from: 'b', to: 'c', kind: 'main', label: '예' }] };
-  const { nodes } = layoutFlowchart(long);
-  for (const node of nodes) {
-    const widest = Math.max(...node.lines.map((line) => [...line].length)) * 13;
-    const room = node.type === 'decision' ? node.w * 0.62 : node.w - 16;
-    assert.ok(widest <= room, `${node.id}: 글 폭 ${widest} > 자리 ${room}`);
-    assert.ok(node.lines.length * 18 <= (node.type === 'decision' ? node.h * 0.62 : node.h), `${node.id}: 줄이 상자 높이를 넘는다`);
-  }
-});
+// 상자 글이 넘치지 않는지는 test/text-fit.test.mjs가 폭 기준으로 확인한다.
 
 test('사용자마다 할 수 있는 상태가 다르면 사용자별 상태 판단을 그린다', () => {
   const partial = parseSpec(JSON.stringify({
