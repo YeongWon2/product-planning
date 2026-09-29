@@ -11,7 +11,7 @@ PRD · 유저 시나리오 · 화면 흐름 · 화면 구성 · 완료 조건을
 ![scope](https://img.shields.io/badge/scope-domain--agnostic-6f42c1)
 ![lang](https://img.shields.io/badge/docs-한국어-green)
 
-[설계서 읽기](docs/설계서.md) · [왜 필요한가](#왜-필요한가) · [어떻게 동작하나](#어떻게-동작하나) · [로드맵](#로드맵)
+[설계서](docs/설계서.md) · [산출물 명세](docs/산출물-명세.md) · [써 보기](#써-보기) · [로드맵](#로드맵)
 
 </div>
 
@@ -84,10 +84,39 @@ flowchart LR
 3. 방향과 우선순위는 사람이 정한다. 도구는 기준에 맞는지를 검사한다.
 4. 검증 기준은 이미 일어난 결함에서 가져온다. 목표 수치는 첫 측정 기준선에서 시작한다.
 
+## 써 보기
+
+Node.js 20 이상이면 된다. 외부 의존성은 없다.
+
+```bash
+npm test
+node scripts/spec.mjs check examples/assignment/spec.json
+node scripts/spec.mjs build examples/assignment/spec.json
+```
+
+| 명령 | 결과 | 종료 코드 |
+|---|---|---|
+| `check <spec.json>` | 착수 가능 여부, 품질 점수, 차단 이슈·경고·정할 것 | 0 착수 가능 · 1 착수 불가 · 2 사용법 오류 · 3 읽기 실패 |
+| `build <spec.json> [--out 폴더]` | `{폴더 이름}.html` 정본과 `report.json` | 0 (착수 불가여도 만든다) · 3 읽기 실패 |
+
+예제 [`examples/assignment`](examples/assignment)의 결과물은 [`out/assignment.html`](examples/assignment/out/assignment.html)이다. 내려받아 브라우저로 열면 된다.
+예제는 일부러 동작 가능표 칸 하나를 비워 두었다. 그래서 착수 불가로 나오고, 다음 질문이 자동으로 만들어진다.
+
+> '배정 관리자'는 '완료' 상태의 '항목'에 '항목 수정하기'를 할 수 있는가?
+
+### Claude Code 플러그인으로 쓰기
+
+```text
+/plugin marketplace add YeongWon2/product-planning
+/plugin install product-planning@product-planning
+```
+
+설치하면 `spec` 스킬이 생긴다. "기획서 써줘", "이 자료로 PRD 정리해줘", "착수 가능한지 봐줘"처럼 요청하면 인터뷰 → `spec.json` 작성 → 검사 → HTML 빌드 순서로 진행한다.
+
 ## 로드맵
 
 - [ ] **P0** 모델 · 관계 규칙 · 예외 목록 · 휴리스틱 질문 확정
-- [ ] **P1** 검사와 HTML 렌더 (같은 입력 → 같은 HTML)
+- [x] **P1** 검사, 화면 흐름 자동 도출, HTML 렌더 (같은 입력 → 같은 HTML)
 - [ ] **P2** 보완 모드 파일럿 + 첫 평가셋 · 기준선
 - [ ] **P3** 다른 도메인에서 본체 수정 없이 새로 만들기
 - [ ] **P4** 출력 어댑터 2종 (문서형 · 디자인형)
@@ -98,3 +127,5 @@ flowchart LR
 | 문서 | 내용 |
 |---|---|
 | [설계서](docs/설계서.md) | 모델, 단계, 검토 기준, 문서 설계, 출력 대상 가이드, 검증 루프 |
+| [산출물 명세](docs/산출물-명세.md) | `spec.json` 형식, HTML 구성, `report.json`, 파생 규칙 — 구현의 계약 |
+| [P1 구현 계획](docs/superpowers/plans/2026-09-29-core-pipeline.md) | 코어 파이프라인 작업 단위와 테스트 |
