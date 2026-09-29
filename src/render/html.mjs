@@ -1,284 +1,328 @@
-import { LABELS, quote, readableRef } from '../model/labels.mjs';
+import { LABELS, readableRef } from '../model/labels.mjs';
 import { escapeHtml as h, jsonForScript } from './escape.mjs';
-import { layoutFlow, renderFlowSvg } from './flow-svg.mjs';
 import { renderFlowchart } from './flowchart-svg.mjs';
 import { BOARD_SCRIPT, BOARD_STYLE, packRows, renderBoard } from './board.mjs';
+import { renderStates } from './state-svg.mjs';
 
 const FORMAT = 'product-planning/spec@1';
 
-const RULE_TEXT = {
-  F1: '여러 개를 보는 동작 → 목록 화면',
-  F2: '하나를 보는 동작 → 상세 화면',
-  F3: '입력이 적음 → 모달',
-  F4: '입력이 많음 → 화면',
-  F5: '입력 없음 → 지금 화면의 버튼',
-  F6: '되돌릴 수 없음 → 확인 창',
-  F7: '만들기 완료 → 상세 또는 목록',
-  F8: '마침 → 연 화면으로',
-  F9: '다른 앱에 영향 → 알림',
-  F10: '시나리오 단계 순서',
-  F12: '자동 처리 → 결과가 보이는 화면',
-  결정: '사람의 결정',
-};
-
-const SECTIONS = [
-  ['summary', '요약'],
-  ['scenarios', '사용자와 시나리오'],
-  ['entities', '개체와 상태'],
-  ['permissions', '동작 가능표'],
-  ['flow', '흐름도'],
-  ['screens', '화면 목록'],
-  ['acceptance', '완료 조건'],
-  ['metrics', '지표와 이벤트'],
-  ['review', '검토 결과'],
-  ['questions', '정할 것과 결정'],
-  ['trace', '부록: 추적표'],
+// 사람이 읽는 문서는 네 부분뿐이다. 이것만 보고 개발할 수 있어야 한다.
+// 흐름과 갈래는 플로우차트(그림)에, 정확한 값(권한·검증·문구)은 기능명세서(표)에 한 번씩만 적는다.
+// 나머지(화면 목록·이동, 완료 조건 초안, 검사 세부, 결정 기록 등)는 AI용 모델 데이터에만 둔다.
+const PARTS = [
+  { key: 'prd', title: 'PRD', lead: '무엇을 왜 만드나', shows: ['summary.problem', 'userTypes', 'summary.metrics', 'requirements'] },
+  { key: 'scenarios', title: '시나리오', lead: '누가 어떤 순서로 하나', shows: ['scenarios', 'acceptance'] },
+  { key: 'flowcharts', title: '플로우차트', lead: '어떤 판단을 거쳐 어떻게 끝나나', shows: ['derived.flowcharts'] },
+  { key: 'spec', title: '기능명세서', lead: '기능마다 누가, 무엇을 넣고, 무엇이 바뀌고, 어떤 경우를 막나', shows: ['entities', 'actions', 'derived.permissionCells', 'derived.edgeCases'] },
+];
+const DATA_ONLY = [
+  'derived.screens', 'derived.edges', 'derived.stepScreens', 'derived.entries', 'derived.overrideResults',
+  'derived.acceptanceDrafts', 'derived.permissionGaps', 'derived.questions', 'report', 'decisions', 'questions', 'events', 'summary.outOfScope',
 ];
 
+const INPUT_TYPE = {
+  text: '텍스트', number: '숫자', date: '날짜', period: '기간', select: '하나 선택', multiSelect: '여러 개 선택', file: '파일', url: '링크', boolean: '예/아니오',
+};
+
 const mark = (id, kind) => ` data-spec-id="${h(id)}" data-spec-kind="${kind}"`;
-const percent = (ratio) => `${Math.round(ratio * 1000) / 10}%`;
-const table = (head, rows) => `<div class="table-wrap"><table><thead><tr>${head.map((cell) => `<th>${cell}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+const table = (className, head, rows) => `<div class="table-wrap"><table class="${className}"><thead><tr>${head.map((cell) => `<th>${cell}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 const empty = (text) => `<p class="empty">${h(text)}</p>`;
+const text = (value) => (typeof value === 'string' ? value : '');
+const isAutomatic = (index, userType) => index.get(userType)?.kind === 'userType' && index.get(userType).item.automatic === true;
 
-function sourceBadge(source) {
-  const kind = Object.hasOwn(LABELS.source, source?.kind) ? source.kind : 'assumption';
-  const ref = typeof source?.ref === 'string' && source.ref !== '' ? ` <span class="source-ref">${h(readableRef(source.ref))}</span>` : '';
-  return `<span class="badge badge-${kind}">${LABELS.source[kind]}</span>${ref}`;
+function sourceNote(source) {
+  if (typeof source?.ref !== 'string' || source.ref === '') return source?.kind === 'assumption' ? '<span class="source source-assumption">가정</span>' : '';
+  return `<span class="source">${h(readableRef(source.ref))}</span>`;
 }
 
-function section(key, title, body) {
-  const number = SECTIONS.findIndex(([name]) => name === key) + 1;
-  return `<section id="s-${number}" data-section="${key}"><h2>${number}. ${h(title)}</h2>${body}</section>`;
+function part(key, body) {
+  const position = PARTS.findIndex((item) => item.key === key);
+  const { title, lead } = PARTS[position];
+  return `<section id="${key}" class="part part-${key}" data-part="${key}"><header class="part-head"><span class="part-no">${position + 1}</span><div><h2>${h(title)}</h2><p>${h(lead)}</p></div></header><div class="part-body">${body}</div></section>`;
 }
 
-function summarySection({ spec, index, report }) {
-  const verdict = report.ready
-    ? '<div class="verdict verdict-ready"><strong>착수 가능</strong></div>'
-    : `<div class="verdict verdict-blocked"><strong>착수 불가</strong><ul>${report.reasons.map((reason) => `<li>${h(reason)}</li>`).join('')}</ul></div>`;
-  const problem = spec.summary.problem;
-  const problemMarkup = typeof problem?.text === 'string' && problem.text !== ''
-    ? `<p class="problem">${h(problem.text)} ${sourceBadge(problem.source)}</p>`
-    : empty('해결할 문제가 적혀 있지 않습니다');
-  const metrics = spec.summary.metrics.length === 0
-    ? empty('목표 지표가 없습니다')
-    : `<ul>${spec.summary.metrics.map((metric) => `<li${mark(metric.id, 'metric')}>${h(index.name(metric.id))} ${sourceBadge(metric.source)}</li>`).join('')}</ul>`;
-  const outOfScope = spec.summary.outOfScope.length === 0
-    ? empty('이번에 하지 않는 것이 없습니다')
-    : `<ul>${spec.summary.outOfScope.map((item) => `<li>${h(item)}</li>`).join('')}</ul>`;
-  const { score } = report;
-  const scoreTable = table(['검사 항목', '통과', '통과율', '가정 비율', '차단 이슈', '경고', '착수를 막는 정할 것'], [
-    `<tr><td>${score.checked}</td><td>${score.passed}</td><td>${percent(score.ratio)}</td><td>${percent(score.assumptionRatio)}</td><td>${score.blockIssues}</td><td>${score.warnIssues}</td><td>${score.blockingQuestions}</td></tr>`,
-  ]);
-  return section('summary', '요약', `${verdict}<h3>해결할 문제</h3>${problemMarkup}<h3>목표 지표</h3>${metrics}<h3>이번에 하지 않는 것</h3>${outOfScope}<h3>품질 점수</h3>${scoreTable}`);
+// 착수를 막는 것이 남았을 때만 맨 위에 알린다. 다 풀리면 아무것도 보이지 않는다.
+function pendingBanner({ spec, index, derived, report }) {
+  if (report.ready) return '';
+  const questions = [
+    ...spec.questions.filter((question) => question.blocking === true).map((question) => index.name(question.id)),
+    ...derived.questions.map((question) => question.name),
+  ];
+  const blocks = report.issues.filter((item) => item.level === 'block').map((item) => item.message);
+  const items = [...questions, ...blocks.filter((message) => !questions.includes(message))];
+  return `<aside class="pending"><strong>착수 전에 정할 것 ${items.length}건</strong><ul>${items.map((item) => `<li>${h(item)}</li>`).join('')}</ul></aside>`;
 }
 
-function scenariosSection({ spec, index, derived }) {
-  const userTypes = spec.userTypes.length === 0
-    ? empty('사용자 유형이 없습니다')
-    : `<div class="cards">${spec.userTypes.map((userType) => `<div class="card"${mark(userType.id, 'userType')}><strong>${h(index.name(userType.id))}</strong><p>${h(userType.goal ?? '')}</p>${sourceBadge(userType.source)}</div>`).join('')}</div>`;
+function prdPart({ spec, index }) {
+  const problem = text(spec.summary.problem?.text);
+  const users = spec.userTypes.filter((userType) => userType.automatic !== true);
+  const metrics = spec.summary.metrics;
+  const requirementRows = spec.requirements.map((requirement) => `<tr${mark(requirement.id, 'requirement')}><td><span class="priority priority-${h(requirement.priority ?? 'none')}">${h(LABELS.priority[requirement.priority] ?? '우선순위 없음')}</span></td><td>${h(index.name(requirement.id))}</td><td>${h(index.has(requirement.userType) ? index.name(requirement.userType) : '')}</td></tr>`);
+  return part('prd', [
+    '<h3>해결할 문제</h3>',
+    problem ? `<p class="lead">${h(problem)} ${sourceNote(spec.summary.problem.source)}</p>` : empty('해결할 문제가 적혀 있지 않습니다'),
+    '<h3>대상 사용자</h3>',
+    users.length === 0 ? empty('사용자 유형이 없습니다') : `<ul class="plain">${users.map((userType) => `<li${mark(userType.id, 'userType')}><strong>${h(index.name(userType.id))}</strong> ${h(text(userType.goal))}</li>`).join('')}</ul>`,
+    '<h3>목표 지표</h3>',
+    metrics.length === 0 ? empty('목표 지표가 없습니다') : `<ul class="plain">${metrics.map((metric) => `<li${mark(metric.id, 'metric')}>${h(index.name(metric.id))}${metric.events.length > 0 ? ` <span class="muted">측정: ${h(metric.events.filter((event) => index.has(event)).map((event) => index.name(event)).join(', '))}</span>` : ''}</li>`).join('')}</ul>`,
+    '<h3>요구사항</h3>',
+    requirementRows.length === 0 ? empty('요구사항이 없습니다') : table('requirements', ['우선순위', '요구사항', '누가'], requirementRows),
+  ].join(''));
+}
 
-  const screenName = new Map(derived.screens.map((screen) => [screen.id, screen.name]));
-  const requirements = spec.requirements.map((requirement) => {
+// 단계는 플로우차트가 보여 주므로 여기서는 시나리오가 무엇인지와 완료 조건만 적는다.
+function scenariosPart({ spec, index }) {
+  const actionName = (id) => (index.has(id) ? index.name(id) : text(id));
+  const groups = spec.requirements.map((requirement) => {
     const scenarios = spec.scenarios.filter((scenario) => scenario.requirement === requirement.id).map((scenario) => {
-      const steps = scenario.steps.map((step, position) => {
-        const screenId = derived.stepScreens[`${scenario.id}#${position + 1}`];
-        // '에서'는 받침과 무관하게 같은 조사라 quote()의 조사 쌍을 쓰지 않는다.
-        const where = screenId ? h(`${quote(screenName.get(screenId))}에서`) : '<span class="gap">화면 정해지지 않음</span>';
-        const text = typeof step.text === 'string' && step.text !== '' ? step.text : index.name(step.action);
-        return `<li>${h(text)} <span class="meta">${h(index.name(step.userType))} · ${h(index.name(step.app))} · ${where}</span></li>`;
-      }).join('');
-      return `<div class="scenario"${mark(scenario.id, 'scenario')}><h4>${h(index.name(scenario.id))} <span class="meta">${h(LABELS.scenarioKind[scenario.kind] ?? '')}</span></h4><ol>${steps}</ol></div>`;
+      const first = scenario.steps[0];
+      const who = first && index.has(first.userType) ? index.name(first.userType) : '';
+      return `<li${mark(scenario.id, 'scenario')}><a href="#frame-flowchart-${h(scenario.id)}">${h(index.name(scenario.id))}</a> <span class="tag">${h(LABELS.scenarioKind[scenario.kind] ?? '')}</span> <span class="muted">${h([who, `${scenario.steps.length}단계`].filter(Boolean).join(' · '))}</span></li>`;
     }).join('');
-    const priority = LABELS.priority[requirement.priority] ?? '우선순위 없음';
-    return `<div class="requirement"${mark(requirement.id, 'requirement')}><h3>${h(index.name(requirement.id))} <span class="chip">${h(priority)}</span> ${sourceBadge(requirement.source)}</h3>${scenarios || empty('시나리오가 없습니다')}</div>`;
+    const conditions = spec.acceptance.filter((condition) => condition.requirement === requirement.id).map((condition) => `<li${mark(condition.id, 'acceptance')}><span class="k">상황</span> ${h(text(condition.situation))} <span class="k">행동</span> ${h(actionName(condition.action))} <span class="k">결과</span> ${h(text(condition.result))}</li>`).join('');
+    return `<article class="group"${mark(requirement.id, 'requirement')}><h3>${h(index.name(requirement.id))}</h3>${scenarios ? `<ul class="scenario-list">${scenarios}</ul>` : empty('시나리오가 없습니다')}${conditions ? `<h4 class="sub">완료 조건</h4><ul class="conditions">${conditions}</ul>` : ''}</article>`;
   }).join('');
-
-  return section('scenarios', '사용자와 시나리오', `<h3>사용자 유형</h3>${userTypes}${requirements || empty('요구사항이 없습니다')}`);
+  return part('scenarios', groups || empty('요구사항이 없습니다'));
 }
 
-function entitiesSection({ spec, index }) {
-  const body = spec.entities.map((entity) => {
-    const states = entity.states.length === 0
-      ? empty('상태가 없는 개체입니다')
-      : `<p>${entity.states.map((state) => `<span class="chip"${mark(state.id, 'state')}>${h(index.name(state.id))}${state.initial === true ? ' · 시작' : ''}${state.terminal === true ? ' · 끝' : ''}</span>`).join(' ')}</p>`;
-    const transitions = entity.transitions.length === 0
-      ? ''
-      : table(['지금 상태', '동작', '다음 상태'], entity.transitions.map((transition) => `<tr><td>${h(index.name(transition.from))}</td><td>${h(index.name(transition.action))}</td><td>${h(index.name(transition.to))}</td></tr>`));
-    return `<div${mark(entity.id, 'entity')}><h3>${h(index.name(entity.id))}</h3>${states}${transitions}</div>`;
-  }).join('');
-  return section('entities', '개체와 상태', body || empty('개체가 없습니다'));
-}
-
-function permissionsSection({ spec, index, derived }) {
-  const body = index.canonical(spec.entities).map((entity) => {
-    const cells = derived.permissionCells.filter((cell) => index.get(cell.action)?.item.entity === entity.id);
-    if (cells.length === 0) return '';
-    const columns = entity.states.length === 0 ? [null] : entity.states.map((state) => state.id);
-    const head = ['사용자 유형', '동작', ...columns.map((state) => (state === null ? '모든 경우' : h(index.name(state))))];
-    const rows = [];
-    for (const userType of index.canonical(spec.userTypes)) {
-      for (const action of index.canonical(spec.actions).filter((item) => item.entity === entity.id)) {
-        const own = cells.filter((cell) => cell.userType === userType.id && cell.action === action.id);
-        if (own.length === 0) continue;
-        // 상태와 무관한 칸은 여러 열을 합치므로 첫 열의 값처럼 읽히지 않게 '모든 상태'를 붙인다.
-        const cellMarkup = (cell = { value: null }, span = 1) => {
-          const base = cell.value === null ? '정할 것' : LABELS.permission[cell.value];
-          const label = span > 1 ? `${base} · 모든 상태` : base;
-          const className = cell.value === null ? 'gap' : `perm-${cell.value}`;
-          return `<td class="${className}"${span > 1 ? ` colspan="${span}"` : ''}>${h(label)}</td>`;
-        };
-        const stateCells = own.length === 1 && own[0].state === null
-          ? cellMarkup(own[0], columns.length)
-          : columns.map((state) => cellMarkup(own.find((cell) => cell.state === state))).join('');
-        rows.push(`<tr><td>${h(index.name(userType.id))}</td><td>${h(index.name(action.id))}</td>${stateCells}</tr>`);
-      }
-    }
-    return `<h3>${h(index.name(entity.id))}</h3>${table(head, rows)}`;
-  }).join('');
-  return section('permissions', '동작 가능표', body || empty('동작 가능표를 만들 동작이 없습니다'));
-}
-
-// 화면 지도(화면 사이 이동)와 시나리오마다 플로우차트(판단 분기)를 한 도화지에 프레임으로 올린다.
-// 첫 줄은 화면 지도, 그다음 줄부터 요구사항마다 그 시나리오들을 나란히 둔다.
-function flowSection({ spec, index, derived }) {
-  const pinned = [];
-  if (derived.screens.length > 0) {
-    const input = { apps: spec.apps, screens: derived.screens, edges: derived.edges, entries: derived.entries };
-    const { width, height } = layoutFlow(input);
-    pinned.push({ id: 'screen-map', title: '화면 지도', subtitle: '화면 사이 이동 (흐름 규칙 F1~F12)', width, height, markup: renderFlowSvg(input) });
-  }
-  const frameOf = (chart) => {
-    const { markup, width, height } = renderFlowchart(chart);
-    const scenario = spec.scenarios.find((item) => item.id === chart.scenario);
-    const kind = LABELS.scenarioKind[scenario?.kind] ?? '';
-    const requirement = chart.requirement && index.has(chart.requirement) ? index.name(chart.requirement) : '요구사항 없음';
-    return { id: `flowchart-${chart.scenario}`, title: chart.name, subtitle: [requirement, kind].filter(Boolean).join(' · '), width, height, markup };
-  };
-  // 요구사항 순서대로, 요구사항이 없는 시나리오는 맨 뒤에 둔다.
+function flowchartsPart({ spec, index, derived }) {
+  if (derived.flowcharts.length === 0) return part('flowcharts', empty('그릴 시나리오가 없습니다'));
   const order = new Map(spec.requirements.map((requirement, position) => [requirement.id, position]));
   const charts = [...derived.flowcharts].sort((a, b) => (order.get(a.requirement) ?? order.size) - (order.get(b.requirement) ?? order.size));
-  const rows = packRows(charts.map(frameOf), pinned);
-  if (rows.length === 0) return section('flow', '흐름도', empty('그릴 시나리오나 화면이 없습니다'));
-
-  const legend = '<p class="legend"><span class="shape fc-shape-start">시작·끝</span> <span class="shape">처리</span> <span class="shape fc-shape-decision">판단</span> <span class="shape fc-shape-message">안내</span> <span class="shape fc-shape-state">상태 변화</span>'
-    + ' · 화면 지도: <span class="shape shape-screen">화면</span> <span class="shape shape-modal">모달</span> <span class="shape shape-confirm">확인 창</span> <span class="shape shape-notification">알림</span></p>';
-  const name = new Map(derived.screens.map((screen) => [screen.id, screen.name]));
-  const edgeRows = derived.edges.map((edge) => `<tr><td>${h(name.get(edge.from))}</td><td>${h(edge.label)}</td><td>${h(name.get(edge.to))}</td><td>${h(edge.rule)} · ${h(RULE_TEXT[edge.rule] ?? '')}</td></tr>`);
-  const edgeTable = edgeRows.length === 0 ? '' : `<details><summary>화면 이동 표 (${edgeRows.length}건)</summary>${table(['출발 화면', '행동', '도착 화면', '적용 규칙'], edgeRows)}</details>`;
-  return section('flow', '흐름도', `${legend}${renderBoard({ rows, withScript: false })}${edgeTable}`);
-}
-
-function screensSection({ index, derived }) {
-  const cards = derived.screens.map((screen) => `<div class="card"${mark(screen.id, 'screen')}><strong>${h(screen.name)}</strong><p class="meta">${h(LABELS.screenType[screen.type] ?? screen.type)} · ${h(index.name(screen.app))}</p><p>${h(screen.rule)} · ${h(RULE_TEXT[screen.rule] ?? '')}<br><span class="meta">${h(screen.reason)}</span></p><p>${screen.states.map((state) => `<span class="chip">${h(state)} · 기본값</span>`).join(' ')}</p></div>`).join('');
-  return section('screens', '화면 목록', cards ? `<div class="cards">${cards}</div>` : empty('도출된 화면이 없습니다'));
-}
-
-function conditionMarkup(condition, extra = '') {
-  return `<dl class="condition"><dt>상황</dt><dd>${h(condition.situation)}</dd><dt>행동</dt><dd>${h(condition.action)}</dd><dt>결과</dt><dd>${h(condition.result)}</dd></dl>${extra}`;
-}
-
-function acceptanceSection({ spec, index, derived }) {
-  const groups = spec.requirements.map((requirement) => {
-    const confirmed = spec.acceptance.filter((condition) => condition.requirement === requirement.id);
-    const drafts = derived.acceptanceDrafts.filter((draft) => draft.requirement === requirement.id);
-    const confirmedMarkup = confirmed.length === 0
-      ? '<p class="gap">확정된 완료 조건이 없습니다</p>'
-      : confirmed.map((condition, position) => `<div${mark(condition.id, 'acceptance')}><h4>${h(index.name(requirement.id))} ${position + 1} ${sourceBadge(condition.source)}</h4>${conditionMarkup(condition)}</div>`).join('');
-    const draftMarkup = drafts.length === 0 ? '' : `<details open><summary>자동 초안 ${drafts.length}건 · 확인 필요</summary>${drafts.map((draft) => conditionMarkup(draft)).join('')}</details>`;
-    return `<div class="requirement"><h3>${h(index.name(requirement.id))}</h3>${confirmedMarkup}${draftMarkup}</div>`;
-  }).join('');
-  const orphanDrafts = derived.acceptanceDrafts.filter((draft) => draft.requirement === null);
-  const orphanMarkup = orphanDrafts.length === 0 ? '' : `<div class="requirement"><h3>요구사항이 정해지지 않은 초안</h3><details open><summary>자동 초안 ${orphanDrafts.length}건 · 확인 필요</summary>${orphanDrafts.map((draft) => conditionMarkup(draft)).join('')}</details></div>`;
-  return section('acceptance', '완료 조건', (groups + orphanMarkup) || empty('완료 조건이 없습니다'));
-}
-
-function metricsSection({ spec, index }) {
-  const rows = spec.summary.metrics.map((metric) => `<tr${mark(metric.id, 'metric')}><td>${h(index.name(metric.id))}</td><td>${metric.events.length === 0 ? '<span class="gap">이벤트 없음</span>' : metric.events.map((event) => h(index.name(event))).join(', ')}</td><td>${sourceBadge(metric.source)}</td></tr>`);
-  return section('metrics', '지표와 이벤트', rows.length === 0 ? empty('지표가 없습니다') : table(['지표', '측정 이벤트', '출처'], rows));
-}
-
-function reviewSection({ report }) {
-  const list = (level, title) => {
-    const items = report.issues.filter((item) => item.level === level);
-    if (items.length === 0) return `<h3>${title}</h3>${empty('없음')}`;
-    return `<h3>${title} ${items.length}건</h3><ul class="issues issues-${level}">${items.map((item) => `<li>${h(item.message)} <span class="rule">${h(item.rule)}</span></li>`).join('')}</ul>`;
-  };
-  return section('review', '검토 결과', `${list('block', '차단 이슈')}${list('warn', '경고')}`);
-}
-
-function questionsSection({ spec, index, derived }) {
-  const human = spec.questions.map((question) => `<tr${mark(question.id, 'question')}><td>${h(index.name(question.id))}</td><td>${h(question.owner ?? '없음')}</td><td>${question.blocking === true ? '막음' : '-'}</td><td>사람</td></tr>`);
-  const auto = derived.questions.map((question) => `<tr><td>${h(question.name)}</td><td>${h(question.owner)}</td><td>막음</td><td>자동</td></tr>`);
-  const rows = [...human, ...auto];
-  const questions = rows.length === 0 ? empty('정할 것이 없습니다') : table(['질문', '담당자', '착수를 막나', '누가 올렸나'], rows);
-  const decisions = spec.decisions.length === 0
-    ? empty('결정 기록이 없습니다')
-    : `<ul>${spec.decisions.map((decision) => `<li${mark(decision.id, 'decision')}>${h(index.name(decision.id))} ${sourceBadge(decision.source)}</li>`).join('')}</ul>`;
-  return section('questions', '정할 것과 결정', `<h3>정할 것</h3>${questions}<h3>결정</h3>${decisions}`);
-}
-
-// 부록만 내부 ID를 보인다. 다른 도구와 대조하거나 링크를 만들 때 쓴다.
-function traceSection({ spec, index, derived }) {
-  const screenName = new Map(derived.screens.map((screen) => [screen.id, screen.name]));
-  const rows = spec.requirements.map((requirement) => {
-    const scenarios = spec.scenarios.filter((scenario) => scenario.requirement === requirement.id);
-    const screens = new Set();
-    for (const scenario of scenarios) {
-      scenario.steps.forEach((_, position) => {
-        const screenId = derived.stepScreens[`${scenario.id}#${position + 1}`];
-        if (screenId) screens.add(screenId);
-      });
-    }
-    const conditions = spec.acceptance.filter((condition) => condition.requirement === requirement.id);
-    const withId = (name, id) => `${h(name)} <code>${h(id)}</code>`;
-    return `<tr><td>${withId(index.name(requirement.id), requirement.id)}</td><td>${scenarios.map((scenario) => withId(index.name(scenario.id), scenario.id)).join('<br>')}</td><td>${[...screens].map((id) => withId(screenName.get(id), id)).join('<br>')}</td><td>${conditions.map((condition) => `<code>${h(condition.id)}</code>`).join(', ')}</td></tr>`;
+  const frames = charts.map((chart) => {
+    const { markup, width, height } = renderFlowchart(chart);
+    const scenario = spec.scenarios.find((item) => item.id === chart.scenario);
+    const requirement = chart.requirement && index.has(chart.requirement) ? index.name(chart.requirement) : '요구사항 없음';
+    return { id: `flowchart-${chart.scenario}`, title: chart.name, subtitle: [requirement, LABELS.scenarioKind[scenario?.kind]].filter(Boolean).join(' · '), width, height, markup };
   });
-  return section('trace', '부록: 추적표', rows.length === 0 ? empty('요구사항이 없습니다') : table(['요구사항', '시나리오', '화면', '완료 조건'], rows));
+  const legend = '<p class="legend"><span class="shape fc-shape-start">시작·끝</span><span class="shape">처리</span><span class="shape fc-shape-decision">판단</span><span class="shape fc-shape-message">안내</span><span class="shape fc-shape-state">상태 변화</span><span class="muted">안내 문구와 권한 값은 기능명세서에 있습니다</span></p>';
+  return part('flowcharts', `${legend}${renderBoard({ rows: packRows(frames), withScript: false })}`);
+}
+
+// 누가: 사용자 유형마다 한 토막. 모든 상태에서 같으면 값만, 다르면 "진행 중 가능, 완료 정할 것"처럼 상태를 붙인다.
+function whoLine(action, spec, index, cells) {
+  const label = (value) => (value === null ? '정할 것' : value === 'allow' ? '가능' : LABELS.permission[value]);
+  const parts = [];
+  for (const userType of spec.userTypes.filter((item) => !isAutomatic(index, item.id))) {
+    const own = cells.filter((cell) => cell.userType === userType.id && cell.action === action.id);
+    if (own.length === 0) continue;
+    const values = new Set(own.map((cell) => cell.value));
+    const body = values.size === 1
+      ? `<span class="perm perm-${own[0].value ?? 'gap'}">${h(label(own[0].value))}</span>`
+      : own.map((cell) => `<span class="perm perm-${cell.value ?? 'gap'}">${h(index.name(cell.state))} ${h(label(cell.value))}</span>`).join(', ');
+    parts.push(`<span class="who-item"><strong>${h(index.name(userType.id))}</strong> ${body}</span>`);
+  }
+  return parts.join(' · ');
+}
+
+// 막는 경우: 엣지 케이스에서 서로 다른 원인만 모아 한 줄로 쓴다. 경계값 하나하나는 모델 데이터에 있다.
+function blockedLine(action, derived, index) {
+  const cases = derived.edgeCases.filter((item) => item.action === action.id && !item.ok);
+  const causes = [];
+  const add = (cause) => { if (cause && !causes.includes(cause)) causes.push(cause); };
+  if (cases.some((item) => item.category === '입력')) add('입력 규칙 위반');
+  for (const item of cases.filter((item) => item.category === '권한')) add(item.given.replace(/^'([^']+)'[이가] /, '$1 ').replace(/ 시도$/, '').replace(/ 상태에서$/, ' 상태'));
+  if (cases.some((item) => item.category === '확인 창')) add('확인 창에서 취소');
+  for (const item of cases.filter((item) => item.category === '서버' && item.given !== '처리 중 다시 누름')) add(item.given);
+  return causes.length === 0 ? '' : `<p class="blocked"><span class="k bad">막는 경우</span> ${causes.map((cause) => h(cause)).join(' · ')}</p>`;
+}
+
+function rangeOf(input) {
+  const parts = [];
+  const range = (unit) => {
+    if (input.min !== undefined && input.max !== undefined) return `${input.min}~${input.max}${unit}`;
+    if (input.min !== undefined) return `최소 ${input.min}${unit}`;
+    if (input.max !== undefined) return `최대 ${input.max}${unit}`;
+    return '';
+  };
+  if (input.type === 'text') parts.push(range('자'));
+  if (input.type === 'number') parts.push(range(''));
+  if (input.type === 'multiSelect') parts.push(range('개'));
+  if (input.type === 'date') {
+    if (input.min !== undefined) parts.push(`${input.min} 이후`);
+    if (input.max !== undefined) parts.push(`${input.max}까지`);
+  }
+  if (input.type === 'period') parts.push(range(''));
+  if (input.options?.length > 0) parts.push(input.options.join('·'));
+  if (typeof input.optionsFrom === 'string') parts.push(`${input.optionsFrom}에서 고름`);
+  if (input.type === 'file') {
+    if (input.maxCount !== undefined) parts.push(`최대 ${input.maxCount}개`);
+    if (input.maxSizeMB !== undefined) parts.push(`파일당 ${input.maxSizeMB}MB`);
+    if (input.totalSizeMB !== undefined) parts.push(`합계 ${input.totalSizeMB}MB`);
+    if (input.formats?.length > 0) parts.push(input.formats.join('·'));
+  }
+  parts.push(...input.rules);
+  if (typeof input.note === 'string') parts.push(input.note);
+  return parts.filter(Boolean).join(' · ');
+}
+
+function inputsTable(action) {
+  if (action.inputs.length === 0) return '';
+  const rows = action.inputs.map((input) => {
+    const type = INPUT_TYPE[input.type];
+    return `<tr><td>${h(text(input.name))}</td><td>${type ? h(type) : '<span class="gap">형식 없음</span>'}</td><td>${input.required === true ? '예' : '아니오'}</td><td>${h(rangeOf(input))}</td></tr>`;
+  });
+  return table('inputs', ['항목', '형식', '필수', '범위·조건'], rows);
+}
+
+function resultsList(action, spec, index) {
+  const items = [];
+  for (const entity of spec.entities) {
+    for (const transition of entity.transitions.filter((item) => item.action === action.id)) {
+      items.push(`<li><span class="k">상태</span> ${h(index.name(entity.id))}: ${h(index.name(transition.from))} → ${h(index.name(transition.to))}</li>`);
+    }
+  }
+  if (action.irreversible === true) items.push('<li><span class="k">확인 창</span> 되돌릴 수 없어 먼저 확인을 받는다</li>');
+  if (text(action.success)) items.push(`<li><span class="k ok">성공</span> ${h(action.success)}</li>`);
+  for (const failure of action.failures) items.push(`<li><span class="k bad">${h(text(failure.name) || '실패')}</span> ${h(text(failure.message))}</li>`);
+  for (const target of action.crossApp) {
+    const who = [target.app, target.userType].filter((id) => index.has(id)).map((id) => index.name(id)).join(' ');
+    items.push(`<li><span class="k">다른 앱</span> ${h(who)}: ${h(text(target.effect))}</li>`);
+  }
+  return items.length === 0 ? '' : `<ul class="messages">${items.join('')}</ul>`;
+}
+
+// 모든 기능에 같은 규칙은 한 번만 적는다. 기능마다 되풀이하지 않는다.
+function commonRules(spec) {
+  const lines = [
+    '숨김은 보이지 않음, 비활성은 보이지만 눌리지 않음, 불가는 권한 없음 안내.',
+    '입력 규칙을 어기면 칸 아래 오류를 안내하고 저장하지 않음.',
+  ];
+  if (spec.actions.some((action) => action.async === true)) lines.push('서버 처리는 처리 중 다시 눌러도 한 번만 요청함.');
+  if (spec.actions.some((action) => action.kind === 'list' || action.kind === 'view')) lines.push(`목록·상세 화면은 ${spec.meta.profile.screenStates.join('·')} 상태를 갖는다.`);
+  return `<p class="common"><span class="k">공통 규칙</span> ${lines.map((line) => h(line)).join(' ')}</p>`;
+}
+
+function specPart({ spec, index, derived }) {
+  const automaticActions = new Set(spec.scenarios.flatMap((scenario) => scenario.steps).filter((step) => isAutomatic(index, step.userType)).map((step) => step.action));
+  const groups = spec.entities.map((entity) => {
+    const actions = spec.actions.filter((action) => action.entity === entity.id);
+    if (actions.length === 0) return '';
+    const diagram = entity.states.length === 0 ? '' : `<div class="state-wrap">${renderStates(entity, index)}</div>`;
+    const functions = actions.map((action) => {
+      const automatic = automaticActions.has(action.id);
+      const tags = [automatic ? '자동 처리' : null, action.async === true ? '서버 처리' : null]
+        .filter(Boolean).map((tag) => `<span class="tag">${h(tag)}</span>`).join('');
+      const who = automatic ? '<span class="muted">규칙에 따라 저절로 일어남</span>' : (whoLine(action, spec, index, derived.permissionCells) || '<span class="gap">동작 가능표 없음</span>');
+      return `<div class="function"${mark(action.id, 'action')}>`
+        + `<div class="function-head"><h4>${h(index.name(action.id))}${tags}</h4><div class="who">${who}</div></div>`
+        + (automatic ? '' : inputsTable(action))
+        + resultsList(action, spec, index)
+        + (automatic ? '' : blockedLine(action, derived, index))
+        + '</div>';
+    }).join('');
+    return `<article class="group"${mark(entity.id, 'entity')}><h3>${h(index.name(entity.id))}</h3>${diagram}${functions}</article>`;
+  }).join('');
+  return part('spec', groups ? commonRules(spec) + groups : empty('동작이 없습니다'));
 }
 
 const STYLE = `
-:root{--ink:#1f2430;--muted:#5b6372;--line:#dfe3ea;--soft:#f6f7f9;--ok:#1a7f4b;--bad:#b42318;--warn:#b54708;--gap:#fff4e5}
+:root{--ink:#1f2430;--muted:#5b6372;--line:#e3e6ec;--soft:#f6f7f9;--ok:#1a7f4b;--bad:#b42318;--warn:#b54708;--gap:#fff4e5}
 *{box-sizing:border-box}
-body{margin:0;background:#ffffff;color:var(--ink);font:15px/1.65 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
-main{max-width:1080px;margin:0 auto;padding:32px 16px 80px}
-h1{font-size:28px;margin:0 0 8px}h2{font-size:21px;margin:48px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--line)}
-h3{font-size:17px;margin:24px 0 8px}h4{font-size:15px;margin:16px 0 6px}
-nav ol{display:flex;flex-wrap:wrap;gap:4px 16px;padding:0;list-style:none;color:var(--muted);font-size:13px}
-nav a{color:inherit}
-.verdict{border-radius:8px;padding:12px 16px;margin:16px 0}.verdict ul{margin:4px 0 0}
-.verdict-ready{background:#e8f6ee;color:var(--ok)}.verdict-blocked{background:#fdecea;color:var(--bad)}
-.table-wrap{overflow-x:auto}table{border-collapse:collapse;min-width:100%;font-size:14px}
-th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}th{background:var(--soft);font-weight:600}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
-.card{border:1px solid var(--line);border-radius:8px;padding:12px}.card p{margin:6px 0}
-.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 8px;font-size:12px;color:var(--muted)}
-.badge{display:inline-block;border-radius:4px;padding:0 6px;font-size:12px;background:var(--soft);color:var(--muted)}
-.badge-assumption{background:var(--gap);color:var(--warn)}.source-ref{font-size:12px;color:var(--muted)}
-.meta{color:var(--muted);font-size:13px}.empty{color:var(--muted)}
-.gap{background:var(--gap);color:var(--warn);font-weight:600}
-.perm-allow{color:var(--ok)}.perm-hide,.perm-disable,.perm-deny{color:var(--muted)}
-.fc-shape-start{background:#1f2430;color:#fff;border-radius:999px!important}.fc-shape-decision{background:#fff7e6;border-color:#b54708!important}.fc-shape-message{background:#f6f7f9;border-style:dashed!important}.fc-shape-state{background:#eef4ff;border-color:#2f5fd0!important}
-.legend .shape{display:inline-block;padding:0 10px;border:1.4px solid #3d4452;border-radius:6px;font-size:12px}
-.shape-modal{border-style:dashed!important}.shape-confirm{border-color:#c2410c!important}.shape-notification{border-color:#2f5fd0!important;border-radius:999px!important;background:#eef4ff}
-.condition{display:grid;grid-template-columns:48px 1fr;gap:2px 12px;margin:6px 0 12px;padding:8px 12px;border-left:3px solid var(--line)}
-.condition dt{color:var(--muted);font-weight:600}.condition dd{margin:0}
-details summary{cursor:pointer;color:var(--warn);font-weight:600;margin:8px 0}
-.issues li{margin:4px 0}.issues-block li::marker{color:var(--bad)}.issues-warn li::marker{color:var(--warn)}
-.rule{font:12px ui-monospace,monospace;color:var(--muted)}code{font:12px ui-monospace,monospace;color:var(--muted)}
+body{margin:0;background:#f3f4f7;color:var(--ink);font:15px/1.65 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+.top{position:sticky;top:0;z-index:5;background:#ffffffee;backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.top-inner{max-width:1080px;margin:0 auto;padding:12px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.top h1{font-size:18px;margin:0;flex:1 1 auto}
+.part-links{display:flex;gap:6px;flex-wrap:wrap}
+.part-link{font-size:13px;text-decoration:none;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:3px 12px;background:#fff}
+.copy-prompt{font:13px sans-serif;border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:999px;padding:4px 12px;cursor:pointer}
+.prompt-box{width:100%;min-height:96px;font:12px ui-monospace,monospace;margin-top:8px}
+main{max-width:1080px;margin:0 auto;padding:24px 16px 80px}
+.pending{background:#fdecea;border:1px solid #f5c2bd;color:var(--bad);border-radius:10px;padding:12px 16px;margin:0 0 24px}.pending ul{margin:6px 0 0;padding-left:20px}
+.part{background:#fff;border-radius:14px;margin:0 0 28px;box-shadow:0 1px 2px #0000000d;overflow:visible;border-top:6px solid var(--accent)}
+.part-prd{--accent:#2f5fd0}.part-scenarios{--accent:#1a7f4b}.part-flowcharts{--accent:#7a4cc2}.part-spec{--accent:#c2410c}
+.part-head{display:flex;gap:14px;align-items:center;padding:20px 24px 8px}
+.part-no{flex:0 0 36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;font:700 17px/36px sans-serif;text-align:center}
+.part-head h2{margin:0;font-size:22px}.part-head p{margin:0;color:var(--muted);font-size:13px}
+.part-body{padding:4px 24px 24px}
+h3{font-size:17px;margin:22px 0 8px}h4{font-size:15px;margin:14px 0 6px}
+.lead{font-size:16px}
+.plain{list-style:none;padding:0;margin:0}.plain li{padding:4px 0;border-bottom:1px dashed var(--line)}
+.muted{color:var(--muted);font-size:13px}.empty{color:var(--muted)}
+.source{font-size:12px;color:var(--muted);background:var(--soft);border-radius:4px;padding:0 6px}.source-assumption{color:var(--warn);background:var(--gap)}
+.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px;margin:6px 0}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{color:var(--muted);font-weight:600;font-size:12px}
+.priority{display:inline-block;border-radius:4px;padding:0 6px;font-size:12px;font-weight:600}
+.priority-must{background:#fdecea;color:var(--bad)}.priority-should{background:#fff4e5;color:var(--warn)}.priority-could,.priority-none{background:var(--soft);color:var(--muted)}
+.group{border:1px solid var(--line);border-radius:10px;padding:4px 18px 14px;margin:14px 0}
+.group>h3{margin-top:14px}
+.scenario-list{list-style:none;padding:0;margin:0}.scenario-list li{padding:4px 0}.scenario-list a{color:var(--ink);font-weight:600;text-decoration:none;border-bottom:1px dotted var(--muted)}
+.tag{display:inline-block;font-size:11px;font-weight:500;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 7px;margin-left:4px;vertical-align:middle}
+.sub{color:var(--muted);font-size:13px;margin-bottom:4px}
+.conditions{list-style:none;padding:0;margin:0}.conditions li{padding:6px 10px;background:var(--soft);border-radius:6px;margin:4px 0}
+.k{display:inline-block;font-size:11px;font-weight:700;color:var(--muted);margin:0 4px 0 6px}.k:first-child{margin-left:0}.k.ok{color:var(--ok)}.k.bad{color:var(--bad)}
+.function{border-top:1px solid var(--line);padding:10px 0 12px}
+.function-head{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}.function-head h4{margin:0;flex:1 1 auto}
+.who{font-size:13px;color:var(--muted)}.who-item strong{color:var(--ink);font-weight:600}
+.common{background:var(--soft);border-radius:8px;padding:8px 12px;font-size:13px;margin:8px 0 4px}
+.blocked{margin:4px 0 0;font-size:13px}
+.state-wrap{overflow-x:auto;margin:4px 0 8px}.state-diagram{display:block}
+.states{font-size:13px;color:var(--muted);margin:0 0 6px}.state{color:var(--ink);background:var(--soft);border-radius:4px;padding:0 6px}.arrow{margin:0 4px}
+.perm-allow{color:var(--ok)}.perm-gap{background:var(--gap);color:var(--warn);font-weight:600;padding:0 4px;border-radius:4px}
+.perm-hide,.perm-disable,.perm-deny{color:var(--muted)}
+.gap{background:var(--gap);color:var(--warn);font-weight:600;padding:0 4px;border-radius:4px}
+.inputs{font-size:13px}.inputs td:nth-child(1){white-space:nowrap;font-weight:600}.inputs td:nth-child(2),.inputs td:nth-child(3){white-space:nowrap}
+.messages{list-style:none;padding:0;margin:6px 0 0;font-size:13px}.messages li{padding:1px 0}
+.legend{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px}
+.legend .shape{display:inline-block;padding:0 10px;border:1.4px solid #3d4452;border-radius:6px;font-size:12px;background:#fff}
+.fc-shape-start{background:#1f2430!important;color:#fff;border-radius:999px!important}.fc-shape-decision{background:#fff7e6!important;border-color:#b54708!important}.fc-shape-message{background:#f6f7f9!important;border-style:dashed!important}.fc-shape-state{background:#eef4ff!important;border-color:#2f5fd0!important}
 ${BOARD_STYLE}
-@media print{nav{display:none}h2{break-after:avoid}.card,.condition,tr{break-inside:avoid}}
+@media print{.top{position:static}.part{box-shadow:none;break-inside:auto}.group,.function,tr{break-inside:avoid}}
 `;
+
+// AI에게 붙여 넣는 프롬프트. HTML 안에는 자리표({html}·{model})로 넣고 열릴 때 파일 위치로 채운다.
+// 그래야 파일을 옮겨도 맞고, 같은 입력이면 HTML이 기계마다 같다.
+export function buildPrompt(paths = {}) {
+  const html = paths.html ?? '{html}';
+  const model = paths.model ?? '{model}';
+  return [
+    '아래 기획서대로 구현해 주세요.',
+    `- 기획서 (사람용): ${html}`,
+    `- 모델 데이터 (AI용, 정확한 값은 이쪽): ${model}`,
+    '읽는 법: document.parts가 문서 구성, spec이 원본, derived.flowcharts가 시나리오별 흐름, derived.permissionCells가 권한표, derived.edgeCases가 기능별 엣지 케이스 전체, report가 검사 결과입니다.',
+  ].join('\n');
+}
+
+// AI용 모델 데이터. 사람이 읽는 문서에 없는 것까지 모두 담고, 어느 부분이 무엇을 그렸는지 문서 지도로 알린다.
+export function buildModel(result) {
+  const { spec, report, derived } = result;
+  return {
+    format: FORMAT,
+    document: { parts: PARTS.map(({ key, title, shows }) => ({ key, title, shows })), dataOnly: DATA_ONLY },
+    spec,
+    derived,
+    report,
+  };
+}
+
+const PROMPT_SCRIPT = `<script>
+(function () {
+  var button = document.querySelector('[data-copy-prompt]');
+  var template = JSON.parse(document.getElementById('spec-prompt').textContent);
+  var here = location.href.split('#')[0].split('?')[0];
+  var htmlPath = here.indexOf('file://') === 0 ? decodeURIComponent(here.slice(7)).replace(/^\\/([A-Za-z]:)/, '$1') : here;
+  var modelPath = htmlPath.replace(/[^\\/\\\\]*$/, 'model.json');
+  var prompt = template.split('{html}').join(htmlPath).split('{model}').join(modelPath);
+  function fallback() {
+    var box = document.createElement('textarea');
+    box.value = prompt; box.readOnly = true; box.className = 'prompt-box';
+    button.insertAdjacentElement('afterend', box); box.focus(); box.select();
+    button.textContent = '아래 글을 복사하세요';
+  }
+  button.addEventListener('click', function () {
+    var done = function () { button.textContent = '복사했습니다'; setTimeout(function () { button.textContent = '프롬프트 복사'; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(prompt).then(done, fallback);
+    else fallback();
+  });
+})();
+</script>`;
 
 export function renderHtml(result) {
   const { spec, report } = result;
   const title = typeof spec.meta.title === 'string' && spec.meta.title !== '' ? spec.meta.title : '이름 없는 기획서';
-  const nav = `<nav><ol>${SECTIONS.map(([, name], position) => `<li><a href="#s-${position + 1}">${position + 1}. ${h(name)}</a></li>`).join('')}</ol></nav>`;
-  const sections = [
-    summarySection(result), scenariosSection(result), entitiesSection(result), permissionsSection(result),
-    flowSection(result), screensSection(result), acceptanceSection(result), metricsSection(result),
-    reviewSection(result), questionsSection(result), traceSection(result),
-  ].join('');
-  const model = { format: FORMAT, spec, derived: result.derived, report };
+  const nav = `<nav class="part-links">${PARTS.map(({ key, title: name }, position) => `<a class="part-link" href="#${key}">${position + 1} ${h(name)}</a>`).join('')}</nav>`;
+  const copyButton = '<button type="button" class="copy-prompt" data-copy-prompt title="AI에게 붙여 넣을 프롬프트를 복사합니다">프롬프트 복사</button>';
+  const body = [pendingBanner(result), prdPart(result), scenariosPart(result), flowchartsPart(result), specPart(result)].join('');
 
   return '<!doctype html>\n'
     + '<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -286,8 +330,9 @@ export function renderHtml(result) {
     + `<meta name="spec-format" content="${FORMAT}"><meta name="spec-version" content="${h(spec.meta.version ?? '')}">`
     + `<meta name="spec-ready" content="${report.ready}"><meta name="spec-score" content="${report.score.ratio}">`
     + `<style>${STYLE}</style></head>`
-    + `<body><main><h1>${h(title)}</h1>${nav}${sections}</main>`
-    + `<script type="application/json" id="spec-model">${jsonForScript(model)}</script>`
-    + (sections.includes('data-board') ? BOARD_SCRIPT : '')
+    + `<body><header class="top"><div class="top-inner"><h1>${h(title)}</h1>${nav}${copyButton}</div></header><main>${body}</main>`
+    + `<script type="application/json" id="spec-model">${jsonForScript(buildModel(result))}</script>`
+    + `<script type="application/json" id="spec-prompt">${jsonForScript(buildPrompt())}</script>${PROMPT_SCRIPT}`
+    + (body.includes('data-board') ? BOARD_SCRIPT : '')
     + '</body></html>\n';
 }

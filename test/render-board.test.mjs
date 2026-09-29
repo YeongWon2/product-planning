@@ -1,10 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { packRows, renderBoard } from '../src/render/board.mjs';
-import { parseSpec } from '../src/model/load.mjs';
-import { runPipeline } from '../src/check/run.mjs';
-import { renderHtml } from '../src/render/html.mjs';
 
 const frame = (id, title, width, height) => ({ id, title, subtitle: '부제', width, height, markup: `<rect width="${width}" height="${height}"/>` });
 const rows = [[frame('map', '화면 지도', 900, 300)], [frame('s1', '과제 <부여>', 400, 700), frame('s2', '과제 수정', 500, 500)]];
@@ -30,18 +26,6 @@ test('확대·이동 도구와 프레임 바로가기를 두고, 스크립트가
   assert.equal(html, renderBoard({ rows }));
 });
 
-test('정본 HTML의 흐름도 절에 화면 지도와 시나리오마다 플로우차트 프레임이 들어간다', () => {
-  const { spec } = parseSpec(readFileSync(new URL('../examples/assignment/spec.json', import.meta.url), 'utf8'));
-  const result = runPipeline(spec);
-  const html = renderHtml(result);
-  const flow = html.split('data-section="flow"')[1].split('data-section="screens"')[0];
-  assert.match(flow, /<h2>5\. 흐름도<\/h2>/);
-  const frames = [...flow.matchAll(/data-frame="([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(frames, ['screen-map', ...spec.scenarios.map((scenario) => `flowchart-${scenario.id}`)]);
-  assert.match(flow, /data-node-type="decision"/);
-  const model = JSON.parse(html.match(/<script type="application\/json" id="spec-model">([\s\S]*?)<\/script>/)[1]);
-  assert.equal(model.derived.flowcharts.length, spec.scenarios.length);
-});
 
 test('프레임이 많으면 화면 비율에 가깝게 여러 줄로 채우고 순서는 지킨다', () => {
   const many = Array.from({ length: 12 }, (_, i) => frame(`f${i}`, `시나리오 ${i}`, 400 + (i % 3) * 120, 500 + (i % 4) * 150));

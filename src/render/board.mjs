@@ -77,7 +77,7 @@ export function packRows(frames, pinned = []) {
 
 export function renderBoard({ rows, withScript = true }) {
   const { placed, width, height } = layoutFrames(rows);
-  const frames = placed.map(({ frame, x, y, w, h }) => `<g class="board-frame" data-frame="${escapeHtml(frame.id)}" data-box="${x} ${y} ${w} ${h}" transform="translate(${x} ${y})">`
+  const frames = placed.map(({ frame, x, y, w, h }) => `<g class="board-frame" id="frame-${escapeHtml(frame.id)}" data-frame="${escapeHtml(frame.id)}" data-box="${x} ${y} ${w} ${h}" transform="translate(${x} ${y})">`
     + `<rect class="frame-bg" width="${w}" height="${h}" rx="10"/>`
     + `<text class="frame-title" x="${FRAME_PADDING}" y="30">${escapeHtml(frame.title)}</text>`
     + (frame.subtitle ? `<text class="frame-sub" x="${FRAME_PADDING}" y="46">${escapeHtml(frame.subtitle)}</text>` : '')

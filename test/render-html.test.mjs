@@ -2,92 +2,120 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadSpec, parseSpec } from '../src/model/load.mjs';
 import { runPipeline } from '../src/check/run.mjs';
-import { renderHtml } from '../src/render/html.mjs';
+import { buildModel, buildPrompt, renderHtml } from '../src/render/html.mjs';
 
 const example = () => loadSpec(new URL('../examples/assignment/spec.json', import.meta.url).pathname).spec;
+const render = (spec) => renderHtml(runPipeline(parseSpec(JSON.stringify(spec)).spec));
 
+// 사람이 브라우저에서 보는 글자만 남긴다. 스크립트(모델 데이터·도화지 조작)는 뺀다.
 function bodyText(html) {
-  const body = html.split('<body>')[1].split('<script type="application/json"')[0];
-  const beforeTrace = body.split('data-section="trace"')[0];
-  // 사람이 브라우저에서 보는 글자로 비교한다.
-  return beforeTrace
+  return (html.includes('<body>') ? html.split('<body>')[1] : html)
+    .replace(/<script[\s\S]*?<\/script>/g, ' ')
+    .replace(/<(title|style)[\s\S]*?<\/\1>/g, ' ')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    .replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ');
 }
+const part = (html, key) => html.split(`data-part="${key}"`)[1].split('</section>')[0];
 
-test('11개 섹션이 순서대로 있다', () => {
-  const html = renderHtml(runPipeline(example()));
-  const order = [...html.matchAll(/data-section="([a-z]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(order, ['summary', 'scenarios', 'entities', 'permissions', 'flow', 'screens', 'acceptance', 'metrics', 'review', 'questions', 'trace']);
+test('사람이 읽는 문서는 PRD → 시나리오 → 플로우차트 → 기능명세서 네 부분이다', () => {
+  const html = render(example());
+  assert.deepEqual([...html.matchAll(/data-part="([a-z]+)"/g)].map((m) => m[1]), ['prd', 'scenarios', 'flowcharts', 'spec']);
+  assert.deepEqual([...html.matchAll(/<a class="part-link" href="#([a-z]+)">/g)].map((m) => m[1]), ['prd', 'scenarios', 'flowcharts', 'spec']);
 });
 
-test('본문에는 내부 ID가 보이지 않는다 (부록 제외)', () => {
-  const spec = example();
-  const text = bodyText(renderHtml(runPipeline(spec)));
-  const ids = [...spec.userTypes, ...spec.apps, ...spec.requirements, ...spec.actions, ...spec.scenarios, ...spec.acceptance].map((x) => x.id);
-  for (const id of ids) assert.ok(!new RegExp(`\\b${id}\\b`).test(text), `본문에 ID ${id}`);
-  assert.ok(!text.includes('sc:'), '본문에 화면 ID');
+test('본문에는 내부 ID와 개발에 필요 없는 정보가 보이지 않는다', () => {
+  const text = bodyText(render(example()));
+  for (const id of ['U1', 'U2', 'P1', 'R1', 'E1', 'ST1', 'AC3', 'S1', 'M1']) assert.ok(!new RegExp(`\\b${id}\\b`).test(text), `${id}가 보인다`);
+  for (const word of ['이번에 하지 않는 것', '품질 점수', '추적표', '화면 목록', '화면 지도', '자동 초안']) assert.ok(!text.includes(word), `${word}가 보인다`);
 });
 
-test('요약에 착수 판정과 사유, 품질 점수가 보인다', () => {
-  const text = bodyText(renderHtml(runPipeline(example())));
-  assert.match(text, /착수 불가/);
-  assert.match(text, /차단 이슈 1건/);
-  assert.match(text, /착수를 막는 정할 것 1건/);
+test('착수 전에 정할 것이 있으면 맨 위에 알린다', () => {
+  const html = render(example());
+  const top = bodyText(html.split('data-part="prd"')[0]);
+  assert.match(top, /착수 전에 정할 것/);
+  assert.match(top, /'배정 관리자'는 '완료' 상태의 '항목'에 '항목 수정하기'를 할 수 있는가\?/);
 });
 
-test('동작 가능표의 빈칸은 정할 것으로 보인다', () => {
-  const html = renderHtml(runPipeline(example()));
-  const table = html.split('data-section="permissions"')[1].split('data-section="flow"')[0];
-  assert.match(table, /정할 것/);
-  assert.match(table, /숨김/);
-  assert.match(table, /허용 · 모든 상태/);
+test('시나리오는 요구사항마다 시나리오 한 줄과 완료 조건만 보이고, 단계는 플로우차트에만 있다', () => {
+  const html = render(example());
+  const text = bodyText(part(html, 'scenarios'));
+  assert.match(text, /관리자가 항목을 배정한다/);
+  assert.match(text, /항목 배정 · 기본 흐름 기본 흐름 배정 관리자 · 3단계/);
+  assert.ok(!text.includes('제목과 담당자를 넣어 항목을 만든다'), '단계 글은 시나리오 부분에 없다');
+  assert.ok(part(html, 'flowcharts').includes('제목과 담당자를'), '단계 글은 플로우차트에 있다');
+  assert.match(text, /상황 .+ 행동 .+ 결과 .+/, '완료 조건은 상황·행동·결과로 보인다');
 });
 
-test('완료 조건은 상황 → 행동 → 결과로 쓰고 초안은 확인 필요로 표시한다', () => {
-  const html = renderHtml(runPipeline(example()));
-  const section = html.split('data-section="acceptance"')[1].split('data-section="metrics"')[0];
-  assert.match(section, /상황/);
-  assert.match(section, /행동/);
-  assert.match(section, /결과/);
-  assert.match(section, /확인 필요/);
+test('플로우차트는 시나리오마다 한 장씩 도화지에 올린다', () => {
+  const html = part(render(example()), 'flowcharts');
+  assert.deepEqual([...html.matchAll(/data-frame="([^"]+)"/g)].map((m) => m[1]), example().scenarios.map((s) => `flowchart-${s.id}`));
 });
 
-test('모델 데이터를 다시 읽을 수 있고 메타가 있다', () => {
-  const html = renderHtml(runPipeline(example()));
-  const json = html.split('<script type="application/json" id="spec-model">')[1].split('</script>')[0];
-  const model = JSON.parse(json);
-  assert.equal(model.format, 'product-planning/spec@1');
-  assert.ok(model.derived.screens.length > 0);
-  assert.equal(model.report.ready, false);
+test('기능명세서는 공통 규칙 한 번, 기능마다 누가·넣는 것·결과·막는 경우 한 줄로 끝난다', () => {
+  const html = part(render(example()), 'spec');
+  const text = bodyText(html);
+  assert.match(html, /<svg class="state-diagram"/);
+  assert.match(text, /공통 규칙 .*숨김은 보이지 않음.*입력 규칙을 어기면.*한 번만 요청.*불러오는 중·빈 화면·오류·권한 없음·보기 전용/);
+  assert.match(text, /항목 만들기 서버 처리 배정 관리자 가능 · 담당자 숨김/, '누가는 제목 옆 한 줄');
+  assert.match(text, /제목 텍스트 예 최대 50자/, '항목 · 형식 · 필수 · 범위 순서');
+  assert.match(text, /성공 항목을 배정했습니다/);
+  assert.match(text, /막는 경우 입력 규칙 위반 · 담당자 · 저장 실패/);
+  assert.ok(!text.includes('엣지 케이스'), '경계값 나열은 문서에 없다 (모델 데이터에만)');
+  assert.ok(!text.includes('51자'));
+  assert.match(text, /배정 관리자 진행 중 가능\s*,\s*완료 정할 것/, '빈칸은 정할 것으로 보인다');
+  assert.match(text, /메모 형식 없음/, '형식 없는 입력은 드러낸다');
+});
+
+test('AI용 모델 데이터는 문서 지도와 함께 다시 읽을 수 있다', () => {
+  const result = runPipeline(example());
+  const html = renderHtml(result);
+  const embedded = JSON.parse(html.match(/<script type="application\/json" id="spec-model">([\s\S]*?)<\/script>/)[1]);
+  assert.deepEqual(embedded, JSON.parse(JSON.stringify(buildModel(result))));
+  assert.equal(embedded.format, 'product-planning/spec@1');
+  assert.deepEqual(embedded.document.parts.map((item) => item.key), ['prd', 'scenarios', 'flowcharts', 'spec']);
+  assert.ok(embedded.document.dataOnly.includes('derived.screens'));
+  assert.ok(embedded.document.parts.find((item) => item.key === 'spec').shows.includes('derived.edgeCases'));
+  assert.ok(Array.isArray(embedded.derived.edgeCases) && embedded.derived.edgeCases.length > 0);
   assert.match(html, /<meta name="spec-ready" content="false">/);
-  assert.match(html, /<meta name="spec-score" content="[0-9.]+">/);
 });
 
 test('특수문자 이름과 빈 입력도 깨지지 않는다', () => {
-  const { spec } = parseSpec(JSON.stringify({ meta: { title: '</script><b>제목</b>' } }));
-  const html = renderHtml(runPipeline(spec));
-  assert.ok(html.includes('&lt;/script&gt;&lt;b&gt;제목&lt;/b&gt;'));
-  assert.ok(html.includes('착수 불가'));
-  assert.equal(html.split('<script type="application/json"').length, 2);
-  assert.ok(!html.includes('<script>'), '실행 스크립트가 없어야 한다');
+  const spec = example();
+  spec.meta.title = '<b>제목</b> & "따옴표"';
+  spec.requirements[0].name = "<script>alert('x')</script>";
+  const html = render(spec);
+  assert.ok(!html.includes("<script>alert('x')</script>"));
+  assert.ok(html.includes('&lt;b&gt;제목&lt;/b&gt;'));
+  assert.doesNotThrow(() => renderHtml(runPipeline(parseSpec('{}').spec)));
 });
 
 test('본문에 undefined·null·NaN 같은 값이 새어 나오지 않는다', () => {
-  const text = bodyText(renderHtml(runPipeline(example())));
-  assert.ok(!/undefined|null|NaN/.test(text), text.match(/.{0,30}(undefined|null|NaN).{0,30}/)?.[0]);
-  assert.match(text, /'항목 만들기'에서/);
+  for (const spec of [example(), {}]) {
+    const text = bodyText(render(spec));
+    for (const leak of ['undefined', 'null', 'NaN', '[object Object]']) assert.ok(!text.includes(leak), `${leak}가 보인다`);
+  }
 });
 
 test('같은 입력이면 HTML이 바이트 단위로 같다', () => {
-  assert.equal(renderHtml(runPipeline(example())), renderHtml(runPipeline(example())));
+  assert.equal(render(example()), render(example()));
 });
 
 test('출처 위치의 § 기호는 장·절로 풀어 보여 준다', () => {
   const spec = example();
   spec.summary.problem.source = { kind: 'doc', ref: '기획 문서 §3, §5.1.2' };
-  const html = renderHtml(runPipeline(parseSpec(JSON.stringify(spec)).spec));
-  const body = html.split('<script type="application/json"')[0];
-  assert.ok(body.includes('기획 문서 3장, 5.1.2절'));
-  assert.ok(!body.includes('§'));
+  const text = bodyText(render(spec));
+  assert.ok(text.includes('기획 문서 3장, 5.1.2절'));
+  assert.ok(!text.includes('§'));
+});
+
+test('프롬프트 복사 버튼은 파일 위치로 채울 자리표와 읽는 법이 담긴 프롬프트를 준다', () => {
+  const html = renderHtml(runPipeline(example()));
+  assert.match(html, /<button[^>]*data-copy-prompt/);
+  const prompt = JSON.parse(html.match(/<script type="application\/json" id="spec-prompt">([\s\S]*?)<\/script>/)[1]);
+  assert.equal(prompt, buildPrompt());
+  assert.ok(prompt.includes('{html}') && prompt.includes('{model}'), '경로는 열릴 때 채운다');
+  assert.match(prompt, /derived\.edgeCases/);
+  assert.match(buildPrompt({ html: '/a/b.html', model: '/a/model.json' }), /\/a\/b\.html[\s\S]*\/a\/model\.json/);
+  assert.ok(!/<script[^>]+src=/.test(html), '외부 스크립트를 쓰지 않는다');
 });

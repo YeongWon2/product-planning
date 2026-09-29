@@ -235,15 +235,17 @@ export function flowOrphans({ derived }) {
   return { checked: derived.screens.length, issues };
 }
 
+// 검증은 형식(type)과 범위로 적어야 개발자가 같은 규칙을 만들고 경계값 사례를 뽑을 수 있다.
 export function inputRules({ spec }) {
   const issues = [];
   let checked = 0;
+  const warn = (action, message) => issues.push(issue('input-rule', 'warn', message, [{ id: String(action.id), name: action.name }]));
   for (const action of spec.actions) {
     for (const input of action.inputs) {
       checked += 1;
-      if (input.rules.length === 0) {
-        issues.push(issue('input-rule', 'warn', `${quote(action.name)}의 입력 ${quote(input.name ?? '이름 없음')}에 검증 규칙이 없습니다 (오류 예방)`, [{ id: String(action.id), name: action.name }]));
-      }
+      const label = `${quote(action.name)}의 입력 ${quote(input.name ?? '이름 없음')}`;
+      if (input.type === undefined) warn(action, `${label}에 형식(type)이 없어 어떤 검증인지 알 수 없습니다. text·number·date·select·file 등으로 적으세요`);
+      else if ((input.type === 'select') && !(input.options?.length > 0) && typeof input.optionsFrom !== 'string') warn(action, `${label}은 선택 입력인데 고를 수 있는 목록(options)이나 목록을 가져올 곳(optionsFrom)이 없습니다`);
     }
   }
   return { checked, issues };
@@ -282,12 +284,6 @@ export function problemSource({ spec }) {
   return { checked: 1, issues: [] };
 }
 
-export function outOfScope({ spec }) {
-  const issues = spec.summary.outOfScope.length === 0
-    ? [issue('out-of-scope', 'block', '이번에 하지 않는 것이 한 가지도 없습니다', [])]
-    : [];
-  return { checked: 1, issues };
-}
 
 export function questionOwners({ spec, index }) {
   const issues = spec.questions
@@ -391,5 +387,5 @@ export function plainText({ spec, index }) {
 
 export const RULES = [
   shape, required, idMissing, idDuplicate, names, referencesKnown, requirementCoverage, permissionGaps, states,
-  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, outOfScope, questionOwners, inputRules, asyncFeedback, requestScope, requirementPriority, plainText,
+  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, questionOwners, inputRules, asyncFeedback, requestScope, requirementPriority, plainText,
 ];

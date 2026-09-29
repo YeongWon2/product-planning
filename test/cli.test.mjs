@@ -28,12 +28,14 @@ test('check는 착수 가능하면 0으로 끝난다', () => {
   assert.match(result.stdout, /착수 가능/);
 });
 
-test('build는 HTML과 보고서를 쓴다', () => {
+test('build는 사람용 HTML, AI용 model.json, 검사 결과를 쓴다', () => {
   const out = mkdtempSync(join(tmpdir(), 'spec-'));
   const result = run('build', example, '--out', out);
   assert.equal(result.status, 0, result.stderr);
   assert.ok(existsSync(join(out, 'assignment.html')));
   assert.equal(JSON.parse(readFileSync(join(out, 'report.json'), 'utf8')).ready, false);
+  assert.equal(JSON.parse(readFileSync(join(out, 'model.json'), 'utf8')).document.parts.length, 4);
+  assert.match(result.stdout, /프롬프트[\s\S]*model\.json/, '붙여 넣을 프롬프트를 함께 찍는다');
   assert.match(result.stdout, /assignment\.html/);
 });
 
@@ -53,7 +55,7 @@ test('저장소에 올린 예제 출력은 지금 코드로 다시 만든 것과
   const out = mkdtempSync(join(tmpdir(), 'spec-'));
   assert.equal(run('build', example, '--out', out).status, 0);
   const committed = new URL('../examples/assignment/out/', import.meta.url).pathname;
-  for (const file of ['assignment.html', 'report.json']) {
+  for (const file of ['assignment.html', 'model.json', 'report.json']) {
     assert.equal(
       readFileSync(join(out, file), 'utf8'),
       readFileSync(join(committed, file), 'utf8'),

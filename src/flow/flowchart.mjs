@@ -1,4 +1,4 @@
-import { LABELS, quote } from '../model/labels.mjs';
+import { quote } from '../model/labels.mjs';
 
 // 시나리오 하나를 시작 → 처리 → 판단 → 끝으로 잇는 플로우차트로 만든다.
 // 판단은 사람이 그리지 않는다. 모델에 이미 있는 사실에서 나온다.
@@ -7,6 +7,7 @@ import { LABELS, quote } from '../model/labels.mjs';
 //   FC3 확인 창: 되돌릴 수 없는 동작 → 취소하면 끝
 //   FC4 서버 결과: 실패 안내가 있는 서버 동작 → 실패마다 안내 후 끝
 // 성공 안내, 상태 변화, 다른 앱 알림은 본 줄기에 이어 붙인다. 자동 처리 단계는 판단 없이 그린다.
+// 플로우차트는 흐름과 갈래 조건만 보인다. 안내 문구 원문과 권한 값은 기능명세서에만 둔다.
 
 export function deriveFlowcharts(spec, index, cells) {
   return spec.scenarios.map((scenario) => chartFor(scenario, spec, index, cells));
@@ -54,7 +55,7 @@ function chartFor(scenario, spec, index, cells) {
     if (!automatic) {
       if (action.inputs.some((input) => Array.isArray(input.rules) && input.rules.length > 0)) {
         const decision = decide('입력 규칙을 지켰나?');
-        const warning = node('message', '칸 아래에 오류를 안내한다');
+        const warning = node('message', '입력 오류 안내');
         link(decision, warning, 'no', '아니오');
         link(warning, processId, 'loop', '다시 입력');
       }
@@ -62,17 +63,17 @@ function chartFor(scenario, spec, index, cells) {
       if (action.async === true && action.failures.length > 0) {
         const decision = decide(`${action.name} 성공?`);
         for (const failure of action.failures) {
-          const message = node('message', failure.message || failure.name);
+          const message = node('message', '오류 안내');
           link(decision, message, 'no', failure.name ?? '');
           link(message, node('end', '끝'), 'no');
         }
       }
-      if (typeof action.success === 'string' && action.success !== '') advance(node('message', action.success));
+      if (typeof action.success === 'string' && action.success !== '') advance(node('message', '성공 안내'));
     }
 
     for (const text of stateChanges(action)) advance(node('state', text));
     if (!automatic) {
-      for (const target of action.crossApp) advance(node('message', `${quote(index.name(target.app))}에 알림: ${target.effect ?? ''}`.trim()));
+      for (const target of action.crossApp) advance(node('message', `${quote(index.name(target.app))}에 알림`));
     }
   }
   advance(node('end', '끝'));
@@ -84,9 +85,7 @@ function chartFor(scenario, spec, index, cells) {
     const allowed = own.filter((cell) => cell.value === 'allow');
     if (allowed.length === 0 || allowed.length === own.length) return;
     const decision = decide(`${quote(index.name(action.entity), '이/가')} ${allowed.map((cell) => quote(index.name(cell.state))).join('·')} 상태인가?`);
-    const others = own.filter((cell) => cell.value !== 'allow')
-      .map((cell) => `${quote(index.name(cell.state))}에서 ${cell.value === null ? '정할 것' : LABELS.permission[cell.value]}`);
-    link(decision, node('end', `할 수 없음 (${others.join(', ')})`), 'no', '아니오');
+    link(decision, node('end', '할 수 없음'), 'no', '아니오');
   }
 
   // 이 동작이 일으키는 상태 전이. 같은 개체·같은 도착 상태는 한 줄로 묶는다.

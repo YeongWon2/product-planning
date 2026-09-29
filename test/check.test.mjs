@@ -36,7 +36,8 @@ test('거의 빈 입력은 착수 불가이며 사유가 있다', () => {
   const { report } = runPipeline(spec);
   assert.equal(report.ready, false);
   assert.ok(rulesOf(report).includes('problem-source'));
-  assert.ok(rulesOf(report).includes('out-of-scope'));
+  // '이번에 하지 않는 것'은 적지 않아도 된다.
+  assert.equal(rulesOf(report).includes('out-of-scope'), false);
   assert.ok(report.reasons.length > 0);
 });
 

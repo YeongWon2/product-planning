@@ -35,7 +35,7 @@ test('사용자 유형·동작·개체 ID가 겹쳐도 HTML까지 만들어지�
     const { report, derived, html } = pipelineOf((raw) => { readyExample(raw); duplicate(raw); });
     assert.ok(rulesOf(report).includes('id-duplicate'));
     assert.equal(derived.permissionCells.length, 16);
-    assert.match(html, /착수 불가/);
+    assert.match(html, /착수 전에 정할 것/);
   }
 });
 

@@ -133,7 +133,7 @@ function normalize(raw) {
     return {
       ...action,
       name: n.name(action, path),
-      inputs: n.objects(action.inputs, `${path}.inputs`).map((input, j) => ({ ...input, rules: n.strings(input.rules, `${path}.inputs[${j}].rules`) })),
+      inputs: n.objects(action.inputs, `${path}.inputs`).map((input, j) => normalizeInput(input, `${path}.inputs[${j}]`, n)),
       async: n.boolean(action, 'async', path),
       irreversible: n.boolean(action, 'irreversible', path),
       failures: n.objects(action.failures, `${path}.failures`),
@@ -152,6 +152,47 @@ function normalize(raw) {
   });
 
   return { spec, problems: n.problems };
+}
+
+// 입력 검증의 형식. 글로 적은 규칙(rules)은 형식으로 나타낼 수 없는 추가 조건에만 쓴다.
+export const INPUT_TYPES = ['text', 'number', 'date', 'period', 'select', 'multiSelect', 'file', 'url', 'boolean'];
+// 글자 수·값·개수처럼 숫자로만 뜻이 맞는 범위. 날짜·기간은 '오늘', '1개월'처럼 글로도 적는다.
+const NUMERIC_RANGE = new Set(['text', 'number', 'multiSelect']);
+
+function normalizeInput(input, path, n) {
+  const result = { ...input, rules: n.strings(input.rules, `${path}.rules`) };
+  if (input.type !== undefined && !INPUT_TYPES.includes(input.type)) {
+    n.report(`${path}.type`, `${INPUT_TYPES.join('·')} 중 하나여야 합니다`);
+    delete result.type;
+  }
+  result.required = n.boolean(input, 'required', path);
+  for (const key of ['min', 'max']) {
+    if (input[key] === undefined) continue;
+    const numeric = NUMERIC_RANGE.has(result.type);
+    const valid = numeric ? Number.isFinite(input[key]) : Number.isFinite(input[key]) || typeof input[key] === 'string';
+    if (!valid) {
+      n.report(`${path}.${key}`, numeric ? '숫자여야 합니다' : '숫자나 문자열이어야 합니다');
+      delete result[key];
+    }
+  }
+  for (const key of ['maxCount', 'maxSizeMB', 'totalSizeMB']) {
+    if (input[key] !== undefined && !(Number.isFinite(input[key]) && input[key] > 0)) {
+      n.report(`${path}.${key}`, '0보다 큰 숫자여야 합니다');
+      delete result[key];
+    }
+  }
+  if (input.note !== undefined && typeof input.note !== 'string') {
+    n.report(`${path}.note`, '문자열이어야 합니다');
+    delete result.note;
+  }
+  if (input.optionsFrom !== undefined && typeof input.optionsFrom !== 'string') {
+    n.report(`${path}.optionsFrom`, '문자열이어야 합니다');
+    delete result.optionsFrom;
+  }
+  for (const key of ['options', 'formats']) {
+    if (input[key] !== undefined) result[key] = n.strings(input[key], `${path}.${key}`);
+  }
+  return result;
 }
 
 export function parseSpec(text) {

@@ -58,24 +58,25 @@ test('시나리오마다 시작에서 끝까지 이어지는 플로우차트를 
     'decision:입력 규칙을 지켰나?',
     'decision:확인 창에서 확인했나?',
     'decision:과제 조기 마감하기 성공?',
-    'message:과제를 마감했습니다',
+    'message:성공 안내',
     "state:'과제' 진행 중 → 조기 마감",
-    "message:'선수 앱'에 알림: 마감된 과제가 목록에서 사라진다",
+    "message:'선수 앱'에 알림",
     'end:끝',
   ]);
 });
 
+// 문구 원문은 기능명세서에만 두고, 플로우차트는 흐름과 갈래 조건만 보인다.
 test('판단의 아니오 갈래는 동작 가능표·입력 규칙·확인 창·실패 안내에서 나온다', () => {
   const chart = chartOf('S1');
   const branches = chart.edges.filter((edge) => edge.kind !== 'main').map((edge) => [edge.label, `${chart.nodes.find((n) => n.id === edge.to).type}:${textOf(chart, edge.to)}`]);
   assert.deepEqual(branches, [
-    ['아니오', "end:할 수 없음 ('조기 마감'에서 숨김)"],
-    ['아니오', 'message:칸 아래에 오류를 안내한다'],
+    ['아니오', 'end:할 수 없음'],
+    ['아니오', 'message:입력 오류 안내'],
     ['다시 입력', 'process:사유를 적고 마감한다'],
     ['아니오', 'end:취소'],
-    ['다른 코치의 과제', 'message:다른 코치가 부여한 과제는 마감할 수 없습니다'],
+    ['다른 코치의 과제', 'message:오류 안내'],
     ['', 'end:끝'],
-    ['통신 실패', 'message:네트워크 이슈가 발생했습니다'],
+    ['통신 실패', 'message:오류 안내'],
     ['', 'end:끝'],
   ]);
 });
@@ -129,6 +130,6 @@ test('판단은 마름모, 시작·끝은 둥근 상자로 그리고 긴 글은 
   assert.ok(width > 0 && height > 0);
   assert.match(markup, /<polygon class="fc-decision"/);
   assert.match(markup, /class="fc-start"/);
-  assert.match(markup, /<tspan[^>]*>다른 코치가 부여한 과제는<\/tspan>/);
+  assert.match(markup, /<tspan[^>]*>&#39;과제&#39;가 &#39;진행<\/tspan>/, '긴 판단 글은 줄을 바꾼다');
   assert.equal(markup, renderFlowchart(chartOf('S1')).markup);
 });

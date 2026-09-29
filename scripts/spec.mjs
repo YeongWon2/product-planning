@@ -3,13 +3,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { loadSpec } from '../src/model/load.mjs';
 import { runPipeline } from '../src/check/run.mjs';
-import { renderHtml } from '../src/render/html.mjs';
+import { buildModel, buildPrompt, renderHtml } from '../src/render/html.mjs';
 import { openFile } from '../src/open-file.mjs';
 
 const USAGE = `사용법:
   node scripts/spec.mjs check <spec.json>                 검사만 한다
   node scripts/spec.mjs build <spec.json> [--out <폴더>] [--open]
-      HTML과 report.json을 만든다 (기본: spec 옆 out/). --open이면 만든 HTML을 기본 브라우저 창으로 연다`;
+      HTML(사람용)·model.json(AI용)·report.json을 만든다 (기본: spec 옆 out/). --open이면 만든 HTML을 기본 브라우저 창으로 연다`;
 
 // 착수 불가(1)와 입력 오류(2·3)를 구분해야 자동화에서 "기획이 덜 됨"과 "도구를 잘못 씀"을 가를 수 있다.
 const EXIT = { ready: 0, blocked: 1, usage: 2, unreadable: 3 };
@@ -46,10 +46,14 @@ function build(path, outOption, open) {
   const name = basename(dirname(resolve(path)));
   const htmlPath = join(outDir, `${name}.html`);
   const reportPath = join(outDir, 'report.json');
+  // 사람은 HTML을, AI는 model.json을 읽는다. 같은 모델을 HTML 안에도 넣어 둔다.
+  const modelPath = join(outDir, 'model.json');
   mkdirSync(outDir, { recursive: true });
+  const paths = { html: resolve(htmlPath), model: resolve(modelPath) };
   writeFileSync(htmlPath, renderHtml(result));
   writeFileSync(reportPath, `${JSON.stringify(result.report, null, 2)}\n`);
-  process.stdout.write(`${formatReport(result.report, result.derived.questions)}\n\n만든 파일:\n  ${htmlPath}\n  ${reportPath}\n`);
+  writeFileSync(modelPath, `${JSON.stringify(buildModel(result), null, 2)}\n`);
+  process.stdout.write(`${formatReport(result.report, result.derived.questions)}\n\n만든 파일:\n  ${htmlPath}  (사람이 읽는 기획서)\n  ${modelPath}  (AI가 읽는 모델 데이터)\n  ${reportPath}  (검사 결과)\n\n프롬프트 (복사해서 AI에게 붙여 넣기):\n${buildPrompt(paths)}\n`);
   if (open) {
     // 창을 못 열어도 파일은 만들어졌으므로 빌드는 성공이다. 직접 열 경로만 알린다.
     const opened = openFile(resolve(htmlPath));
