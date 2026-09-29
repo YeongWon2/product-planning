@@ -5,6 +5,10 @@ export const LABELS = Object.freeze({
   screenType: { screen: '화면', modal: '모달', confirm: '확인 창', notification: '알림' },
   source: { code: '코드', schema: '스키마', doc: '문서', data: '데이터', reference: '레퍼런스', decision: '결정', assumption: '가정' },
   actionKind: { list: '목록', view: '상세', create: '만들기', update: '수정', delete: '삭제', other: '기타' },
+  kind: {
+    userType: '사용자 유형', app: '앱', requirement: '요구사항', entity: '개체', state: '상태', action: '동작',
+    scenario: '시나리오', acceptance: '완료 조건', metric: '지표', event: '이벤트', question: '정할 것', decision: '결정',
+  },
 });
 
 const HANGUL_FIRST = 0xac00;
