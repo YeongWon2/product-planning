@@ -47,9 +47,11 @@ test('시나리오는 요구사항마다 시나리오 한 줄과 완료 조건�
   assert.match(text, /상황 .+ 행동 .+ 결과 .+/, '완료 조건은 상황·행동·결과로 보인다');
 });
 
-test('플로우차트는 시나리오마다 한 장씩 도화지에 올린다', () => {
+test('플로우차트는 시나리오·기능·페이지마다 한 장씩 도화지에 올린다', () => {
   const html = part(render(example()), 'flowcharts');
-  assert.deepEqual([...html.matchAll(/data-frame="([^"]+)"/g)].map((m) => m[1]), example().scenarios.map((s) => `flowchart-${s.id}`));
+  const frames = [...html.matchAll(/data-frame="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(frames.slice(0, 2), example().scenarios.map((s) => `flowchart-scenario-${s.id}`));
+  assert.ok(frames.some((id) => id.startsWith('flowchart-function-')) && frames.some((id) => id.startsWith('flowchart-page-')), '기능·페이지 플로우차트도 있다');
 });
 
 test('기능명세서는 공통 규칙 한 번, 기능마다 누가·넣는 것·결과·막는 경우 한 줄로 끝난다', () => {
@@ -61,6 +63,7 @@ test('기능명세서는 공통 규칙 한 번, 기능마다 누가·넣는 것�
   assert.match(text, /제목 텍스트 예 최대 50자/, '항목 · 형식 · 필수 · 범위 순서');
   assert.match(text, /성공 항목을 배정했습니다/);
   assert.match(text, /막는 경우 입력 규칙 위반 · 담당자 · 저장 실패/);
+  assert.match(text, /항목 수정하기[\s\S]*막는 경우 입력 규칙 위반 · 배정 관리자 '완료' 상태 · 담당자/, '일부 상태만 막히면 상태를 붙인다');
   assert.ok(!text.includes('엣지 케이스'), '경계값 나열은 문서에 없다 (모델 데이터에만)');
   assert.ok(!text.includes('51자'));
   assert.match(text, /배정 관리자 진행 중 가능\s*,\s*완료 정할 것/, '빈칸은 정할 것으로 보인다');

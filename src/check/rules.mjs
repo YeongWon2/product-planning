@@ -1,4 +1,4 @@
-import { LABELS, josa, quote } from '../model/labels.mjs';
+import { LABELS, WORDING, josa, quote } from '../model/labels.mjs';
 import { statesForAction } from '../derive/permissions.mjs';
 
 // 규칙 하나는 함수 하나다. 모든 규칙은 (ctx) → { checked, issues } 를 돌려주고,
@@ -377,6 +377,8 @@ export function plainText({ spec, index }) {
     for (const target of action.crossApp) add(action.id, '다른 앱 영향', target.effect);
   }
   for (const scenario of spec.scenarios) scenario.steps.forEach((step) => add(scenario.id, '단계 글', step.text));
+  for (const [key, value] of Object.entries(spec.wording)) add(null, `공통 문구 ${key}`, value);
+  for (const action of spec.actions) { add(action.id, '확인 창 문구', action.confirm?.message); add(action.id, '권한 없음 문구', action.denied); add(action.id, '빈 화면 문구', action.empty); action.inputs.forEach((input) => add(action.id, '입력 오류 문구', input.error)); action.crossApp.forEach((item) => add(action.id, '알림 문구', item.message)); }
   for (const condition of spec.acceptance) { add(condition.id, '상황', condition.situation); add(condition.id, '결과', condition.result); }
   const issues = fields.filter((field) => SYMBOLS.test(field.value)).map((field) => {
     const where = field.owner === null ? field.label : `${quote(index.name(field.owner))}의 ${field.label}`;
@@ -385,7 +387,29 @@ export function plainText({ spec, index }) {
   return { checked: fields.length, issues };
 }
 
+// 문구가 없으면 개발자가 지어내야 한다. 공통 문구는 한 번, 확인 창과 다른 앱 알림은 기능마다 정한다.
+export function wording({ spec, index }) {
+  const issues = [];
+  let checked = 0;
+  for (const [key, label] of Object.entries(WORDING)) {
+    checked += 1;
+    if (!hasText(spec.wording[key])) issues.push(issue('wording', 'warn', `공통 문구 ${quote(label)}(wording.${key})가 없습니다`, []));
+  }
+  for (const action of spec.actions) {
+    const target = [{ id: String(action.id), name: action.name }];
+    if (action.irreversible === true) {
+      checked += 1;
+      if (!hasText(action.confirm?.message)) issues.push(issue('wording', 'warn', `${quote(action.name)}에 확인 창 문구(confirm.message)가 없습니다`, target));
+    }
+    for (const item of action.crossApp) {
+      checked += 1;
+      if (!hasText(item.message)) issues.push(issue('wording', 'warn', `${quote(action.name, '이/가')} ${quote(index.has(item.app) ? index.name(item.app) : String(item.app))}에 주는 알림 문구(crossApp.message)가 없습니다`, target));
+    }
+  }
+  return { checked, issues };
+}
+
 export const RULES = [
   shape, required, idMissing, idDuplicate, names, referencesKnown, requirementCoverage, permissionGaps, states,
-  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, questionOwners, inputRules, asyncFeedback, requestScope, requirementPriority, plainText,
+  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, questionOwners, inputRules, asyncFeedback, requestScope, requirementPriority, plainText, wording,
 ];

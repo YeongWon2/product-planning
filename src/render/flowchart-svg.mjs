@@ -16,7 +16,12 @@ const LABEL_MAX = 12;
 // 한 줄에 들어가는 글자 수. 마름모는 안쪽이 좁아 더 짧게 끊는다.
 const WRAP = { decision: 10, default: 14 };
 
+// 줄 바꿈(\n)은 그대로 두고, 한 줄이 max를 넘으면 낱말 사이에서 끊는다.
 export function wrap(text, max) {
+  return String(text).split('\n').flatMap((paragraph) => wrapLine(paragraph, max));
+}
+
+function wrapLine(text, max) {
   const lines = [];
   let line = '';
   for (const word of String(text).split(' ')) {

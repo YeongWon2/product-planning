@@ -145,7 +145,8 @@
         {
           "app": "P2",
           "userType": "U2",
-          "effect": "새 항목 알림"
+          "effect": "새 항목 알림",
+          "message": "새 항목이 배정되었습니다"
         }
       ]
     },
@@ -162,7 +163,11 @@
           "name": "마감 실패",
           "message": "마감하지 못했습니다. 다시 시도해 주세요"
         }
-      ]
+      ],
+      "confirm": {
+        "message": "마감하면 담당자는 더 수정할 수 없습니다. 마감할까요?",
+        "ok": "마감"
+      }
     },
     {
       "id": "AC5",
@@ -390,5 +395,16 @@
     }
   ],
   "decisions": [],
-  "flowOverrides": []
+  "flowOverrides": [],
+  "wording": {
+    "inputError": "입력 내용을 확인해 주세요",
+    "denied": "권한이 없습니다",
+    "empty": "아직 항목이 없습니다",
+    "loadError": "불러오지 못했습니다. 다시 시도해 주세요",
+    "network": "네트워크 연결을 확인해 주세요",
+    "unknown": "문제가 생겼습니다. 잠시 후 다시 시도해 주세요",
+    "sessionExpired": "다시 로그인해 주세요",
+    "confirmOk": "확인",
+    "confirmCancel": "취소"
+  }
 }

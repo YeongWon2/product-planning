@@ -1,3 +1,9 @@
+// 공통 문구의 종류. 기능마다 다르지 않은 안내는 spec.wording에 한 번만 적는다.
+export const WORDING = Object.freeze({
+  inputError: '입력 오류', denied: '권한 없음', empty: '빈 화면', loadError: '불러오기 오류',
+  network: '통신 실패', unknown: '알 수 없는 오류', sessionExpired: '로그인 만료', confirmOk: '확인 단추', confirmCancel: '취소 단추',
+});
+
 export const LABELS = Object.freeze({
   permission: { allow: '허용', hide: '숨김', disable: '비활성', deny: '불가' },
   priority: { must: '필수', should: '권장', could: '선택' },

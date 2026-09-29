@@ -53,13 +53,19 @@ function createNormalizer() {
     return undefined;
   }
 
+  function string(item, key, path) {
+    if (item[key] === undefined || typeof item[key] === 'string') return item[key];
+    report(`${path}.${key}`, '문자열이어야 합니다');
+    return undefined;
+  }
+
   function name(item, path) {
     if (item.name === undefined || typeof item.name === 'string') return item.name;
     report(`${path}.name`, '문자열이어야 합니다');
     return undefined;
   }
 
-  return { problems, report, objects, strings, boolean, name };
+  return { problems, report, objects, strings, boolean, string, name };
 }
 
 function normalizeProfile(raw, n) {
@@ -99,6 +105,10 @@ function normalize(raw) {
   const summary = section('summary');
 
   const spec = { ...raw };
+  // 공통 문구: 값은 모두 문자열이다.
+  const wording = raw.wording === undefined || (typeof raw.wording === 'object' && raw.wording !== null && !Array.isArray(raw.wording)) ? { ...(raw.wording ?? {}) } : (n.report('wording', '객체여야 합니다'), {});
+  for (const key of Object.keys(wording)) if (typeof wording[key] !== 'string') { n.report(`wording.${key}`, '문자열이어야 합니다'); delete wording[key]; }
+  spec.wording = wording;
   spec.meta = { ...meta, profile: normalizeProfile(meta.profile, n) };
   spec.summary = {
     ...summary,
@@ -136,8 +146,12 @@ function normalize(raw) {
       inputs: n.objects(action.inputs, `${path}.inputs`).map((input, j) => normalizeInput(input, `${path}.inputs[${j}]`, n)),
       async: n.boolean(action, 'async', path),
       irreversible: n.boolean(action, 'irreversible', path),
+      success: n.string(action, 'success', path),
+      denied: n.string(action, 'denied', path),
+      empty: n.string(action, 'empty', path),
+      confirm: normalizeConfirm(action.confirm, `${path}.confirm`, n),
       failures: n.objects(action.failures, `${path}.failures`),
-      crossApp: n.objects(action.crossApp, `${path}.crossApp`),
+      crossApp: n.objects(action.crossApp, `${path}.crossApp`).map((target, j) => ({ ...target, message: n.string(target, 'message', `${path}.crossApp[${j}]`) })),
     };
   });
 
@@ -159,6 +173,16 @@ export const INPUT_TYPES = ['text', 'number', 'date', 'period', 'select', 'multi
 // 글자 수·값·개수처럼 숫자로만 뜻이 맞는 범위. 날짜·기간은 '오늘', '1개월'처럼 글로도 적는다.
 const NUMERIC_RANGE = new Set(['text', 'number', 'multiSelect']);
 
+// 확인 창: message는 필수 문구, ok·cancel은 단추 글(없으면 공통 문구).
+function normalizeConfirm(confirm, path, n) {
+  if (confirm === undefined) return undefined;
+  if (typeof confirm !== 'object' || confirm === null || Array.isArray(confirm)) {
+    n.report(path, '객체여야 합니다 ({ message, ok, cancel })');
+    return undefined;
+  }
+  return { message: n.string(confirm, 'message', path), ok: n.string(confirm, 'ok', path), cancel: n.string(confirm, 'cancel', path) };
+}
+
 function normalizeInput(input, path, n) {
   const result = { ...input, rules: n.strings(input.rules, `${path}.rules`) };
   if (input.type !== undefined && !INPUT_TYPES.includes(input.type)) {
@@ -166,6 +190,7 @@ function normalizeInput(input, path, n) {
     delete result.type;
   }
   result.required = n.boolean(input, 'required', path);
+  result.error = n.string(input, 'error', path);
   for (const key of ['min', 'max']) {
     if (input[key] === undefined) continue;
     const numeric = NUMERIC_RANGE.has(result.type);

@@ -1,36 +1,24 @@
 import { quote } from '../model/labels.mjs';
 
-// 시나리오 하나를 시작 → 처리 → 판단 → 끝으로 잇는 플로우차트로 만든다.
-// 판단은 사람이 그리지 않는다. 모델에 이미 있는 사실에서 나온다.
-//   FC1 상태 조건: 동작 가능표에서 그 사용자 유형이 일부 상태에서만 할 수 있는 동작
-//   FC2 입력 규칙: 검증 규칙이 있는 입력 → 어기면 오류 안내 후 다시 입력
-//   FC3 확인 창: 되돌릴 수 없는 동작 → 취소하면 끝
-//   FC4 서버 결과: 실패 안내가 있는 서버 동작 → 실패마다 안내 후 끝
-// 성공 안내, 상태 변화, 다른 앱 알림은 본 줄기에 이어 붙인다. 자동 처리 단계는 판단 없이 그린다.
-// 플로우차트는 흐름과 갈래 조건만 보인다. 안내 문구 원문과 권한 값은 기능명세서에만 둔다.
+// 플로우차트 세 종류. 같은 사실을 두 번 그리지 않도록 역할을 나눈다.
+//   시나리오: 요구사항을 이루는 기능의 순서와 그때 바뀌는 상태. 판단은 없다.
+//   기능:    기능 하나가 어떤 판단을 거쳐 어떻게 끝나나. 판단은 사람이 그리지 않고 모델에서 나온다.
+//             FC1 상태 조건(동작 가능표) · FC2 입력 규칙 · FC3 확인 창(되돌릴 수 없음) · FC4 서버 결과(실패 안내)
+//   페이지:  화면 하나가 권한·불러오기·빈 화면을 어떻게 다루고, 거기서 무엇을 할 수 있나.
+// 안내 문구 원문과 권한 값은 기능명세서에만 둔다. 플로우차트는 흐름과 갈래 조건만 보인다.
 
-export function deriveFlowcharts(spec, index, cells) {
-  return spec.scenarios.map((scenario) => chartFor(scenario, spec, index, cells));
-}
-
-function chartFor(scenario, spec, index, cells) {
+function builder(prefix) {
   const nodes = [];
   const edges = [];
   const node = (type, text) => {
-    const id = `${scenario.id}:n${nodes.length + 1}`;
+    const id = `${prefix}:n${nodes.length + 1}`;
     nodes.push({ id, type, text });
     return id;
   };
   const link = (from, to, kind = 'main', label = '') => edges.push({ from, to, kind, label });
-  const isAutomatic = (userType) => index.get(userType)?.kind === 'userType' && index.get(userType).item.automatic === true;
-
-  const first = scenario.steps[0];
-  const startText = first === undefined
-    ? '시작'
-    : isAutomatic(first.userType) ? `${index.name(first.userType)} · 규칙에 따라 자동` : `${index.name(first.userType)} · ${index.name(first.app)}`;
-  let current = node('start', startText);
-  // 판단 다음 본 줄기는 '예'로 잇는다.
+  let current = null;
   let pendingLabel = '';
+  const start = (text) => { current = node('start', text); };
   const advance = (to) => {
     link(current, to, 'main', pendingLabel);
     pendingLabel = '';
@@ -41,52 +29,14 @@ function chartFor(scenario, spec, index, cells) {
     pendingLabel = '예';
     return current;
   };
+  const finish = () => advance(node('end', '끝'));
+  return { nodes, edges, node, link, start, advance, decide, finish };
+}
 
-  for (const step of scenario.steps) {
-    const entry = index.get(step.action);
-    if (entry?.kind !== 'action') continue;
-    const action = entry.item;
-    const automatic = isAutomatic(step.userType);
-
-    if (!automatic) stateCondition(action, step.userType);
-    const processId = node('process', step.text || action.name);
-    advance(processId);
-
-    if (!automatic) {
-      if (action.inputs.some((input) => Array.isArray(input.rules) && input.rules.length > 0)) {
-        const decision = decide('입력 규칙을 지켰나?');
-        const warning = node('message', '입력 오류 안내');
-        link(decision, warning, 'no', '아니오');
-        link(warning, processId, 'loop', '다시 입력');
-      }
-      if (action.irreversible === true) link(decide('확인 창에서 확인했나?'), node('end', '취소'), 'no', '아니오');
-      if (action.async === true && action.failures.length > 0) {
-        const decision = decide(`${action.name} 성공?`);
-        for (const failure of action.failures) {
-          const message = node('message', '오류 안내');
-          link(decision, message, 'no', failure.name ?? '');
-          link(message, node('end', '끝'), 'no');
-        }
-      }
-      if (typeof action.success === 'string' && action.success !== '') advance(node('message', '성공 안내'));
-    }
-
-    for (const text of stateChanges(action)) advance(node('state', text));
-    if (!automatic) {
-      for (const target of action.crossApp) advance(node('message', `${quote(index.name(target.app))}에 알림`));
-    }
-  }
-  advance(node('end', '끝'));
-  return { scenario: scenario.id, requirement: scenario.requirement ?? null, name: index.name(scenario.id), nodes, edges };
-
-  // FC1: 모든 상태에서 되는 동작이면 물을 것이 없다. 일부 상태에서만 되면 그 상태인지 먼저 판단한다.
-  function stateCondition(action, userType) {
-    const own = cells.filter((cell) => cell.userType === userType && cell.action === action.id && cell.state !== null);
-    const allowed = own.filter((cell) => cell.value === 'allow');
-    if (allowed.length === 0 || allowed.length === own.length) return;
-    const decision = decide(`${quote(index.name(action.entity), '이/가')} ${allowed.map((cell) => quote(index.name(cell.state))).join('·')} 상태인가?`);
-    link(decision, node('end', '할 수 없음'), 'no', '아니오');
-  }
+export function deriveFlowcharts(spec, index, cells, flow) {
+  const isAutomatic = (userType) => index.get(userType)?.kind === 'userType' && index.get(userType).item.automatic === true;
+  const automaticActions = new Set(spec.scenarios.flatMap((scenario) => scenario.steps).filter((step) => isAutomatic(step.userType)).map((step) => step.action));
+  const nameOf = (id) => (index.has(id) ? index.name(id) : String(id));
 
   // 이 동작이 일으키는 상태 전이. 같은 개체·같은 도착 상태는 한 줄로 묶는다.
   function stateChanges(action) {
@@ -99,6 +49,89 @@ function chartFor(scenario, spec, index, cells) {
         groups.set(key, group);
       }
     }
-    return [...groups.values()].map((group) => `${quote(index.name(group.entity))} ${group.froms.map((from) => index.name(from)).join('·')} → ${index.name(group.to)}`);
+    return [...groups.values()].map((group) => `${quote(nameOf(group.entity))} ${group.froms.map((from) => nameOf(from)).join('·')} → ${nameOf(group.to)}`);
   }
+
+  const scenarioCharts = spec.scenarios.map((scenario) => {
+    const b = builder(`scenario:${scenario.id}`);
+    const first = scenario.steps[0];
+    b.start(first === undefined ? '시작'
+      : isAutomatic(first.userType) ? `${nameOf(first.userType)} · 규칙에 따라 자동` : `${nameOf(first.userType)} · ${nameOf(first.app)}`);
+    for (const step of scenario.steps) {
+      const entry = index.get(step.action);
+      if (entry?.kind !== 'action') continue;
+      b.advance(b.node('process', typeof step.text === 'string' && step.text !== '' ? step.text : entry.item.name));
+      for (const text of stateChanges(entry.item)) b.advance(b.node('state', text));
+    }
+    b.finish();
+    return { kind: 'scenario', of: scenario.id, requirement: scenario.requirement ?? null, name: index.name(scenario.id), nodes: b.nodes, edges: b.edges };
+  });
+
+  const functionCharts = spec.actions.filter((action) => !automaticActions.has(action.id)).map((action) => {
+    const b = builder(`function:${action.id}`);
+    b.start(action.name);
+
+    // FC1: 어떤 사용자도 못 하는 상태가 있으면 먼저 상태를 판단한다.
+    const own = cells.filter((cell) => cell.action === action.id && cell.state !== null && !isAutomatic(cell.userType));
+    const states = [...new Set(own.map((cell) => cell.state))];
+    const allowed = states.filter((state) => own.some((cell) => cell.state === state && cell.value === 'allow'));
+    if (allowed.length > 0 && allowed.length < states.length) {
+      const decision = b.decide(`${quote(nameOf(action.entity), '이/가')} ${allowed.map((state) => quote(nameOf(state))).join('·')} 상태인가?`);
+      b.link(decision, b.node('end', '할 수 없음'), 'no', '아니오');
+    }
+
+    const inputNames = action.inputs.map((input) => input.name).filter((name) => typeof name === 'string' && name !== '');
+    const processText = inputNames.length > 0 ? `${inputNames.join('·')} 입력`
+      : action.kind === 'list' ? '목록을 보여 준다' : action.kind === 'view' ? '상세를 보여 준다' : `${action.name} 실행`;
+    const processId = b.node('process', processText);
+    b.advance(processId);
+
+    if (action.inputs.some((input) => input.type !== undefined || (Array.isArray(input.rules) && input.rules.length > 0))) {
+      const decision = b.decide('입력 규칙을 지켰나?');
+      const warning = b.node('message', '입력 오류 안내');
+      b.link(decision, warning, 'no', '아니오');
+      b.link(warning, processId, 'loop', '다시 입력');
+    }
+    if (action.irreversible === true) b.link(b.decide('확인 창에서 확인했나?'), b.node('end', '취소'), 'no', '아니오');
+    if (action.async === true && action.failures.length > 0) {
+      const decision = b.decide(`${action.name} 성공?`);
+      for (const failure of action.failures) {
+        const message = b.node('message', '오류 안내');
+        b.link(decision, message, 'no', typeof failure.name === 'string' ? failure.name : '');
+        b.link(message, b.node('end', '끝'), 'no');
+      }
+    }
+    if (typeof action.success === 'string' && action.success !== '') b.advance(b.node('message', '성공 안내'));
+    for (const text of stateChanges(action)) b.advance(b.node('state', text));
+    for (const target of action.crossApp) b.advance(b.node('message', `${quote(nameOf(target.app))}에 알림`));
+    b.finish();
+    return { kind: 'function', of: action.id, requirement: null, name: action.name, nodes: b.nodes, edges: b.edges };
+  });
+
+  const withText = (base, text) => (typeof text === 'string' && text !== '' ? `${base}: ${text}` : base);
+  const pageCharts = flow.screens.filter((screen) => screen.type === 'screen').map((screen) => {
+    const b = builder(`page:${screen.id}`);
+    const appName = nameOf(screen.app);
+    const suffix = ` · ${appName}`;
+    const name = screen.name.endsWith(suffix) ? screen.name.slice(0, -suffix.length) : screen.name;
+    b.start(`${appName} · ${name}`);
+    b.link(b.decide('권한이 있나?'), b.node('end', withText('권한 없음 안내', spec.wording.denied)), 'no', '아니오');
+    const loading = b.node('process', '불러오는 중');
+    b.advance(loading);
+    const loaded = b.decide('불러왔나?');
+    const failed = b.node('message', typeof spec.wording.loadError === 'string' && spec.wording.loadError !== '' ? spec.wording.loadError : '오류 안내');
+    b.link(loaded, failed, 'no', '아니오');
+    b.link(failed, loading, 'loop', '다시 시도');
+    if (screen.rule === 'F1' || screen.rule === 'F2') {
+      const shows = spec.actions.find((action) => action.entity === screen.entity && action.kind === (screen.rule === 'F1' ? 'list' : 'view'));
+      b.link(b.decide('데이터가 있나?'), b.node('end', withText('비어 있음 안내', shows?.empty ?? spec.wording.empty)), 'no', '아니오');
+    }
+    const exits = flow.edges.filter((edge) => edge.from === screen.id && edge.rule === 'F10')
+      .map((edge) => `· ${edge.label} → ${flow.screens.find((item) => item.id === edge.to)?.name ?? ''}`);
+    b.advance(b.node('process', ['화면 표시', ...exits].join('\n')));
+    b.finish();
+    return { kind: 'page', of: screen.id, requirement: null, name, app: screen.app, nodes: b.nodes, edges: b.edges };
+  });
+
+  return [...scenarioCharts, ...functionCharts, ...pageCharts];
 }

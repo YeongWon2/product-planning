@@ -1,4 +1,4 @@
-import { LABELS, quote } from '../model/labels.mjs';
+import { LABELS, WORDING, quote } from '../model/labels.mjs';
 
 // 기능마다 개발자·QA가 알아야 하는 경우를 모델에서 모두 뽑는다. 사람이 따로 적지 않는다.
 //   입력    검증 형식(type)의 경계값
@@ -69,6 +69,7 @@ function inputCases(input) {
 }
 
 const PERMISSION_EXPECT = { hide: '보이지 않음', disable: '비활성으로 보이고 누를 수 없음', deny: '권한 없음 안내' };
+const withText = (base, text) => (typeof text === 'string' && text !== '' ? `${base}: ${text}` : base);
 const SCREEN_EXPECT = {
   '불러오는 중': '불러오는 중 표시', '빈 화면': '비어 있음 안내', '오류': '오류 안내와 다시 시도', '권한 없음': '권한 없음 안내', '보기 전용': '고치는 요소를 숨김',
 };
@@ -94,12 +95,13 @@ export function deriveEdgeCases(spec, index, cells) {
     for (const input of action.inputs) {
       if (input.type === undefined && input.rules.length === 0) continue;
       const name = typeof input.name === 'string' ? input.name : '';
-      for (const { given, ok } of inputCases(input)) push('입력', given, ok, ok ? '통과' : `${quote(name)} 오류 안내, 저장하지 않음`, name);
+      const error = input.error ?? spec.wording.inputError;
+      for (const { given, ok } of inputCases(input)) push('입력', given, ok, ok ? '통과' : (typeof error === 'string' && error !== '' ? `${quote(name)} 오류 안내: ${error}` : `${quote(name)} 오류 안내, 저장하지 않음`), name);
     }
 
     for (const cell of cells.filter((item) => item.action === action.id && item.value !== 'allow' && !isAutomatic(item.userType))) {
       const where = cell.state === null ? '' : `${quote(nameOf(cell.state))} 상태에서 `;
-      const expect = cell.value === null ? '정할 것 (동작 가능표 빈칸)' : PERMISSION_EXPECT[cell.value] ?? LABELS.permission[cell.value];
+      const expect = cell.value === null ? '정할 것 (동작 가능표 빈칸)' : cell.value === 'deny' ? withText('권한 없음 안내', action.denied ?? spec.wording.denied) : PERMISSION_EXPECT[cell.value] ?? LABELS.permission[cell.value];
       push('권한', `${quote(nameOf(cell.userType), '이/가')} ${where}시도`, false, expect);
     }
 
@@ -108,12 +110,18 @@ export function deriveEdgeCases(spec, index, cells) {
     if (action.irreversible === true) push('확인 창', '확인 창에서 취소', false, '아무것도 바뀌지 않음');
 
     if (action.async === true) {
+      const named = new Set(action.failures.map((failure) => failure.name));
       for (const failure of action.failures) push('서버', typeof failure.name === 'string' ? failure.name : '실패', false, typeof failure.message === 'string' ? failure.message : '');
+      // 기능이 따로 적지 않은 불특정 오류는 공통 문구로 처리한다.
+      for (const key of ['network', 'unknown', 'sessionExpired']) {
+        if (!named.has(WORDING[key]) && typeof spec.wording[key] === 'string') push('서버', WORDING[key], false, spec.wording[key]);
+      }
       push('서버', '처리 중 다시 누름', false, '요청을 한 번만 보냄');
     }
 
     if (action.kind === 'list' || action.kind === 'view') {
-      for (const state of spec.meta.profile.screenStates) push('화면', state, true, SCREEN_EXPECT[state] ?? `${state} 표시`);
+      const screenText = { '빈 화면': action.empty ?? spec.wording.empty, '오류': spec.wording.loadError, '권한 없음': action.denied ?? spec.wording.denied };
+      for (const state of spec.meta.profile.screenStates) push('화면', state, true, withText(SCREEN_EXPECT[state] ?? `${state} 표시`, screenText[state]));
     }
 
     for (const target of action.crossApp) {

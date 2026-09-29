@@ -37,7 +37,7 @@ function derive(spec, index) {
     permissionGaps: grid.gaps,
     questions: deriveQuestions(spec, index, { gaps: grid.gaps, flowQuestions: flow.questions }),
     acceptanceDrafts: deriveAcceptanceDrafts(spec, index, grid.cells),
-    flowcharts: deriveFlowcharts(spec, index, grid.cells),
+    flowcharts: deriveFlowcharts(spec, index, grid.cells, flow),
     edgeCases: deriveEdgeCases(spec, index, grid.cells),
   };
 }

@@ -221,7 +221,8 @@
           {
             "app": "P2",
             "userType": "U2",
-            "effect": "새 항목 알림"
+            "effect": "새 항목 알림",
+            "message": "새 항목이 배정되었습니다"
           }
         ]
       },
@@ -239,6 +240,10 @@
             "message": "마감하지 못했습니다. 다시 시도해 주세요"
           }
         ],
+        "confirm": {
+          "message": "마감하면 담당자는 더 수정할 수 없습니다. 마감할까요?",
+          "ok": "마감"
+        },
         "inputs": [],
         "crossApp": []
       },
@@ -472,7 +477,18 @@
       }
     ],
     "decisions": [],
-    "flowOverrides": []
+    "flowOverrides": [],
+    "wording": {
+      "inputError": "입력 내용을 확인해 주세요",
+      "denied": "권한이 없습니다",
+      "empty": "아직 항목이 없습니다",
+      "loadError": "불러오지 못했습니다. 다시 시도해 주세요",
+      "network": "네트워크 연결을 확인해 주세요",
+      "unknown": "문제가 생겼습니다. 잠시 후 다시 시도해 주세요",
+      "sessionExpired": "다시 로그인해 주세요",
+      "confirmOk": "확인",
+      "confirmCancel": "취소"
+    }
   },
   "derived": {
     "screens": [
@@ -826,347 +842,1063 @@
     ],
     "flowcharts": [
       {
-        "scenario": "S1",
+        "kind": "scenario",
+        "of": "S1",
         "requirement": "R1",
         "name": "항목 배정 · 기본 흐름",
         "nodes": [
           {
-            "id": "S1:n1",
+            "id": "scenario:S1:n1",
             "type": "start",
             "text": "배정 관리자 · 관리자 웹"
           },
           {
-            "id": "S1:n2",
+            "id": "scenario:S1:n2",
             "type": "process",
             "text": "항목 목록을 연다"
           },
           {
-            "id": "S1:n3",
+            "id": "scenario:S1:n3",
             "type": "process",
             "text": "제목과 담당자를 넣어 항목을 만든다"
           },
           {
-            "id": "S1:n4",
-            "type": "decision",
-            "text": "항목 만들기 성공?"
-          },
-          {
-            "id": "S1:n5",
-            "type": "message",
-            "text": "오류 안내"
-          },
-          {
-            "id": "S1:n6",
-            "type": "end",
-            "text": "끝"
-          },
-          {
-            "id": "S1:n7",
-            "type": "message",
-            "text": "성공 안내"
-          },
-          {
-            "id": "S1:n8",
-            "type": "message",
-            "text": "'담당자 앱'에 알림"
-          },
-          {
-            "id": "S1:n9",
+            "id": "scenario:S1:n4",
             "type": "process",
             "text": "만든 항목을 확인한다"
           },
           {
-            "id": "S1:n10",
+            "id": "scenario:S1:n5",
             "type": "end",
             "text": "끝"
           }
         ],
         "edges": [
           {
-            "from": "S1:n1",
-            "to": "S1:n2",
+            "from": "scenario:S1:n1",
+            "to": "scenario:S1:n2",
             "kind": "main",
             "label": ""
           },
           {
-            "from": "S1:n2",
-            "to": "S1:n3",
+            "from": "scenario:S1:n2",
+            "to": "scenario:S1:n3",
             "kind": "main",
             "label": ""
           },
           {
-            "from": "S1:n3",
-            "to": "S1:n4",
+            "from": "scenario:S1:n3",
+            "to": "scenario:S1:n4",
             "kind": "main",
             "label": ""
           },
           {
-            "from": "S1:n4",
-            "to": "S1:n5",
-            "kind": "no",
-            "label": "저장 실패"
-          },
-          {
-            "from": "S1:n5",
-            "to": "S1:n6",
-            "kind": "no",
-            "label": ""
-          },
-          {
-            "from": "S1:n4",
-            "to": "S1:n7",
-            "kind": "main",
-            "label": "예"
-          },
-          {
-            "from": "S1:n7",
-            "to": "S1:n8",
-            "kind": "main",
-            "label": ""
-          },
-          {
-            "from": "S1:n8",
-            "to": "S1:n9",
-            "kind": "main",
-            "label": ""
-          },
-          {
-            "from": "S1:n9",
-            "to": "S1:n10",
+            "from": "scenario:S1:n4",
+            "to": "scenario:S1:n5",
             "kind": "main",
             "label": ""
           }
         ]
       },
       {
-        "scenario": "S2",
+        "kind": "scenario",
+        "of": "S2",
         "requirement": "R2",
         "name": "항목 마감 · 기본 흐름",
         "nodes": [
           {
-            "id": "S2:n1",
+            "id": "scenario:S2:n1",
             "type": "start",
             "text": "배정 관리자 · 관리자 웹"
           },
           {
-            "id": "S2:n2",
+            "id": "scenario:S2:n2",
             "type": "process",
             "text": "항목 목록을 연다"
           },
           {
-            "id": "S2:n3",
+            "id": "scenario:S2:n3",
             "type": "process",
             "text": "마감할 항목을 연다"
           },
           {
-            "id": "S2:n4",
-            "type": "decision",
-            "text": "'항목'이 '진행 중' 상태인가?"
-          },
-          {
-            "id": "S2:n5",
-            "type": "end",
-            "text": "할 수 없음"
-          },
-          {
-            "id": "S2:n6",
+            "id": "scenario:S2:n4",
             "type": "process",
             "text": "마감 전에 내용을 고친다"
           },
           {
-            "id": "S2:n7",
-            "type": "decision",
-            "text": "항목 수정하기 성공?"
-          },
-          {
-            "id": "S2:n8",
-            "type": "message",
-            "text": "오류 안내"
-          },
-          {
-            "id": "S2:n9",
-            "type": "end",
-            "text": "끝"
-          },
-          {
-            "id": "S2:n10",
-            "type": "message",
-            "text": "성공 안내"
-          },
-          {
-            "id": "S2:n11",
-            "type": "decision",
-            "text": "'항목'이 '진행 중' 상태인가?"
-          },
-          {
-            "id": "S2:n12",
-            "type": "end",
-            "text": "할 수 없음"
-          },
-          {
-            "id": "S2:n13",
+            "id": "scenario:S2:n5",
             "type": "process",
             "text": "항목을 마감한다"
           },
           {
-            "id": "S2:n14",
-            "type": "decision",
-            "text": "확인 창에서 확인했나?"
-          },
-          {
-            "id": "S2:n15",
-            "type": "end",
-            "text": "취소"
-          },
-          {
-            "id": "S2:n16",
-            "type": "decision",
-            "text": "항목 마감하기 성공?"
-          },
-          {
-            "id": "S2:n17",
-            "type": "message",
-            "text": "오류 안내"
-          },
-          {
-            "id": "S2:n18",
-            "type": "end",
-            "text": "끝"
-          },
-          {
-            "id": "S2:n19",
-            "type": "message",
-            "text": "성공 안내"
-          },
-          {
-            "id": "S2:n20",
+            "id": "scenario:S2:n6",
             "type": "state",
             "text": "'항목' 진행 중 → 완료"
           },
           {
-            "id": "S2:n21",
+            "id": "scenario:S2:n7",
             "type": "end",
             "text": "끝"
           }
         ],
         "edges": [
           {
-            "from": "S2:n1",
-            "to": "S2:n2",
+            "from": "scenario:S2:n1",
+            "to": "scenario:S2:n2",
             "kind": "main",
             "label": ""
           },
           {
-            "from": "S2:n2",
-            "to": "S2:n3",
+            "from": "scenario:S2:n2",
+            "to": "scenario:S2:n3",
             "kind": "main",
             "label": ""
           },
           {
-            "from": "S2:n3",
-            "to": "S2:n4",
+            "from": "scenario:S2:n3",
+            "to": "scenario:S2:n4",
             "kind": "main",
             "label": ""
           },
           {
-            "from": "S2:n4",
-            "to": "S2:n5",
+            "from": "scenario:S2:n4",
+            "to": "scenario:S2:n5",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "scenario:S2:n5",
+            "to": "scenario:S2:n6",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "scenario:S2:n6",
+            "to": "scenario:S2:n7",
+            "kind": "main",
+            "label": ""
+          }
+        ]
+      },
+      {
+        "kind": "function",
+        "of": "AC1",
+        "requirement": null,
+        "name": "항목 목록 보기",
+        "nodes": [
+          {
+            "id": "function:AC1:n1",
+            "type": "start",
+            "text": "항목 목록 보기"
+          },
+          {
+            "id": "function:AC1:n2",
+            "type": "process",
+            "text": "목록을 보여 준다"
+          },
+          {
+            "id": "function:AC1:n3",
+            "type": "end",
+            "text": "끝"
+          }
+        ],
+        "edges": [
+          {
+            "from": "function:AC1:n1",
+            "to": "function:AC1:n2",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "function:AC1:n2",
+            "to": "function:AC1:n3",
+            "kind": "main",
+            "label": ""
+          }
+        ]
+      },
+      {
+        "kind": "function",
+        "of": "AC2",
+        "requirement": null,
+        "name": "항목 상세 보기",
+        "nodes": [
+          {
+            "id": "function:AC2:n1",
+            "type": "start",
+            "text": "항목 상세 보기"
+          },
+          {
+            "id": "function:AC2:n2",
+            "type": "process",
+            "text": "상세를 보여 준다"
+          },
+          {
+            "id": "function:AC2:n3",
+            "type": "end",
+            "text": "끝"
+          }
+        ],
+        "edges": [
+          {
+            "from": "function:AC2:n1",
+            "to": "function:AC2:n2",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "function:AC2:n2",
+            "to": "function:AC2:n3",
+            "kind": "main",
+            "label": ""
+          }
+        ]
+      },
+      {
+        "kind": "function",
+        "of": "AC3",
+        "requirement": null,
+        "name": "항목 만들기",
+        "nodes": [
+          {
+            "id": "function:AC3:n1",
+            "type": "start",
+            "text": "항목 만들기"
+          },
+          {
+            "id": "function:AC3:n2",
+            "type": "process",
+            "text": "제목·담당자 입력"
+          },
+          {
+            "id": "function:AC3:n3",
+            "type": "decision",
+            "text": "입력 규칙을 지켰나?"
+          },
+          {
+            "id": "function:AC3:n4",
+            "type": "message",
+            "text": "입력 오류 안내"
+          },
+          {
+            "id": "function:AC3:n5",
+            "type": "decision",
+            "text": "항목 만들기 성공?"
+          },
+          {
+            "id": "function:AC3:n6",
+            "type": "message",
+            "text": "오류 안내"
+          },
+          {
+            "id": "function:AC3:n7",
+            "type": "end",
+            "text": "끝"
+          },
+          {
+            "id": "function:AC3:n8",
+            "type": "message",
+            "text": "성공 안내"
+          },
+          {
+            "id": "function:AC3:n9",
+            "type": "message",
+            "text": "'담당자 앱'에 알림"
+          },
+          {
+            "id": "function:AC3:n10",
+            "type": "end",
+            "text": "끝"
+          }
+        ],
+        "edges": [
+          {
+            "from": "function:AC3:n1",
+            "to": "function:AC3:n2",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "function:AC3:n2",
+            "to": "function:AC3:n3",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "function:AC3:n3",
+            "to": "function:AC3:n4",
             "kind": "no",
             "label": "아니오"
           },
           {
-            "from": "S2:n4",
-            "to": "S2:n6",
+            "from": "function:AC3:n4",
+            "to": "function:AC3:n2",
+            "kind": "loop",
+            "label": "다시 입력"
+          },
+          {
+            "from": "function:AC3:n3",
+            "to": "function:AC3:n5",
             "kind": "main",
             "label": "예"
           },
           {
-            "from": "S2:n6",
-            "to": "S2:n7",
-            "kind": "main",
-            "label": ""
-          },
-          {
-            "from": "S2:n7",
-            "to": "S2:n8",
+            "from": "function:AC3:n5",
+            "to": "function:AC3:n6",
             "kind": "no",
             "label": "저장 실패"
           },
           {
-            "from": "S2:n8",
-            "to": "S2:n9",
+            "from": "function:AC3:n6",
+            "to": "function:AC3:n7",
             "kind": "no",
             "label": ""
           },
           {
-            "from": "S2:n7",
-            "to": "S2:n10",
+            "from": "function:AC3:n5",
+            "to": "function:AC3:n8",
             "kind": "main",
             "label": "예"
           },
           {
-            "from": "S2:n10",
-            "to": "S2:n11",
+            "from": "function:AC3:n8",
+            "to": "function:AC3:n9",
             "kind": "main",
             "label": ""
           },
           {
-            "from": "S2:n11",
-            "to": "S2:n12",
+            "from": "function:AC3:n9",
+            "to": "function:AC3:n10",
+            "kind": "main",
+            "label": ""
+          }
+        ]
+      },
+      {
+        "kind": "function",
+        "of": "AC4",
+        "requirement": null,
+        "name": "항목 마감하기",
+        "nodes": [
+          {
+            "id": "function:AC4:n1",
+            "type": "start",
+            "text": "항목 마감하기"
+          },
+          {
+            "id": "function:AC4:n2",
+            "type": "decision",
+            "text": "'항목'이 '진행 중' 상태인가?"
+          },
+          {
+            "id": "function:AC4:n3",
+            "type": "end",
+            "text": "할 수 없음"
+          },
+          {
+            "id": "function:AC4:n4",
+            "type": "process",
+            "text": "항목 마감하기 실행"
+          },
+          {
+            "id": "function:AC4:n5",
+            "type": "decision",
+            "text": "확인 창에서 확인했나?"
+          },
+          {
+            "id": "function:AC4:n6",
+            "type": "end",
+            "text": "취소"
+          },
+          {
+            "id": "function:AC4:n7",
+            "type": "decision",
+            "text": "항목 마감하기 성공?"
+          },
+          {
+            "id": "function:AC4:n8",
+            "type": "message",
+            "text": "오류 안내"
+          },
+          {
+            "id": "function:AC4:n9",
+            "type": "end",
+            "text": "끝"
+          },
+          {
+            "id": "function:AC4:n10",
+            "type": "message",
+            "text": "성공 안내"
+          },
+          {
+            "id": "function:AC4:n11",
+            "type": "state",
+            "text": "'항목' 진행 중 → 완료"
+          },
+          {
+            "id": "function:AC4:n12",
+            "type": "end",
+            "text": "끝"
+          }
+        ],
+        "edges": [
+          {
+            "from": "function:AC4:n1",
+            "to": "function:AC4:n2",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "function:AC4:n2",
+            "to": "function:AC4:n3",
             "kind": "no",
             "label": "아니오"
           },
           {
-            "from": "S2:n11",
-            "to": "S2:n13",
+            "from": "function:AC4:n2",
+            "to": "function:AC4:n4",
             "kind": "main",
             "label": "예"
           },
           {
-            "from": "S2:n13",
-            "to": "S2:n14",
+            "from": "function:AC4:n4",
+            "to": "function:AC4:n5",
             "kind": "main",
             "label": ""
           },
           {
-            "from": "S2:n14",
-            "to": "S2:n15",
+            "from": "function:AC4:n5",
+            "to": "function:AC4:n6",
             "kind": "no",
             "label": "아니오"
           },
           {
-            "from": "S2:n14",
-            "to": "S2:n16",
+            "from": "function:AC4:n5",
+            "to": "function:AC4:n7",
             "kind": "main",
             "label": "예"
           },
           {
-            "from": "S2:n16",
-            "to": "S2:n17",
+            "from": "function:AC4:n7",
+            "to": "function:AC4:n8",
             "kind": "no",
             "label": "마감 실패"
           },
           {
-            "from": "S2:n17",
-            "to": "S2:n18",
+            "from": "function:AC4:n8",
+            "to": "function:AC4:n9",
             "kind": "no",
             "label": ""
           },
           {
-            "from": "S2:n16",
-            "to": "S2:n19",
+            "from": "function:AC4:n7",
+            "to": "function:AC4:n10",
             "kind": "main",
             "label": "예"
           },
           {
-            "from": "S2:n19",
-            "to": "S2:n20",
+            "from": "function:AC4:n10",
+            "to": "function:AC4:n11",
             "kind": "main",
             "label": ""
           },
           {
-            "from": "S2:n20",
-            "to": "S2:n21",
+            "from": "function:AC4:n11",
+            "to": "function:AC4:n12",
+            "kind": "main",
+            "label": ""
+          }
+        ]
+      },
+      {
+        "kind": "function",
+        "of": "AC5",
+        "requirement": null,
+        "name": "항목 수정하기",
+        "nodes": [
+          {
+            "id": "function:AC5:n1",
+            "type": "start",
+            "text": "항목 수정하기"
+          },
+          {
+            "id": "function:AC5:n2",
+            "type": "decision",
+            "text": "'항목'이 '진행 중' 상태인가?"
+          },
+          {
+            "id": "function:AC5:n3",
+            "type": "end",
+            "text": "할 수 없음"
+          },
+          {
+            "id": "function:AC5:n4",
+            "type": "process",
+            "text": "제목·담당자·마감일·메모 입력"
+          },
+          {
+            "id": "function:AC5:n5",
+            "type": "decision",
+            "text": "입력 규칙을 지켰나?"
+          },
+          {
+            "id": "function:AC5:n6",
+            "type": "message",
+            "text": "입력 오류 안내"
+          },
+          {
+            "id": "function:AC5:n7",
+            "type": "decision",
+            "text": "항목 수정하기 성공?"
+          },
+          {
+            "id": "function:AC5:n8",
+            "type": "message",
+            "text": "오류 안내"
+          },
+          {
+            "id": "function:AC5:n9",
+            "type": "end",
+            "text": "끝"
+          },
+          {
+            "id": "function:AC5:n10",
+            "type": "message",
+            "text": "성공 안내"
+          },
+          {
+            "id": "function:AC5:n11",
+            "type": "end",
+            "text": "끝"
+          }
+        ],
+        "edges": [
+          {
+            "from": "function:AC5:n1",
+            "to": "function:AC5:n2",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "function:AC5:n2",
+            "to": "function:AC5:n3",
+            "kind": "no",
+            "label": "아니오"
+          },
+          {
+            "from": "function:AC5:n2",
+            "to": "function:AC5:n4",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "function:AC5:n4",
+            "to": "function:AC5:n5",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "function:AC5:n5",
+            "to": "function:AC5:n6",
+            "kind": "no",
+            "label": "아니오"
+          },
+          {
+            "from": "function:AC5:n6",
+            "to": "function:AC5:n4",
+            "kind": "loop",
+            "label": "다시 입력"
+          },
+          {
+            "from": "function:AC5:n5",
+            "to": "function:AC5:n7",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "function:AC5:n7",
+            "to": "function:AC5:n8",
+            "kind": "no",
+            "label": "저장 실패"
+          },
+          {
+            "from": "function:AC5:n8",
+            "to": "function:AC5:n9",
+            "kind": "no",
+            "label": ""
+          },
+          {
+            "from": "function:AC5:n7",
+            "to": "function:AC5:n10",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "function:AC5:n10",
+            "to": "function:AC5:n11",
+            "kind": "main",
+            "label": ""
+          }
+        ]
+      },
+      {
+        "kind": "page",
+        "of": "sc:P1:E1:list",
+        "requirement": null,
+        "name": "항목 목록",
+        "app": "P1",
+        "nodes": [
+          {
+            "id": "page:sc:P1:E1:list:n1",
+            "type": "start",
+            "text": "관리자 웹 · 항목 목록"
+          },
+          {
+            "id": "page:sc:P1:E1:list:n2",
+            "type": "decision",
+            "text": "권한이 있나?"
+          },
+          {
+            "id": "page:sc:P1:E1:list:n3",
+            "type": "end",
+            "text": "권한 없음 안내: 권한이 없습니다"
+          },
+          {
+            "id": "page:sc:P1:E1:list:n4",
+            "type": "process",
+            "text": "불러오는 중"
+          },
+          {
+            "id": "page:sc:P1:E1:list:n5",
+            "type": "decision",
+            "text": "불러왔나?"
+          },
+          {
+            "id": "page:sc:P1:E1:list:n6",
+            "type": "message",
+            "text": "불러오지 못했습니다. 다시 시도해 주세요"
+          },
+          {
+            "id": "page:sc:P1:E1:list:n7",
+            "type": "decision",
+            "text": "데이터가 있나?"
+          },
+          {
+            "id": "page:sc:P1:E1:list:n8",
+            "type": "end",
+            "text": "비어 있음 안내: 아직 항목이 없습니다"
+          },
+          {
+            "id": "page:sc:P1:E1:list:n9",
+            "type": "process",
+            "text": "화면 표시\n· 항목 만들기 → 항목 만들기\n· 항목 상세 보기 → 항목 상세 · 관리자 웹"
+          },
+          {
+            "id": "page:sc:P1:E1:list:n10",
+            "type": "end",
+            "text": "끝"
+          }
+        ],
+        "edges": [
+          {
+            "from": "page:sc:P1:E1:list:n1",
+            "to": "page:sc:P1:E1:list:n2",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "page:sc:P1:E1:list:n2",
+            "to": "page:sc:P1:E1:list:n3",
+            "kind": "no",
+            "label": "아니오"
+          },
+          {
+            "from": "page:sc:P1:E1:list:n2",
+            "to": "page:sc:P1:E1:list:n4",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "page:sc:P1:E1:list:n4",
+            "to": "page:sc:P1:E1:list:n5",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "page:sc:P1:E1:list:n5",
+            "to": "page:sc:P1:E1:list:n6",
+            "kind": "no",
+            "label": "아니오"
+          },
+          {
+            "from": "page:sc:P1:E1:list:n6",
+            "to": "page:sc:P1:E1:list:n4",
+            "kind": "loop",
+            "label": "다시 시도"
+          },
+          {
+            "from": "page:sc:P1:E1:list:n5",
+            "to": "page:sc:P1:E1:list:n7",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "page:sc:P1:E1:list:n7",
+            "to": "page:sc:P1:E1:list:n8",
+            "kind": "no",
+            "label": "아니오"
+          },
+          {
+            "from": "page:sc:P1:E1:list:n7",
+            "to": "page:sc:P1:E1:list:n9",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "page:sc:P1:E1:list:n9",
+            "to": "page:sc:P1:E1:list:n10",
+            "kind": "main",
+            "label": ""
+          }
+        ]
+      },
+      {
+        "kind": "page",
+        "of": "sc:P1:E1:view",
+        "requirement": null,
+        "name": "항목 상세",
+        "app": "P1",
+        "nodes": [
+          {
+            "id": "page:sc:P1:E1:view:n1",
+            "type": "start",
+            "text": "관리자 웹 · 항목 상세"
+          },
+          {
+            "id": "page:sc:P1:E1:view:n2",
+            "type": "decision",
+            "text": "권한이 있나?"
+          },
+          {
+            "id": "page:sc:P1:E1:view:n3",
+            "type": "end",
+            "text": "권한 없음 안내: 권한이 없습니다"
+          },
+          {
+            "id": "page:sc:P1:E1:view:n4",
+            "type": "process",
+            "text": "불러오는 중"
+          },
+          {
+            "id": "page:sc:P1:E1:view:n5",
+            "type": "decision",
+            "text": "불러왔나?"
+          },
+          {
+            "id": "page:sc:P1:E1:view:n6",
+            "type": "message",
+            "text": "불러오지 못했습니다. 다시 시도해 주세요"
+          },
+          {
+            "id": "page:sc:P1:E1:view:n7",
+            "type": "decision",
+            "text": "데이터가 있나?"
+          },
+          {
+            "id": "page:sc:P1:E1:view:n8",
+            "type": "end",
+            "text": "비어 있음 안내: 아직 항목이 없습니다"
+          },
+          {
+            "id": "page:sc:P1:E1:view:n9",
+            "type": "process",
+            "text": "화면 표시\n· 항목 수정하기 → 항목 수정하기"
+          },
+          {
+            "id": "page:sc:P1:E1:view:n10",
+            "type": "end",
+            "text": "끝"
+          }
+        ],
+        "edges": [
+          {
+            "from": "page:sc:P1:E1:view:n1",
+            "to": "page:sc:P1:E1:view:n2",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "page:sc:P1:E1:view:n2",
+            "to": "page:sc:P1:E1:view:n3",
+            "kind": "no",
+            "label": "아니오"
+          },
+          {
+            "from": "page:sc:P1:E1:view:n2",
+            "to": "page:sc:P1:E1:view:n4",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "page:sc:P1:E1:view:n4",
+            "to": "page:sc:P1:E1:view:n5",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "page:sc:P1:E1:view:n5",
+            "to": "page:sc:P1:E1:view:n6",
+            "kind": "no",
+            "label": "아니오"
+          },
+          {
+            "from": "page:sc:P1:E1:view:n6",
+            "to": "page:sc:P1:E1:view:n4",
+            "kind": "loop",
+            "label": "다시 시도"
+          },
+          {
+            "from": "page:sc:P1:E1:view:n5",
+            "to": "page:sc:P1:E1:view:n7",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "page:sc:P1:E1:view:n7",
+            "to": "page:sc:P1:E1:view:n8",
+            "kind": "no",
+            "label": "아니오"
+          },
+          {
+            "from": "page:sc:P1:E1:view:n7",
+            "to": "page:sc:P1:E1:view:n9",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "page:sc:P1:E1:view:n9",
+            "to": "page:sc:P1:E1:view:n10",
+            "kind": "main",
+            "label": ""
+          }
+        ]
+      },
+      {
+        "kind": "page",
+        "of": "sc:P2:E1:view",
+        "requirement": null,
+        "name": "항목 상세",
+        "app": "P2",
+        "nodes": [
+          {
+            "id": "page:sc:P2:E1:view:n1",
+            "type": "start",
+            "text": "담당자 앱 · 항목 상세"
+          },
+          {
+            "id": "page:sc:P2:E1:view:n2",
+            "type": "decision",
+            "text": "권한이 있나?"
+          },
+          {
+            "id": "page:sc:P2:E1:view:n3",
+            "type": "end",
+            "text": "권한 없음 안내: 권한이 없습니다"
+          },
+          {
+            "id": "page:sc:P2:E1:view:n4",
+            "type": "process",
+            "text": "불러오는 중"
+          },
+          {
+            "id": "page:sc:P2:E1:view:n5",
+            "type": "decision",
+            "text": "불러왔나?"
+          },
+          {
+            "id": "page:sc:P2:E1:view:n6",
+            "type": "message",
+            "text": "불러오지 못했습니다. 다시 시도해 주세요"
+          },
+          {
+            "id": "page:sc:P2:E1:view:n7",
+            "type": "decision",
+            "text": "데이터가 있나?"
+          },
+          {
+            "id": "page:sc:P2:E1:view:n8",
+            "type": "end",
+            "text": "비어 있음 안내: 아직 항목이 없습니다"
+          },
+          {
+            "id": "page:sc:P2:E1:view:n9",
+            "type": "process",
+            "text": "화면 표시"
+          },
+          {
+            "id": "page:sc:P2:E1:view:n10",
+            "type": "end",
+            "text": "끝"
+          }
+        ],
+        "edges": [
+          {
+            "from": "page:sc:P2:E1:view:n1",
+            "to": "page:sc:P2:E1:view:n2",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "page:sc:P2:E1:view:n2",
+            "to": "page:sc:P2:E1:view:n3",
+            "kind": "no",
+            "label": "아니오"
+          },
+          {
+            "from": "page:sc:P2:E1:view:n2",
+            "to": "page:sc:P2:E1:view:n4",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "page:sc:P2:E1:view:n4",
+            "to": "page:sc:P2:E1:view:n5",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "page:sc:P2:E1:view:n5",
+            "to": "page:sc:P2:E1:view:n6",
+            "kind": "no",
+            "label": "아니오"
+          },
+          {
+            "from": "page:sc:P2:E1:view:n6",
+            "to": "page:sc:P2:E1:view:n4",
+            "kind": "loop",
+            "label": "다시 시도"
+          },
+          {
+            "from": "page:sc:P2:E1:view:n5",
+            "to": "page:sc:P2:E1:view:n7",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "page:sc:P2:E1:view:n7",
+            "to": "page:sc:P2:E1:view:n8",
+            "kind": "no",
+            "label": "아니오"
+          },
+          {
+            "from": "page:sc:P2:E1:view:n7",
+            "to": "page:sc:P2:E1:view:n9",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "page:sc:P2:E1:view:n9",
+            "to": "page:sc:P2:E1:view:n10",
+            "kind": "main",
+            "label": ""
+          }
+        ]
+      },
+      {
+        "kind": "page",
+        "of": "sc:P1:E1:form:AC5",
+        "requirement": null,
+        "name": "항목 수정하기",
+        "app": "P1",
+        "nodes": [
+          {
+            "id": "page:sc:P1:E1:form:AC5:n1",
+            "type": "start",
+            "text": "관리자 웹 · 항목 수정하기"
+          },
+          {
+            "id": "page:sc:P1:E1:form:AC5:n2",
+            "type": "decision",
+            "text": "권한이 있나?"
+          },
+          {
+            "id": "page:sc:P1:E1:form:AC5:n3",
+            "type": "end",
+            "text": "권한 없음 안내: 권한이 없습니다"
+          },
+          {
+            "id": "page:sc:P1:E1:form:AC5:n4",
+            "type": "process",
+            "text": "불러오는 중"
+          },
+          {
+            "id": "page:sc:P1:E1:form:AC5:n5",
+            "type": "decision",
+            "text": "불러왔나?"
+          },
+          {
+            "id": "page:sc:P1:E1:form:AC5:n6",
+            "type": "message",
+            "text": "불러오지 못했습니다. 다시 시도해 주세요"
+          },
+          {
+            "id": "page:sc:P1:E1:form:AC5:n7",
+            "type": "process",
+            "text": "화면 표시"
+          },
+          {
+            "id": "page:sc:P1:E1:form:AC5:n8",
+            "type": "end",
+            "text": "끝"
+          }
+        ],
+        "edges": [
+          {
+            "from": "page:sc:P1:E1:form:AC5:n1",
+            "to": "page:sc:P1:E1:form:AC5:n2",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "page:sc:P1:E1:form:AC5:n2",
+            "to": "page:sc:P1:E1:form:AC5:n3",
+            "kind": "no",
+            "label": "아니오"
+          },
+          {
+            "from": "page:sc:P1:E1:form:AC5:n2",
+            "to": "page:sc:P1:E1:form:AC5:n4",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "page:sc:P1:E1:form:AC5:n4",
+            "to": "page:sc:P1:E1:form:AC5:n5",
+            "kind": "main",
+            "label": ""
+          },
+          {
+            "from": "page:sc:P1:E1:form:AC5:n5",
+            "to": "page:sc:P1:E1:form:AC5:n6",
+            "kind": "no",
+            "label": "아니오"
+          },
+          {
+            "from": "page:sc:P1:E1:form:AC5:n6",
+            "to": "page:sc:P1:E1:form:AC5:n4",
+            "kind": "loop",
+            "label": "다시 시도"
+          },
+          {
+            "from": "page:sc:P1:E1:form:AC5:n5",
+            "to": "page:sc:P1:E1:form:AC5:n7",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "page:sc:P1:E1:form:AC5:n7",
+            "to": "page:sc:P1:E1:form:AC5:n8",
             "kind": "main",
             "label": ""
           }
@@ -1188,7 +1920,7 @@
         "input": null,
         "given": "빈 화면",
         "ok": true,
-        "expect": "비어 있음 안내"
+        "expect": "비어 있음 안내: 아직 항목이 없습니다"
       },
       {
         "action": "AC1",
@@ -1196,7 +1928,7 @@
         "input": null,
         "given": "오류",
         "ok": true,
-        "expect": "오류 안내와 다시 시도"
+        "expect": "오류 안내와 다시 시도: 불러오지 못했습니다. 다시 시도해 주세요"
       },
       {
         "action": "AC1",
@@ -1204,7 +1936,7 @@
         "input": null,
         "given": "권한 없음",
         "ok": true,
-        "expect": "권한 없음 안내"
+        "expect": "권한 없음 안내: 권한이 없습니다"
       },
       {
         "action": "AC1",
@@ -1228,7 +1960,7 @@
         "input": null,
         "given": "빈 화면",
         "ok": true,
-        "expect": "비어 있음 안내"
+        "expect": "비어 있음 안내: 아직 항목이 없습니다"
       },
       {
         "action": "AC2",
@@ -1236,7 +1968,7 @@
         "input": null,
         "given": "오류",
         "ok": true,
-        "expect": "오류 안내와 다시 시도"
+        "expect": "오류 안내와 다시 시도: 불러오지 못했습니다. 다시 시도해 주세요"
       },
       {
         "action": "AC2",
@@ -1244,7 +1976,7 @@
         "input": null,
         "given": "권한 없음",
         "ok": true,
-        "expect": "권한 없음 안내"
+        "expect": "권한 없음 안내: 권한이 없습니다"
       },
       {
         "action": "AC2",
@@ -1260,7 +1992,7 @@
         "input": "제목",
         "given": "비워 둠",
         "ok": false,
-        "expect": "'제목' 오류 안내, 저장하지 않음"
+        "expect": "'제목' 오류 안내: 입력 내용을 확인해 주세요"
       },
       {
         "action": "AC3",
@@ -1268,7 +2000,7 @@
         "input": "제목",
         "given": "공백만 입력",
         "ok": false,
-        "expect": "'제목' 오류 안내, 저장하지 않음"
+        "expect": "'제목' 오류 안내: 입력 내용을 확인해 주세요"
       },
       {
         "action": "AC3",
@@ -1284,7 +2016,7 @@
         "input": "제목",
         "given": "51자",
         "ok": false,
-        "expect": "'제목' 오류 안내, 저장하지 않음"
+        "expect": "'제목' 오류 안내: 입력 내용을 확인해 주세요"
       },
       {
         "action": "AC3",
@@ -1292,7 +2024,7 @@
         "input": "담당자",
         "given": "비워 둠",
         "ok": false,
-        "expect": "'담당자' 오류 안내, 저장하지 않음"
+        "expect": "'담당자' 오류 안내: 입력 내용을 확인해 주세요"
       },
       {
         "action": "AC3",
@@ -1300,7 +2032,7 @@
         "input": "담당자",
         "given": "팀의 담당자 목록에 없는 값",
         "ok": false,
-        "expect": "'담당자' 오류 안내, 저장하지 않음"
+        "expect": "'담당자' 오류 안내: 입력 내용을 확인해 주세요"
       },
       {
         "action": "AC3",
@@ -1317,6 +2049,30 @@
         "given": "저장 실패",
         "ok": false,
         "expect": "저장하지 못했습니다. 다시 시도해 주세요"
+      },
+      {
+        "action": "AC3",
+        "category": "서버",
+        "input": null,
+        "given": "통신 실패",
+        "ok": false,
+        "expect": "네트워크 연결을 확인해 주세요"
+      },
+      {
+        "action": "AC3",
+        "category": "서버",
+        "input": null,
+        "given": "알 수 없는 오류",
+        "ok": false,
+        "expect": "문제가 생겼습니다. 잠시 후 다시 시도해 주세요"
+      },
+      {
+        "action": "AC3",
+        "category": "서버",
+        "input": null,
+        "given": "로그인 만료",
+        "ok": false,
+        "expect": "다시 로그인해 주세요"
       },
       {
         "action": "AC3",
@@ -1386,6 +2142,30 @@
         "action": "AC4",
         "category": "서버",
         "input": null,
+        "given": "통신 실패",
+        "ok": false,
+        "expect": "네트워크 연결을 확인해 주세요"
+      },
+      {
+        "action": "AC4",
+        "category": "서버",
+        "input": null,
+        "given": "알 수 없는 오류",
+        "ok": false,
+        "expect": "문제가 생겼습니다. 잠시 후 다시 시도해 주세요"
+      },
+      {
+        "action": "AC4",
+        "category": "서버",
+        "input": null,
+        "given": "로그인 만료",
+        "ok": false,
+        "expect": "다시 로그인해 주세요"
+      },
+      {
+        "action": "AC4",
+        "category": "서버",
+        "input": null,
         "given": "처리 중 다시 누름",
         "ok": false,
         "expect": "요청을 한 번만 보냄"
@@ -1396,7 +2176,7 @@
         "input": "제목",
         "given": "비워 둠",
         "ok": false,
-        "expect": "'제목' 오류 안내, 저장하지 않음"
+        "expect": "'제목' 오류 안내: 입력 내용을 확인해 주세요"
       },
       {
         "action": "AC5",
@@ -1404,7 +2184,7 @@
         "input": "제목",
         "given": "공백만 입력",
         "ok": false,
-        "expect": "'제목' 오류 안내, 저장하지 않음"
+        "expect": "'제목' 오류 안내: 입력 내용을 확인해 주세요"
       },
       {
         "action": "AC5",
@@ -1420,7 +2200,7 @@
         "input": "제목",
         "given": "51자",
         "ok": false,
-        "expect": "'제목' 오류 안내, 저장하지 않음"
+        "expect": "'제목' 오류 안내: 입력 내용을 확인해 주세요"
       },
       {
         "action": "AC5",
@@ -1428,7 +2208,7 @@
         "input": "담당자",
         "given": "비워 둠",
         "ok": false,
-        "expect": "'담당자' 오류 안내, 저장하지 않음"
+        "expect": "'담당자' 오류 안내: 입력 내용을 확인해 주세요"
       },
       {
         "action": "AC5",
@@ -1436,7 +2216,7 @@
         "input": "담당자",
         "given": "팀의 담당자 목록에 없는 값",
         "ok": false,
-        "expect": "'담당자' 오류 안내, 저장하지 않음"
+        "expect": "'담당자' 오류 안내: 입력 내용을 확인해 주세요"
       },
       {
         "action": "AC5",
@@ -1452,7 +2232,7 @@
         "input": "마감일",
         "given": "오늘보다 이전",
         "ok": false,
-        "expect": "'마감일' 오류 안내, 저장하지 않음"
+        "expect": "'마감일' 오류 안내: 입력 내용을 확인해 주세요"
       },
       {
         "action": "AC5",
@@ -1498,6 +2278,30 @@
         "action": "AC5",
         "category": "서버",
         "input": null,
+        "given": "통신 실패",
+        "ok": false,
+        "expect": "네트워크 연결을 확인해 주세요"
+      },
+      {
+        "action": "AC5",
+        "category": "서버",
+        "input": null,
+        "given": "알 수 없는 오류",
+        "ok": false,
+        "expect": "문제가 생겼습니다. 잠시 후 다시 시도해 주세요"
+      },
+      {
+        "action": "AC5",
+        "category": "서버",
+        "input": null,
+        "given": "로그인 만료",
+        "ok": false,
+        "expect": "다시 로그인해 주세요"
+      },
+      {
+        "action": "AC5",
+        "category": "서버",
+        "input": null,
         "given": "처리 중 다시 누름",
         "ok": false,
         "expect": "요청을 한 번만 보냄"
@@ -1507,8 +2311,8 @@
   "report": {
     "ready": false,
     "score": {
-      "checked": 238,
-      "passed": 236,
+      "checked": 260,
+      "passed": 258,
       "ratio": 0.992,
       "assumptionRatio": 0.125,
       "blockingQuestions": 1,

@@ -1,4 +1,4 @@
-import { LABELS, readableRef } from '../model/labels.mjs';
+import { LABELS, WORDING, quote, readableRef } from '../model/labels.mjs';
 import { escapeHtml as h, jsonForScript } from './escape.mjs';
 import { renderFlowchart } from './flowchart-svg.mjs';
 import { BOARD_SCRIPT, BOARD_STYLE, packRows, renderBoard } from './board.mjs';
@@ -77,7 +77,7 @@ function scenariosPart({ spec, index }) {
     const scenarios = spec.scenarios.filter((scenario) => scenario.requirement === requirement.id).map((scenario) => {
       const first = scenario.steps[0];
       const who = first && index.has(first.userType) ? index.name(first.userType) : '';
-      return `<li${mark(scenario.id, 'scenario')}><a href="#frame-flowchart-${h(scenario.id)}">${h(index.name(scenario.id))}</a> <span class="tag">${h(LABELS.scenarioKind[scenario.kind] ?? '')}</span> <span class="muted">${h([who, `${scenario.steps.length}단계`].filter(Boolean).join(' · '))}</span></li>`;
+      return `<li${mark(scenario.id, 'scenario')}><a href="#frame-flowchart-scenario-${h(scenario.id)}">${h(index.name(scenario.id))}</a> <span class="tag">${h(LABELS.scenarioKind[scenario.kind] ?? '')}</span> <span class="muted">${h([who, `${scenario.steps.length}단계`].filter(Boolean).join(' · '))}</span></li>`;
     }).join('');
     const conditions = spec.acceptance.filter((condition) => condition.requirement === requirement.id).map((condition) => `<li${mark(condition.id, 'acceptance')}><span class="k">상황</span> ${h(text(condition.situation))} <span class="k">행동</span> ${h(actionName(condition.action))} <span class="k">결과</span> ${h(text(condition.result))}</li>`).join('');
     return `<article class="group"${mark(requirement.id, 'requirement')}><h3>${h(index.name(requirement.id))}</h3>${scenarios ? `<ul class="scenario-list">${scenarios}</ul>` : empty('시나리오가 없습니다')}${conditions ? `<h4 class="sub">완료 조건</h4><ul class="conditions">${conditions}</ul>` : ''}</article>`;
@@ -85,17 +85,27 @@ function scenariosPart({ spec, index }) {
   return part('scenarios', groups || empty('요구사항이 없습니다'));
 }
 
+const CHART_SUBTITLE = {
+  scenario: (chart, spec, index) => {
+    const scenario = spec.scenarios.find((item) => item.id === chart.of);
+    const requirement = chart.requirement && index.has(chart.requirement) ? index.name(chart.requirement) : '요구사항 없음';
+    return `시나리오 · ${[requirement, LABELS.scenarioKind[scenario?.kind]].filter(Boolean).join(' · ')}`;
+  },
+  function: () => '기능',
+  page: (chart, spec, index) => `페이지 · ${index.has(chart.app) ? index.name(chart.app) : ''}`,
+};
+
+// 시나리오(요구사항 순) → 기능 → 페이지 순서로 한 도화지에 올린다.
 function flowchartsPart({ spec, index, derived }) {
   if (derived.flowcharts.length === 0) return part('flowcharts', empty('그릴 시나리오가 없습니다'));
   const order = new Map(spec.requirements.map((requirement, position) => [requirement.id, position]));
-  const charts = [...derived.flowcharts].sort((a, b) => (order.get(a.requirement) ?? order.size) - (order.get(b.requirement) ?? order.size));
+  const kindOrder = { scenario: 0, function: 1, page: 2 };
+  const charts = [...derived.flowcharts].sort((a, b) => (kindOrder[a.kind] - kindOrder[b.kind]) || ((order.get(a.requirement) ?? order.size) - (order.get(b.requirement) ?? order.size)));
   const frames = charts.map((chart) => {
     const { markup, width, height } = renderFlowchart(chart);
-    const scenario = spec.scenarios.find((item) => item.id === chart.scenario);
-    const requirement = chart.requirement && index.has(chart.requirement) ? index.name(chart.requirement) : '요구사항 없음';
-    return { id: `flowchart-${chart.scenario}`, title: chart.name, subtitle: [requirement, LABELS.scenarioKind[scenario?.kind]].filter(Boolean).join(' · '), width, height, markup };
+    return { id: `flowchart-${chart.kind}-${chart.of}`, title: chart.name, subtitle: CHART_SUBTITLE[chart.kind](chart, spec, index), width, height, markup };
   });
-  const legend = '<p class="legend"><span class="shape fc-shape-start">시작·끝</span><span class="shape">처리</span><span class="shape fc-shape-decision">판단</span><span class="shape fc-shape-message">안내</span><span class="shape fc-shape-state">상태 변화</span><span class="muted">안내 문구와 권한 값은 기능명세서에 있습니다</span></p>';
+  const legend = '<p class="legend"><span class="shape fc-shape-start">시작·끝</span><span class="shape">처리</span><span class="shape fc-shape-decision">판단</span><span class="shape fc-shape-message">안내</span><span class="shape fc-shape-state">상태 변화</span><span class="muted">시나리오는 순서, 기능은 판단 갈래, 페이지는 화면 상태를 보입니다. 문구와 권한 값은 기능명세서에 있습니다.</span></p>';
   return part('flowcharts', `${legend}${renderBoard({ rows: packRows(frames), withScript: false })}`);
 }
 
@@ -115,15 +125,22 @@ function whoLine(action, spec, index, cells) {
   return parts.join(' · ');
 }
 
-// 막는 경우: 엣지 케이스에서 서로 다른 원인만 모아 한 줄로 쓴다. 경계값 하나하나는 모델 데이터에 있다.
-function blockedLine(action, derived, index) {
-  const cases = derived.edgeCases.filter((item) => item.action === action.id && !item.ok);
+// 막는 경우: 서로 다른 원인만 한 줄. 공통 문구로 처리하는 통신 실패 같은 불특정 오류는 맨 위 공통 규칙에 있으므로 뺀다.
+// 모든 상태에서 막히는 사용자는 이름만, 일부 상태만 막히면 그 상태를 붙인다. 경계값 하나하나는 모델 데이터에 있다.
+function blockedLine(action, spec, index, derived) {
   const causes = [];
   const add = (cause) => { if (cause && !causes.includes(cause)) causes.push(cause); };
+  const cases = derived.edgeCases.filter((item) => item.action === action.id && !item.ok);
   if (cases.some((item) => item.category === '입력')) add('입력 규칙 위반');
-  for (const item of cases.filter((item) => item.category === '권한')) add(item.given.replace(/^'([^']+)'[이가] /, '$1 ').replace(/ 시도$/, '').replace(/ 상태에서$/, ' 상태'));
-  if (cases.some((item) => item.category === '확인 창')) add('확인 창에서 취소');
-  for (const item of cases.filter((item) => item.category === '서버' && item.given !== '처리 중 다시 누름')) add(item.given);
+  for (const userType of spec.userTypes.filter((item) => !isAutomatic(index, item.id))) {
+    const own = derived.permissionCells.filter((cell) => cell.userType === userType.id && cell.action === action.id);
+    const blocked = own.filter((cell) => cell.value !== 'allow');
+    if (blocked.length === 0) continue;
+    add(blocked.length === own.length ? index.name(userType.id) : `${index.name(userType.id)} ${blocked.map((cell) => quote(index.name(cell.state))).join('·')} 상태`);
+  }
+  if (action.irreversible === true) add('확인 창에서 취소');
+  const generic = new Set(Object.values(WORDING));
+  for (const failure of action.failures) if (typeof failure.name === 'string' && !generic.has(failure.name)) add(failure.name);
   return causes.length === 0 ? '' : `<p class="blocked"><span class="k bad">막는 경우</span> ${causes.map((cause) => h(cause)).join(' · ')}</p>`;
 }
 
@@ -158,11 +175,13 @@ function rangeOf(input) {
 
 function inputsTable(action) {
   if (action.inputs.length === 0) return '';
+  // 오류 문구 열은 기능이 공통 문구와 다르게 정한 입력이 있을 때만 둔다.
+  const withError = action.inputs.some((input) => text(input.error));
   const rows = action.inputs.map((input) => {
     const type = INPUT_TYPE[input.type];
-    return `<tr><td>${h(text(input.name))}</td><td>${type ? h(type) : '<span class="gap">형식 없음</span>'}</td><td>${input.required === true ? '예' : '아니오'}</td><td>${h(rangeOf(input))}</td></tr>`;
+    return `<tr><td>${h(text(input.name))}</td><td>${type ? h(type) : '<span class="gap">형식 없음</span>'}</td><td>${input.required === true ? '예' : '아니오'}</td><td>${h(rangeOf(input))}</td>${withError ? `<td>${h(text(input.error))}</td>` : ''}</tr>`;
   });
-  return table('inputs', ['항목', '형식', '필수', '범위·조건'], rows);
+  return table('inputs', ['항목', '형식', '필수', '범위·조건', ...(withError ? ['오류 문구'] : [])], rows);
 }
 
 function resultsList(action, spec, index) {
@@ -172,12 +191,19 @@ function resultsList(action, spec, index) {
       items.push(`<li><span class="k">상태</span> ${h(index.name(entity.id))}: ${h(index.name(transition.from))} → ${h(index.name(transition.to))}</li>`);
     }
   }
-  if (action.irreversible === true) items.push('<li><span class="k">확인 창</span> 되돌릴 수 없어 먼저 확인을 받는다</li>');
+  if (action.irreversible === true) {
+    const ok = text(action.confirm?.ok) || text(spec.wording.confirmOk) || '확인';
+    const cancel = text(action.confirm?.cancel) || text(spec.wording.confirmCancel) || '취소';
+    items.push(`<li><span class="k">확인 창</span> ${text(action.confirm?.message) ? h(action.confirm.message) : '<span class="gap">문구 없음</span>'} [${h(ok)} / ${h(cancel)}]</li>`);
+  }
+  if (text(action.empty)) items.push(`<li><span class="k">빈 화면</span> ${h(action.empty)}</li>`);
+  if (text(action.denied)) items.push(`<li><span class="k">권한 없음</span> ${h(action.denied)}</li>`);
   if (text(action.success)) items.push(`<li><span class="k ok">성공</span> ${h(action.success)}</li>`);
   for (const failure of action.failures) items.push(`<li><span class="k bad">${h(text(failure.name) || '실패')}</span> ${h(text(failure.message))}</li>`);
   for (const target of action.crossApp) {
     const who = [target.app, target.userType].filter((id) => index.has(id)).map((id) => index.name(id)).join(' ');
-    items.push(`<li><span class="k">다른 앱</span> ${h(who)}: ${h(text(target.effect))}</li>`);
+    const message = text(target.message) ? ` — 알림 "${h(target.message)}"` : ' — <span class="gap">알림 문구 없음</span>';
+    items.push(`<li><span class="k">다른 앱</span> ${h(who)}: ${h(text(target.effect))}${message}</li>`);
   }
   return items.length === 0 ? '' : `<ul class="messages">${items.join('')}</ul>`;
 }
@@ -190,7 +216,9 @@ function commonRules(spec) {
   ];
   if (spec.actions.some((action) => action.async === true)) lines.push('서버 처리는 처리 중 다시 눌러도 한 번만 요청함.');
   if (spec.actions.some((action) => action.kind === 'list' || action.kind === 'view')) lines.push(`목록·상세 화면은 ${spec.meta.profile.screenStates.join('·')} 상태를 갖는다.`);
-  return `<p class="common"><span class="k">공통 규칙</span> ${lines.map((line) => h(line)).join(' ')}</p>`;
+  const words = Object.entries(WORDING).filter(([key]) => text(spec.wording[key])).map(([key, label]) => `<li><span class="k">${h(label)}</span> ${h(spec.wording[key])}</li>`);
+  const wordingBlock = words.length === 0 ? '' : `<div class="common"><span class="k">공통 문구</span><ul class="wording">${words.join('')}</ul></div>`;
+  return `<p class="common"><span class="k">공통 규칙</span> ${lines.map((line) => h(line)).join(' ')}</p>${wordingBlock}`;
 }
 
 function specPart({ spec, index, derived }) {
@@ -208,7 +236,7 @@ function specPart({ spec, index, derived }) {
         + `<div class="function-head"><h4>${h(index.name(action.id))}${tags}</h4><div class="who">${who}</div></div>`
         + (automatic ? '' : inputsTable(action))
         + resultsList(action, spec, index)
-        + (automatic ? '' : blockedLine(action, derived, index))
+        + (automatic ? '' : blockedLine(action, spec, index, derived))
         + '</div>';
     }).join('');
     return `<article class="group"${mark(entity.id, 'entity')}><h3>${h(index.name(entity.id))}</h3>${diagram}${functions}</article>`;
@@ -241,7 +269,7 @@ h3{font-size:17px;margin:22px 0 8px}h4{font-size:15px;margin:14px 0 6px}
 .muted{color:var(--muted);font-size:13px}.empty{color:var(--muted)}
 .source{font-size:12px;color:var(--muted);background:var(--soft);border-radius:4px;padding:0 6px}.source-assumption{color:var(--warn);background:var(--gap)}
 .table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px;margin:6px 0}
-th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{color:var(--muted);font-weight:600;font-size:12px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{color:var(--muted);font-weight:600;font-size:12px;white-space:nowrap}
 .priority{display:inline-block;border-radius:4px;padding:0 6px;font-size:12px;font-weight:600}
 .priority-must{background:#fdecea;color:var(--bad)}.priority-should{background:#fff4e5;color:var(--warn)}.priority-could,.priority-none{background:var(--soft);color:var(--muted)}
 .group{border:1px solid var(--line);border-radius:10px;padding:4px 18px 14px;margin:14px 0}
@@ -254,7 +282,7 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertic
 .function{border-top:1px solid var(--line);padding:10px 0 12px}
 .function-head{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}.function-head h4{margin:0;flex:1 1 auto}
 .who{font-size:13px;color:var(--muted)}.who-item strong{color:var(--ink);font-weight:600}
-.common{background:var(--soft);border-radius:8px;padding:8px 12px;font-size:13px;margin:8px 0 4px}
+.common{background:var(--soft);border-radius:8px;padding:8px 12px;font-size:13px;margin:8px 0 4px}.wording{list-style:none;margin:2px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 16px}
 .blocked{margin:4px 0 0;font-size:13px}
 .state-wrap{overflow-x:auto;margin:4px 0 8px}.state-diagram{display:block}
 .states{font-size:13px;color:var(--muted);margin:0 0 6px}.state{color:var(--ink);background:var(--soft);border-radius:4px;padding:0 6px}.arrow{margin:0 4px}

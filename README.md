@@ -97,7 +97,7 @@ node scripts/spec.mjs build examples/assignment/spec.json
 | 명령 | 결과 | 종료 코드 |
 |---|---|---|
 | `check <spec.json>` | 착수 가능 여부, 품질 점수, 차단 이슈·경고·정할 것 | 0 착수 가능 · 1 착수 불가 · 2 사용법 오류 · 3 읽기 실패 |
-| `build <spec.json> [--out 폴더] [--open]` | `{폴더 이름}.html` 정본과 `report.json`. `--open`이면 만든 HTML을 기본 브라우저 창으로 연다 | 0 (착수 불가여도, 창을 못 열어도 만든다) · 3 읽기 실패 |
+| `build <spec.json> [--out 폴더] [--open]` | `{폴더 이름}.html`(사람용: PRD·시나리오·플로우차트·기능명세서), `model.json`(AI용: 엣지 케이스 전체 포함), `report.json`. 끝에 AI에게 붙여 넣을 프롬프트를 찍는다. `--open`이면 HTML을 기본 브라우저 창으로 연다 | 0 (착수 불가여도, 창을 못 열어도 만든다) · 3 읽기 실패 |
 
 예제 [`examples/assignment`](examples/assignment)의 결과물은 [`out/assignment.html`](examples/assignment/out/assignment.html)이다. 내려받아 브라우저로 열면 된다.
 예제는 일부러 동작 가능표 칸 하나를 비워 두었다. 그래서 착수 불가로 나오고, 다음 질문이 자동으로 만들어진다.
