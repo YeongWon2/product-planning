@@ -18,7 +18,7 @@ const PARTS = [
 ];
 const DATA_ONLY = [
   'derived.screens', 'derived.edges', 'derived.stepScreens', 'derived.entries', 'derived.overrideResults',
-  'derived.acceptanceDrafts', 'derived.permissionGaps', 'derived.questions', 'report', 'decisions', 'questions', 'events', 'summary.outOfScope',
+  'derived.acceptanceDrafts', 'derived.permissionGaps', 'derived.questions', 'derived.review', 'report', 'decisions', 'questions', 'events', 'summary.outOfScope', 'reviews', 'reviewRounds',
 ];
 
 const INPUT_TYPE = {

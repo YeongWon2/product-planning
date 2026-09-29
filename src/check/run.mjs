@@ -6,6 +6,7 @@ import { deriveAcceptanceDrafts } from '../derive/acceptance.mjs';
 import { deriveFlow } from '../flow/derive.mjs';
 import { deriveFlowcharts } from '../flow/flowchart.mjs';
 import { deriveOverview } from '../flow/overview.mjs';
+import { agreementOf, buildWorksheet } from '../review/worksheet.mjs';
 import { deriveEdgeCases } from '../derive/edge-cases.mjs';
 import { RULES } from './rules.mjs';
 
@@ -40,6 +41,7 @@ function derive(spec, index) {
     acceptanceDrafts: deriveAcceptanceDrafts(spec, index, grid.cells),
     flowcharts: deriveFlowcharts(spec, index, grid.cells, flow),
     overview: deriveOverview(spec, index, grid.cells),
+    review: { worksheet: buildWorksheet(spec, index, flow, grid.cells), agreement: agreementOf(spec.reviewRounds) },
     edgeCases: deriveEdgeCases(spec, index, grid.cells),
   };
 }

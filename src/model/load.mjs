@@ -111,6 +111,10 @@ function normalize(raw) {
   for (const key of Object.keys(wording)) if (typeof wording[key] !== 'string') { n.report(`wording.${key}`, '문자열이어야 합니다'); delete wording[key]; }
   spec.wording = wording;
   spec.product = normalizeProduct(raw.product, n);
+  spec.reviews = normalizeReviews(raw.reviews, 'reviews', n);
+  if (raw.reviewRounds === undefined) spec.reviewRounds = [];
+  else if (!Array.isArray(raw.reviewRounds)) { n.report('reviewRounds', '판단 목록 두 개의 목록이어야 합니다'); spec.reviewRounds = []; }
+  else spec.reviewRounds = raw.reviewRounds.map((round, i) => normalizeReviews(round, `reviewRounds[${i}]`, n));
   spec.meta = { ...meta, profile: normalizeProfile(meta.profile, n) };
   spec.summary = {
     ...summary,
@@ -184,6 +188,18 @@ function normalize(raw) {
 export const INPUT_TYPES = ['text', 'number', 'date', 'period', 'select', 'multiSelect', 'file', 'url', 'boolean'];
 // 글자 수·값·개수처럼 숫자로만 뜻이 맞는 범위. 날짜·기간은 '오늘', '1개월'처럼 글로도 적는다.
 const NUMERIC_RANGE = new Set(['text', 'number', 'multiSelect']);
+
+// 모델 판단(휴리스틱·워크스루). verdict: pass·issue·na, severity 0~4, evidence: 근거 요소 ID 목록.
+function normalizeReviews(list, path, n) {
+  if (list === undefined) return [];
+  return n.objects(list, path).map((item, i) => {
+    const at = `${path}[${i}]`;
+    const result = { ...item, key: n.string(item, 'key', at), finding: n.string(item, 'finding', at), fix: n.string(item, 'fix', at), accepted: n.string(item, 'accepted', at), evidence: n.strings(item.evidence, `${at}.evidence`) };
+    if (!['pass', 'issue', 'na'].includes(item.verdict)) { n.report(`${at}.verdict`, 'pass·issue·na 중 하나여야 합니다'); delete result.verdict; }
+    if (item.severity !== undefined && !(Number.isInteger(item.severity) && item.severity >= 0 && item.severity <= 4)) { n.report(`${at}.severity`, '0~4의 정수여야 합니다'); delete result.severity; }
+    return result;
+  });
+}
 
 // 서비스 구성: 구분(kind)과 이 기획이 걸치는 시스템(서비스·API 서버·외부 시스템).
 function normalizeProduct(product, n) {

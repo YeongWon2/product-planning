@@ -1,13 +1,13 @@
 {
   "ready": false,
   "score": {
-    "checked": 296,
+    "checked": 314,
     "passed": 294,
-    "ratio": 0.993,
+    "ratio": 0.936,
     "assumptionRatio": 0.125,
     "blockingQuestions": 1,
     "blockIssues": 1,
-    "warnIssues": 1
+    "warnIssues": 19
   },
   "reasons": [
     "차단 이슈 1건",
@@ -43,6 +43,114 @@
           "name": "항목 수정하기"
         }
       ]
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "사용자의 말을 쓴다 — '항목' 판단이 없습니다 (H2:E1)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "오류를 예방한다 — '항목 만들기' 판단이 없습니다 (H5:AC3)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "오류를 예방한다 — '항목 수정하기' 판단이 없습니다 (H5:AC5)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "기억하지 않게 한다 — '항목 배정 · 기본 흐름' 판단이 없습니다 (H6:S1)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "기억하지 않게 한다 — '항목 마감 · 기본 흐름' 판단이 없습니다 (H6:S2)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "필요한 것만 보여 준다 — '항목 목록' 판단이 없습니다 (H8:sc:P1:E1:list)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "도움을 준다 — '항목 목록' 판단이 없습니다 (H10:sc:P1:E1:list)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "필요한 것만 보여 준다 — '항목 상세 · 관리자 웹' 판단이 없습니다 (H8:sc:P1:E1:view)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "필요한 것만 보여 준다 — '항목 상세 · 담당자 앱' 판단이 없습니다 (H8:sc:P2:E1:view)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "필요한 것만 보여 준다 — '항목 수정하기' 판단이 없습니다 (H8:sc:P1:E1:form:AC5)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "인지적 워크스루 — '항목 배정 · 기본 흐름 1단계: 항목 목록을 연다' 판단이 없습니다 (W:S1#1)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "인지적 워크스루 — '항목 배정 · 기본 흐름 2단계: 제목과 담당자를 넣어 항목을 만든다' 판단이 없습니다 (W:S1#2)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "인지적 워크스루 — '항목 배정 · 기본 흐름 3단계: 만든 항목을 확인한다' 판단이 없습니다 (W:S1#3)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "인지적 워크스루 — '항목 마감 · 기본 흐름 1단계: 항목 목록을 연다' 판단이 없습니다 (W:S2#1)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "인지적 워크스루 — '항목 마감 · 기본 흐름 2단계: 마감할 항목을 연다' 판단이 없습니다 (W:S2#2)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "인지적 워크스루 — '항목 마감 · 기본 흐름 3단계: 마감 전에 내용을 고친다' 판단이 없습니다 (W:S2#3)",
+      "targets": []
+    },
+    {
+      "rule": "review-coverage",
+      "level": "warn",
+      "message": "인지적 워크스루 — '항목 마감 · 기본 흐름 4단계: 항목을 마감한다' 판단이 없습니다 (W:S2#4)",
+      "targets": []
+    },
+    {
+      "rule": "review-agreement",
+      "level": "warn",
+      "message": "검토를 두 번 독립적으로 판단한 기록(reviewRounds)이 없습니다",
+      "targets": []
     }
   ]
 }

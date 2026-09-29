@@ -5,9 +5,11 @@ import { loadSpec } from '../src/model/load.mjs';
 import { runPipeline } from '../src/check/run.mjs';
 import { buildModel, buildPrompt, drawingReport, renderPages } from '../src/render/html.mjs';
 import { openFile } from '../src/open-file.mjs';
+import { REVIEW_INSTRUCTIONS, SEVERITY } from '../src/review/worksheet.mjs';
 
 const USAGE = `사용법:
   node scripts/spec.mjs check <spec.json>                 검사만 한다
+  node scripts/spec.mjs review <spec.json>                모델이 판단할 휴리스틱·워크스루 검토지를 JSON으로 찍는다
   node scripts/spec.mjs build <spec.json> [--out <폴더>] [--open]
       HTML(사람용)·model.json(AI용)·report.json을 만든다 (기본: spec 옆 out/). --open이면 만든 HTML을 기본 브라우저 창으로 연다`;
 
@@ -82,6 +84,12 @@ if (!path) usage('기획서 파일(spec.json) 경로가 필요합니다');
 
 if (command === 'check') {
   check(path);
+} else if (command === 'review') {
+  const result = load(path);
+  const done = new Set(result.spec.reviews.map((item) => item.key));
+  const sheet = { instructions: REVIEW_INSTRUCTIONS, severity: SEVERITY, worksheet: result.derived.review.worksheet.map((item) => ({ ...item, judged: done.has(item.key) })), agreement: result.derived.review.agreement };
+  process.stdout.write(`${JSON.stringify(sheet, null, 2)}\n`);
+  process.exit(EXIT.ready);
 } else if (command === 'build') {
   const outAt = rest.indexOf('--out');
   if (outAt !== -1 && !rest[outAt + 1]) usage('--out 뒤에 폴더 경로가 필요합니다');

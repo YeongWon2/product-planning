@@ -50,11 +50,14 @@
       "derived.acceptanceDrafts",
       "derived.permissionGaps",
       "derived.questions",
+      "derived.review",
       "report",
       "decisions",
       "questions",
       "events",
-      "summary.outOfScope"
+      "summary.outOfScope",
+      "reviews",
+      "reviewRounds"
     ]
   },
   "spec": {
@@ -539,7 +542,9 @@
           "apps": []
         }
       ]
-    }
+    },
+    "reviews": [],
+    "reviewRounds": []
   },
   "derived": {
     "screens": [
@@ -2294,6 +2299,660 @@
         "app:P2": "app"
       }
     },
+    "review": {
+      "worksheet": [
+        {
+          "key": "H2:E1",
+          "criterion": "H2",
+          "criterionName": "사용자의 말을 쓴다",
+          "question": "앱마다 같은 개념을 같은 말로 부르는가, 사용자에게 낯선 내부 용어가 문구에 없는가",
+          "target": "E1",
+          "targetName": "항목",
+          "context": {
+            "states": [
+              "진행 중",
+              "완료"
+            ],
+            "actions": [
+              "항목 목록 보기",
+              "항목 상세 보기",
+              "항목 만들기",
+              "항목 마감하기",
+              "항목 수정하기"
+            ],
+            "wording": [
+              "입력 내용을 확인해 주세요",
+              "권한이 없습니다",
+              "아직 항목이 없습니다",
+              "불러오지 못했습니다. 다시 시도해 주세요",
+              "네트워크 연결을 확인해 주세요",
+              "문제가 생겼습니다. 잠시 후 다시 시도해 주세요",
+              "다시 로그인해 주세요",
+              "확인",
+              "취소"
+            ],
+            "apps": [
+              "관리자 웹"
+            ]
+          }
+        },
+        {
+          "key": "H5:AC3",
+          "criterion": "H5",
+          "criterionName": "오류를 예방한다",
+          "question": "제약을 입력 단계에서 막는가(선택지 제한·비활성), 아니면 제출한 뒤에야 거절하는가",
+          "target": "AC3",
+          "targetName": "항목 만들기",
+          "context": {
+            "inputs": [
+              {
+                "name": "제목",
+                "type": "text",
+                "required": true,
+                "max": 50,
+                "rules": []
+              },
+              {
+                "name": "담당자",
+                "type": "select",
+                "required": true,
+                "optionsFrom": "팀의 담당자 목록",
+                "rules": []
+              }
+            ],
+            "success": "항목을 배정했습니다",
+            "failures": [
+              {
+                "name": "저장 실패",
+                "message": "저장하지 못했습니다. 다시 시도해 주세요"
+              }
+            ],
+            "permissions": [
+              {
+                "userType": "배정 관리자",
+                "state": null,
+                "value": "allow"
+              },
+              {
+                "userType": "담당자",
+                "state": null,
+                "value": "hide"
+              }
+            ]
+          }
+        },
+        {
+          "key": "H5:AC5",
+          "criterion": "H5",
+          "criterionName": "오류를 예방한다",
+          "question": "제약을 입력 단계에서 막는가(선택지 제한·비활성), 아니면 제출한 뒤에야 거절하는가",
+          "target": "AC5",
+          "targetName": "항목 수정하기",
+          "context": {
+            "inputs": [
+              {
+                "name": "제목",
+                "type": "text",
+                "required": true,
+                "max": 50,
+                "rules": []
+              },
+              {
+                "name": "담당자",
+                "type": "select",
+                "required": true,
+                "optionsFrom": "팀의 담당자 목록",
+                "rules": []
+              },
+              {
+                "name": "마감일",
+                "type": "date",
+                "required": false,
+                "min": "오늘",
+                "rules": []
+              },
+              {
+                "name": "메모",
+                "required": false,
+                "rules": []
+              }
+            ],
+            "success": "항목을 수정했습니다",
+            "failures": [
+              {
+                "name": "저장 실패",
+                "message": "저장하지 못했습니다. 다시 시도해 주세요"
+              }
+            ],
+            "permissions": [
+              {
+                "userType": "배정 관리자",
+                "state": "진행 중",
+                "value": "allow"
+              },
+              {
+                "userType": "배정 관리자",
+                "state": "완료",
+                "value": null
+              },
+              {
+                "userType": "담당자",
+                "state": "진행 중",
+                "value": "hide"
+              },
+              {
+                "userType": "담당자",
+                "state": "완료",
+                "value": "hide"
+              }
+            ]
+          }
+        },
+        {
+          "key": "H6:S1",
+          "criterion": "H6",
+          "criterionName": "기억하지 않게 한다",
+          "question": "앞 단계에서 고른 값을 다시 입력하게 하지 않는가, 선택지를 목록으로 보여 주는가",
+          "target": "S1",
+          "targetName": "항목 배정 · 기본 흐름",
+          "context": {
+            "steps": [
+              {
+                "who": "배정 관리자",
+                "app": "관리자 웹",
+                "action": "항목 목록 보기",
+                "text": "항목 목록을 연다",
+                "inputs": []
+              },
+              {
+                "who": "배정 관리자",
+                "app": "관리자 웹",
+                "action": "항목 만들기",
+                "text": "제목과 담당자를 넣어 항목을 만든다",
+                "inputs": [
+                  "제목",
+                  "담당자"
+                ]
+              },
+              {
+                "who": "배정 관리자",
+                "app": "관리자 웹",
+                "action": "항목 상세 보기",
+                "text": "만든 항목을 확인한다",
+                "inputs": []
+              }
+            ]
+          }
+        },
+        {
+          "key": "H6:S2",
+          "criterion": "H6",
+          "criterionName": "기억하지 않게 한다",
+          "question": "앞 단계에서 고른 값을 다시 입력하게 하지 않는가, 선택지를 목록으로 보여 주는가",
+          "target": "S2",
+          "targetName": "항목 마감 · 기본 흐름",
+          "context": {
+            "steps": [
+              {
+                "who": "배정 관리자",
+                "app": "관리자 웹",
+                "action": "항목 목록 보기",
+                "text": "항목 목록을 연다",
+                "inputs": []
+              },
+              {
+                "who": "배정 관리자",
+                "app": "관리자 웹",
+                "action": "항목 상세 보기",
+                "text": "마감할 항목을 연다",
+                "inputs": []
+              },
+              {
+                "who": "배정 관리자",
+                "app": "관리자 웹",
+                "action": "항목 수정하기",
+                "text": "마감 전에 내용을 고친다",
+                "inputs": [
+                  "제목",
+                  "담당자",
+                  "마감일",
+                  "메모"
+                ]
+              },
+              {
+                "who": "배정 관리자",
+                "app": "관리자 웹",
+                "action": "항목 마감하기",
+                "text": "항목을 마감한다",
+                "inputs": []
+              }
+            ]
+          }
+        },
+        {
+          "key": "H8:sc:P1:E1:list",
+          "criterion": "H8",
+          "criterionName": "필요한 것만 보여 준다",
+          "question": "이 화면의 주요 동작이 하나로 분명한가, 시나리오와 무관한 동작이 섞여 있지 않은가",
+          "target": "sc:P1:E1:list",
+          "targetName": "항목 목록",
+          "context": {
+            "app": "관리자 웹",
+            "actions": [
+              "항목 만들기",
+              "항목 상세 보기"
+            ],
+            "states": [
+              "불러오는 중",
+              "빈 화면",
+              "오류",
+              "권한 없음",
+              "보기 전용"
+            ]
+          }
+        },
+        {
+          "key": "H10:sc:P1:E1:list",
+          "criterion": "H10",
+          "criterionName": "도움을 준다",
+          "question": "처음 사용해 비어 있을 때 무엇을 하면 되는지 알려 주는가",
+          "target": "sc:P1:E1:list",
+          "targetName": "항목 목록",
+          "context": {
+            "empty": "아직 항목이 없습니다",
+            "actions": [
+              "항목 만들기",
+              "항목 상세 보기"
+            ]
+          }
+        },
+        {
+          "key": "H8:sc:P1:E1:view",
+          "criterion": "H8",
+          "criterionName": "필요한 것만 보여 준다",
+          "question": "이 화면의 주요 동작이 하나로 분명한가, 시나리오와 무관한 동작이 섞여 있지 않은가",
+          "target": "sc:P1:E1:view",
+          "targetName": "항목 상세 · 관리자 웹",
+          "context": {
+            "app": "관리자 웹",
+            "actions": [
+              "담당자 앱에 알림",
+              "항목 수정하기",
+              "항목 마감하기"
+            ],
+            "states": [
+              "불러오는 중",
+              "빈 화면",
+              "오류",
+              "권한 없음",
+              "보기 전용"
+            ]
+          }
+        },
+        {
+          "key": "H8:sc:P2:E1:view",
+          "criterion": "H8",
+          "criterionName": "필요한 것만 보여 준다",
+          "question": "이 화면의 주요 동작이 하나로 분명한가, 시나리오와 무관한 동작이 섞여 있지 않은가",
+          "target": "sc:P2:E1:view",
+          "targetName": "항목 상세 · 담당자 앱",
+          "context": {
+            "app": "담당자 앱",
+            "actions": [],
+            "states": [
+              "불러오는 중",
+              "빈 화면",
+              "오류",
+              "권한 없음",
+              "보기 전용"
+            ]
+          }
+        },
+        {
+          "key": "H8:sc:P1:E1:form:AC5",
+          "criterion": "H8",
+          "criterionName": "필요한 것만 보여 준다",
+          "question": "이 화면의 주요 동작이 하나로 분명한가, 시나리오와 무관한 동작이 섞여 있지 않은가",
+          "target": "sc:P1:E1:form:AC5",
+          "targetName": "항목 수정하기",
+          "context": {
+            "app": "관리자 웹",
+            "actions": [
+              "완료"
+            ],
+            "states": [
+              "불러오는 중",
+              "빈 화면",
+              "오류",
+              "권한 없음",
+              "보기 전용"
+            ]
+          }
+        },
+        {
+          "key": "W:S1#1",
+          "criterion": "W",
+          "criterionName": "인지적 워크스루",
+          "question": "W1 이 단계에서 무엇을 하려 할지 아는가 · W2 필요한 요소가 이 상태에서 보이는가 · W3 그 요소가 원하는 결과를 낼 거라고 연결 짓는가 · W4 누른 뒤 제대로 됐다고 아는가",
+          "target": "S1#1",
+          "targetName": "항목 배정 · 기본 흐름 1단계: 항목 목록을 연다",
+          "context": {
+            "userType": "배정 관리자",
+            "app": "관리자 웹",
+            "screen": "항목 목록",
+            "action": {
+              "name": "항목 목록 보기",
+              "inputs": [],
+              "failures": [],
+              "permissions": [
+                {
+                  "userType": "배정 관리자",
+                  "state": null,
+                  "value": "allow"
+                },
+                {
+                  "userType": "담당자",
+                  "state": null,
+                  "value": "allow"
+                }
+              ]
+            }
+          },
+          "userType": "U1"
+        },
+        {
+          "key": "W:S1#2",
+          "criterion": "W",
+          "criterionName": "인지적 워크스루",
+          "question": "W1 이 단계에서 무엇을 하려 할지 아는가 · W2 필요한 요소가 이 상태에서 보이는가 · W3 그 요소가 원하는 결과를 낼 거라고 연결 짓는가 · W4 누른 뒤 제대로 됐다고 아는가",
+          "target": "S1#2",
+          "targetName": "항목 배정 · 기본 흐름 2단계: 제목과 담당자를 넣어 항목을 만든다",
+          "context": {
+            "userType": "배정 관리자",
+            "app": "관리자 웹",
+            "screen": "항목 만들기",
+            "action": {
+              "name": "항목 만들기",
+              "inputs": [
+                {
+                  "name": "제목",
+                  "type": "text",
+                  "required": true,
+                  "max": 50,
+                  "rules": []
+                },
+                {
+                  "name": "담당자",
+                  "type": "select",
+                  "required": true,
+                  "optionsFrom": "팀의 담당자 목록",
+                  "rules": []
+                }
+              ],
+              "success": "항목을 배정했습니다",
+              "failures": [
+                {
+                  "name": "저장 실패",
+                  "message": "저장하지 못했습니다. 다시 시도해 주세요"
+                }
+              ],
+              "permissions": [
+                {
+                  "userType": "배정 관리자",
+                  "state": null,
+                  "value": "allow"
+                },
+                {
+                  "userType": "담당자",
+                  "state": null,
+                  "value": "hide"
+                }
+              ]
+            }
+          },
+          "userType": "U1"
+        },
+        {
+          "key": "W:S1#3",
+          "criterion": "W",
+          "criterionName": "인지적 워크스루",
+          "question": "W1 이 단계에서 무엇을 하려 할지 아는가 · W2 필요한 요소가 이 상태에서 보이는가 · W3 그 요소가 원하는 결과를 낼 거라고 연결 짓는가 · W4 누른 뒤 제대로 됐다고 아는가",
+          "target": "S1#3",
+          "targetName": "항목 배정 · 기본 흐름 3단계: 만든 항목을 확인한다",
+          "context": {
+            "userType": "배정 관리자",
+            "app": "관리자 웹",
+            "screen": "항목 상세 · 관리자 웹",
+            "action": {
+              "name": "항목 상세 보기",
+              "inputs": [],
+              "failures": [],
+              "permissions": [
+                {
+                  "userType": "배정 관리자",
+                  "state": "진행 중",
+                  "value": "allow"
+                },
+                {
+                  "userType": "배정 관리자",
+                  "state": "완료",
+                  "value": "allow"
+                },
+                {
+                  "userType": "담당자",
+                  "state": "진행 중",
+                  "value": "allow"
+                },
+                {
+                  "userType": "담당자",
+                  "state": "완료",
+                  "value": "allow"
+                }
+              ]
+            }
+          },
+          "userType": "U1"
+        },
+        {
+          "key": "W:S2#1",
+          "criterion": "W",
+          "criterionName": "인지적 워크스루",
+          "question": "W1 이 단계에서 무엇을 하려 할지 아는가 · W2 필요한 요소가 이 상태에서 보이는가 · W3 그 요소가 원하는 결과를 낼 거라고 연결 짓는가 · W4 누른 뒤 제대로 됐다고 아는가",
+          "target": "S2#1",
+          "targetName": "항목 마감 · 기본 흐름 1단계: 항목 목록을 연다",
+          "context": {
+            "userType": "배정 관리자",
+            "app": "관리자 웹",
+            "screen": "항목 목록",
+            "action": {
+              "name": "항목 목록 보기",
+              "inputs": [],
+              "failures": [],
+              "permissions": [
+                {
+                  "userType": "배정 관리자",
+                  "state": null,
+                  "value": "allow"
+                },
+                {
+                  "userType": "담당자",
+                  "state": null,
+                  "value": "allow"
+                }
+              ]
+            }
+          },
+          "userType": "U1"
+        },
+        {
+          "key": "W:S2#2",
+          "criterion": "W",
+          "criterionName": "인지적 워크스루",
+          "question": "W1 이 단계에서 무엇을 하려 할지 아는가 · W2 필요한 요소가 이 상태에서 보이는가 · W3 그 요소가 원하는 결과를 낼 거라고 연결 짓는가 · W4 누른 뒤 제대로 됐다고 아는가",
+          "target": "S2#2",
+          "targetName": "항목 마감 · 기본 흐름 2단계: 마감할 항목을 연다",
+          "context": {
+            "userType": "배정 관리자",
+            "app": "관리자 웹",
+            "screen": "항목 상세 · 관리자 웹",
+            "action": {
+              "name": "항목 상세 보기",
+              "inputs": [],
+              "failures": [],
+              "permissions": [
+                {
+                  "userType": "배정 관리자",
+                  "state": "진행 중",
+                  "value": "allow"
+                },
+                {
+                  "userType": "배정 관리자",
+                  "state": "완료",
+                  "value": "allow"
+                },
+                {
+                  "userType": "담당자",
+                  "state": "진행 중",
+                  "value": "allow"
+                },
+                {
+                  "userType": "담당자",
+                  "state": "완료",
+                  "value": "allow"
+                }
+              ]
+            }
+          },
+          "userType": "U1"
+        },
+        {
+          "key": "W:S2#3",
+          "criterion": "W",
+          "criterionName": "인지적 워크스루",
+          "question": "W1 이 단계에서 무엇을 하려 할지 아는가 · W2 필요한 요소가 이 상태에서 보이는가 · W3 그 요소가 원하는 결과를 낼 거라고 연결 짓는가 · W4 누른 뒤 제대로 됐다고 아는가",
+          "target": "S2#3",
+          "targetName": "항목 마감 · 기본 흐름 3단계: 마감 전에 내용을 고친다",
+          "context": {
+            "userType": "배정 관리자",
+            "app": "관리자 웹",
+            "screen": "항목 수정하기",
+            "action": {
+              "name": "항목 수정하기",
+              "inputs": [
+                {
+                  "name": "제목",
+                  "type": "text",
+                  "required": true,
+                  "max": 50,
+                  "rules": []
+                },
+                {
+                  "name": "담당자",
+                  "type": "select",
+                  "required": true,
+                  "optionsFrom": "팀의 담당자 목록",
+                  "rules": []
+                },
+                {
+                  "name": "마감일",
+                  "type": "date",
+                  "required": false,
+                  "min": "오늘",
+                  "rules": []
+                },
+                {
+                  "name": "메모",
+                  "required": false,
+                  "rules": []
+                }
+              ],
+              "success": "항목을 수정했습니다",
+              "failures": [
+                {
+                  "name": "저장 실패",
+                  "message": "저장하지 못했습니다. 다시 시도해 주세요"
+                }
+              ],
+              "permissions": [
+                {
+                  "userType": "배정 관리자",
+                  "state": "진행 중",
+                  "value": "allow"
+                },
+                {
+                  "userType": "배정 관리자",
+                  "state": "완료",
+                  "value": null
+                },
+                {
+                  "userType": "담당자",
+                  "state": "진행 중",
+                  "value": "hide"
+                },
+                {
+                  "userType": "담당자",
+                  "state": "완료",
+                  "value": "hide"
+                }
+              ]
+            }
+          },
+          "userType": "U1"
+        },
+        {
+          "key": "W:S2#4",
+          "criterion": "W",
+          "criterionName": "인지적 워크스루",
+          "question": "W1 이 단계에서 무엇을 하려 할지 아는가 · W2 필요한 요소가 이 상태에서 보이는가 · W3 그 요소가 원하는 결과를 낼 거라고 연결 짓는가 · W4 누른 뒤 제대로 됐다고 아는가",
+          "target": "S2#4",
+          "targetName": "항목 마감 · 기본 흐름 4단계: 항목을 마감한다",
+          "context": {
+            "userType": "배정 관리자",
+            "app": "관리자 웹",
+            "screen": "항목 상세 · 관리자 웹",
+            "action": {
+              "name": "항목 마감하기",
+              "inputs": [],
+              "success": "항목을 마감했습니다",
+              "failures": [
+                {
+                  "name": "마감 실패",
+                  "message": "마감하지 못했습니다. 다시 시도해 주세요"
+                }
+              ],
+              "confirm": {
+                "message": "마감하면 담당자는 더 수정할 수 없습니다. 마감할까요?",
+                "ok": "마감"
+              },
+              "permissions": [
+                {
+                  "userType": "배정 관리자",
+                  "state": "진행 중",
+                  "value": "allow"
+                },
+                {
+                  "userType": "배정 관리자",
+                  "state": "완료",
+                  "value": "hide"
+                },
+                {
+                  "userType": "담당자",
+                  "state": "진행 중",
+                  "value": "hide"
+                },
+                {
+                  "userType": "담당자",
+                  "state": "완료",
+                  "value": "hide"
+                }
+              ]
+            }
+          },
+          "userType": "U1"
+        }
+      ],
+      "agreement": null
+    },
     "edgeCases": [
       {
         "action": "AC1",
@@ -2700,13 +3359,13 @@
   "report": {
     "ready": false,
     "score": {
-      "checked": 296,
+      "checked": 314,
       "passed": 294,
-      "ratio": 0.993,
+      "ratio": 0.936,
       "assumptionRatio": 0.125,
       "blockingQuestions": 1,
       "blockIssues": 1,
-      "warnIssues": 1
+      "warnIssues": 19
     },
     "reasons": [
       "차단 이슈 1건",
@@ -2742,6 +3401,114 @@
             "name": "항목 수정하기"
           }
         ]
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "사용자의 말을 쓴다 — '항목' 판단이 없습니다 (H2:E1)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "오류를 예방한다 — '항목 만들기' 판단이 없습니다 (H5:AC3)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "오류를 예방한다 — '항목 수정하기' 판단이 없습니다 (H5:AC5)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "기억하지 않게 한다 — '항목 배정 · 기본 흐름' 판단이 없습니다 (H6:S1)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "기억하지 않게 한다 — '항목 마감 · 기본 흐름' 판단이 없습니다 (H6:S2)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "필요한 것만 보여 준다 — '항목 목록' 판단이 없습니다 (H8:sc:P1:E1:list)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "도움을 준다 — '항목 목록' 판단이 없습니다 (H10:sc:P1:E1:list)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "필요한 것만 보여 준다 — '항목 상세 · 관리자 웹' 판단이 없습니다 (H8:sc:P1:E1:view)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "필요한 것만 보여 준다 — '항목 상세 · 담당자 앱' 판단이 없습니다 (H8:sc:P2:E1:view)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "필요한 것만 보여 준다 — '항목 수정하기' 판단이 없습니다 (H8:sc:P1:E1:form:AC5)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "인지적 워크스루 — '항목 배정 · 기본 흐름 1단계: 항목 목록을 연다' 판단이 없습니다 (W:S1#1)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "인지적 워크스루 — '항목 배정 · 기본 흐름 2단계: 제목과 담당자를 넣어 항목을 만든다' 판단이 없습니다 (W:S1#2)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "인지적 워크스루 — '항목 배정 · 기본 흐름 3단계: 만든 항목을 확인한다' 판단이 없습니다 (W:S1#3)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "인지적 워크스루 — '항목 마감 · 기본 흐름 1단계: 항목 목록을 연다' 판단이 없습니다 (W:S2#1)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "인지적 워크스루 — '항목 마감 · 기본 흐름 2단계: 마감할 항목을 연다' 판단이 없습니다 (W:S2#2)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "인지적 워크스루 — '항목 마감 · 기본 흐름 3단계: 마감 전에 내용을 고친다' 판단이 없습니다 (W:S2#3)",
+        "targets": []
+      },
+      {
+        "rule": "review-coverage",
+        "level": "warn",
+        "message": "인지적 워크스루 — '항목 마감 · 기본 흐름 4단계: 항목을 마감한다' 판단이 없습니다 (W:S2#4)",
+        "targets": []
+      },
+      {
+        "rule": "review-agreement",
+        "level": "warn",
+        "message": "검토를 두 번 독립적으로 판단한 기록(reviewRounds)이 없습니다",
+        "targets": []
       }
     ]
   }

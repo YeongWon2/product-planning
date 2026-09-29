@@ -1,5 +1,6 @@
 import { LABELS, PRODUCT, WORDING, josa, quote } from '../model/labels.mjs';
 import { statesForAction } from '../derive/permissions.mjs';
+import { describeKey } from '../review/worksheet.mjs';
 
 // 규칙 하나는 함수 하나다. 모든 규칙은 (ctx) → { checked, issues } 를 돌려주고,
 // 이슈 하나는 검사한 대상 하나에 대응한다. 그래야 점수(통과 수 = 검사 수 − 이슈 수)가 맞다.
@@ -466,7 +467,45 @@ export function flowCoverage({ spec, index, derived }) {
   return { checked, issues };
 }
 
+// 모델 판단의 관문 (설계서 5.3·5.4·5.6절).
+//   review-coverage  검토지의 항목마다 판단이 있는가
+//   review-evidence  판단마다 실제로 있는 요소를 근거로 들었는가, 검토지에 없는 key는 아닌가
+//   review-severity  심각도 3~4가 결정으로 받아들여지지 않은 채 남았는가 (착수 불가)
+//   review-agreement 두 번의 독립 판단이 80% 이상 일치하는가 (일관성 하네스)
+const AGREEMENT_MIN = 0.8;
+export function reviewGate({ spec, index, derived }) {
+  const issues = [];
+  const { worksheet, agreement } = derived.review;
+  const byKey = new Map(spec.reviews.map((item) => [item.key, item]));
+  const sheetKeys = new Set(worksheet.map((item) => item.key));
+  const screenIds = new Set(derived.screens.map((screen) => screen.id));
+  const known = (id) => index.has(id) || screenIds.has(id) || /^[^#]+#\d+$/.test(id) && index.has(id.split('#')[0]);
+  let checked = 0;
+  for (const item of worksheet) {
+    checked += 1;
+    if (!byKey.has(item.key)) issues.push(issue('review-coverage', 'warn', `${describeKey(item, index)} 판단이 없습니다 (${item.key})`, []));
+  }
+  for (const review of spec.reviews) {
+    checked += 1;
+    const item = worksheet.find((entry) => entry.key === review.key);
+    const label = item ? describeKey(item, index) : `검토 항목 ${review.key ?? '(key 없음)'}`;
+    if (!sheetKeys.has(review.key)) { issues.push(issue('review-evidence', 'warn', `${label}는 검토지에 없는 항목입니다`, [])); continue; }
+    if (review.evidence.length === 0) issues.push(issue('review-evidence', 'warn', `${label} 판단에 근거 요소가 없습니다`, []));
+    else if (review.evidence.some((id) => !known(id))) issues.push(issue('review-evidence', 'warn', `${label} 판단의 근거 ${review.evidence.filter((id) => !known(id)).map((id) => quote(id)).join(', ')}가 기획서에 없는 요소입니다`, []));
+    if (review.verdict === 'issue' && (review.severity ?? 0) >= 3) {
+      const accepted = typeof review.accepted === 'string' && index.is(review.accepted, 'decision');
+      if (!accepted) issues.push(issue('review-severity', 'block', `${label}: 심각도 ${review.severity} — ${review.finding ?? ''}`.trim(), []));
+    }
+  }
+  if (worksheet.length > 0) {
+    checked += 1;
+    if (agreement === null) issues.push(issue('review-agreement', 'warn', '검토를 두 번 독립적으로 판단한 기록(reviewRounds)이 없습니다', []));
+    else if (agreement.ratio < AGREEMENT_MIN) issues.push(issue('review-agreement', 'warn', `두 번의 판단 일치율 ${Math.round(agreement.ratio * 100)}% (기준 ${AGREEMENT_MIN * 100}%). 어긋난 항목: ${agreement.disagreements.slice(0, 8).join(', ')}${agreement.disagreements.length > 8 ? ` 외 ${agreement.disagreements.length - 8}` : ''}`, []));
+  }
+  return { checked, issues };
+}
+
 export const RULES = [
   shape, required, idMissing, idDuplicate, names, referencesKnown, requirementCoverage, permissionGaps, states,
-  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, questionOwners, inputRules, asyncFeedback, requestScope, requirementPriority, plainText, wording, product, flowCoverage,
+  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, questionOwners, inputRules, asyncFeedback, requestScope, requirementPriority, plainText, wording, product, flowCoverage, reviewGate,
 ];
