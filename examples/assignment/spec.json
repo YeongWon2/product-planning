@@ -1,0 +1,152 @@
+{
+  "meta": {
+    "title": "항목 배정",
+    "version": "1"
+  },
+  "summary": {
+    "problem": {
+      "text": "관리자가 항목을 배정해도 담당자가 받았는지 확인할 방법이 없다",
+      "source": { "kind": "doc", "ref": "예시 기획 문서 §1" }
+    },
+    "outOfScope": ["담당자끼리 항목 넘기기"],
+    "metrics": [
+      { "id": "M1", "name": "주간 배정 완료율", "events": ["EV1"], "source": { "kind": "doc", "ref": "예시 기획 문서 §2" } }
+    ]
+  },
+  "userTypes": [
+    { "id": "U1", "name": "배정 관리자", "goal": "담당자에게 항목을 빠짐없이 배정한다", "source": { "kind": "doc", "ref": "예시 기획 문서 §1" } },
+    { "id": "U2", "name": "담당자", "goal": "배정된 항목을 제때 처리한다", "source": { "kind": "assumption" } }
+  ],
+  "apps": [
+    { "id": "P1", "name": "관리자 웹" },
+    { "id": "P2", "name": "담당자 앱" }
+  ],
+  "requirements": [
+    { "id": "R1", "name": "관리자가 항목을 배정한다", "userType": "U1", "priority": "must", "source": { "kind": "doc", "ref": "예시 기획 문서 §3" } },
+    { "id": "R2", "name": "관리자가 항목을 마감한다", "userType": "U1", "priority": "should", "source": { "kind": "doc", "ref": "예시 기획 문서 §4" } }
+  ],
+  "entities": [
+    {
+      "id": "E1",
+      "name": "항목",
+      "states": [
+        { "id": "ST1", "name": "진행 중", "initial": true },
+        { "id": "ST2", "name": "완료", "terminal": true }
+      ],
+      "transitions": [
+        { "from": "ST1", "to": "ST2", "action": "AC4" }
+      ]
+    }
+  ],
+  "actions": [
+    { "id": "AC1", "name": "항목 목록 보기", "entity": "E1", "kind": "list" },
+    { "id": "AC2", "name": "항목 상세 보기", "entity": "E1", "kind": "view" },
+    {
+      "id": "AC3",
+      "name": "항목 만들기",
+      "entity": "E1",
+      "kind": "create",
+      "inputs": [
+        { "name": "제목", "rules": ["필수", "최대 50자"] },
+        { "name": "담당자", "rules": ["필수"] }
+      ],
+      "async": true,
+      "success": "항목을 배정했습니다",
+      "failures": [{ "name": "저장 실패", "message": "저장하지 못했습니다. 다시 시도해 주세요" }],
+      "crossApp": [{ "app": "P2", "userType": "U2", "effect": "새 항목 알림" }]
+    },
+    {
+      "id": "AC4",
+      "name": "항목 마감하기",
+      "entity": "E1",
+      "kind": "other",
+      "irreversible": true,
+      "async": true,
+      "success": "항목을 마감했습니다",
+      "failures": [{ "name": "마감 실패", "message": "마감하지 못했습니다. 다시 시도해 주세요" }]
+    },
+    {
+      "id": "AC5",
+      "name": "항목 수정하기",
+      "entity": "E1",
+      "kind": "update",
+      "inputs": [
+        { "name": "제목", "rules": ["필수", "최대 50자"] },
+        { "name": "담당자", "rules": ["필수"] },
+        { "name": "마감일", "rules": ["오늘 이후"] },
+        { "name": "메모", "rules": [] }
+      ],
+      "async": true,
+      "success": "항목을 수정했습니다",
+      "failures": [{ "name": "저장 실패", "message": "저장하지 못했습니다. 다시 시도해 주세요" }]
+    }
+  ],
+  "permissions": [
+    { "userType": "U1", "action": "AC1", "value": "allow" },
+    { "userType": "U1", "action": "AC3", "value": "allow" },
+    { "userType": "U1", "action": "AC2", "state": "ST1", "value": "allow" },
+    { "userType": "U1", "action": "AC2", "state": "ST2", "value": "allow" },
+    { "userType": "U1", "action": "AC4", "state": "ST1", "value": "allow" },
+    { "userType": "U1", "action": "AC4", "state": "ST2", "value": "hide" },
+    { "userType": "U1", "action": "AC5", "state": "ST1", "value": "allow" },
+    { "userType": "U2", "action": "AC1", "value": "allow" },
+    { "userType": "U2", "action": "AC3", "value": "hide" },
+    { "userType": "U2", "action": "AC2", "state": "ST1", "value": "allow" },
+    { "userType": "U2", "action": "AC2", "state": "ST2", "value": "allow" },
+    { "userType": "U2", "action": "AC4", "state": "ST1", "value": "hide" },
+    { "userType": "U2", "action": "AC4", "state": "ST2", "value": "hide" },
+    { "userType": "U2", "action": "AC5", "state": "ST1", "value": "hide" },
+    { "userType": "U2", "action": "AC5", "state": "ST2", "value": "hide" }
+  ],
+  "scenarios": [
+    {
+      "id": "S1",
+      "name": "항목 배정 · 기본 흐름",
+      "requirement": "R1",
+      "kind": "main",
+      "steps": [
+        { "userType": "U1", "app": "P1", "action": "AC1", "text": "항목 목록을 연다" },
+        { "userType": "U1", "app": "P1", "action": "AC3", "text": "제목과 담당자를 넣어 항목을 만든다" },
+        { "userType": "U1", "app": "P1", "action": "AC2", "text": "만든 항목을 확인한다" }
+      ]
+    },
+    {
+      "id": "S2",
+      "name": "항목 마감 · 기본 흐름",
+      "requirement": "R2",
+      "kind": "main",
+      "steps": [
+        { "userType": "U1", "app": "P1", "action": "AC1", "text": "항목 목록을 연다" },
+        { "userType": "U1", "app": "P1", "action": "AC2", "text": "마감할 항목을 연다" },
+        { "userType": "U1", "app": "P1", "action": "AC5", "text": "마감 전에 내용을 고친다" },
+        { "userType": "U1", "app": "P1", "action": "AC4", "text": "항목을 마감한다" }
+      ]
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "C1",
+      "requirement": "R1",
+      "situation": "'배정 관리자'가 '항목 목록' 화면에 있을 때",
+      "action": "제목과 담당자를 넣어 '항목 만들기'를 마치면",
+      "result": "'진행 중' 항목이 목록에 추가되고 담당자 앱에 알림이 간다",
+      "source": { "kind": "doc", "ref": "예시 기획 문서 §3" }
+    },
+    {
+      "id": "C2",
+      "requirement": "R2",
+      "situation": "'배정 관리자'가 '진행 중' 항목의 상세 화면에 있을 때",
+      "action": "'항목 마감하기'를 누르고 확인하면",
+      "result": "항목이 '완료' 상태가 된다",
+      "source": { "kind": "doc", "ref": "예시 기획 문서 §4" }
+    }
+  ],
+  "events": [
+    { "id": "EV1", "name": "항목 배정 완료", "action": "AC3" }
+  ],
+  "questions": [
+    { "id": "Q1", "name": "알림을 끈 담당자에게는 배정을 어떻게 알리는가?", "owner": "기획", "blocking": false }
+  ],
+  "decisions": [],
+  "flowOverrides": []
+}
