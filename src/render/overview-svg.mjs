@@ -6,7 +6,7 @@ import { findCollisions, layoutUntilClean } from './layout-check.mjs';
 // 한 서비스 안의 앱들은 열 위치를 함께 쓰므로 열 사이 틈이 위아래로 곧게 이어진다. 선은 이 틈과 위쪽 통로로만 다닌다.
 //   선 경로: 출발 화면 오른쪽 → 출발 열 오른쪽 틈 → 위쪽 통로 → 도착 열 왼쪽 틈 → 도착 화면 왼쪽 (위로 → 옆으로 → 아래로)
 //   같은 서비스 안의 이동은 그 서비스 틀 위쪽 통로, 서비스를 넘나드는 영향과 API 호출은 모든 틀 위의 통로를 쓴다.
-const NODE_W = 200;
+const NODE_W = 220;
 const WRAP_AT = 14;
 const LINE = 16;
 const LABEL_MAX = 10;
@@ -15,10 +15,10 @@ const LABEL_H = 14;
 const MARGIN = 24;
 
 function ranksWithin(app, edges) {
-  const inApp = new Set(app.screens);
+  const inApp = new Set(app.nodes);
   const incoming = new Set(edges.filter((edge) => inApp.has(edge.from) && inApp.has(edge.to)).map((edge) => edge.to));
-  const roots = app.screens.filter((id) => !incoming.has(id));
-  const rank = new Map((roots.length > 0 ? roots : app.screens.slice(0, 1)).map((id) => [id, 0]));
+  const roots = app.nodes.filter((id) => !incoming.has(id));
+  const rank = new Map((roots.length > 0 ? roots : app.nodes.slice(0, 1)).map((id) => [id, 0]));
   const queue = [...rank.keys()];
   while (queue.length > 0) {
     const from = queue.shift();
@@ -26,7 +26,7 @@ function ranksWithin(app, edges) {
       if (edge.from === from && inApp.has(edge.to) && !rank.has(edge.to)) { rank.set(edge.to, rank.get(from) + 1); queue.push(edge.to); }
     }
   }
-  for (const id of app.screens) if (!rank.has(id)) rank.set(id, 0);
+  for (const id of app.nodes) if (!rank.has(id)) rank.set(id, 0);
   return rank;
 }
 
@@ -56,7 +56,7 @@ export function layoutOverview(overview, index, spacing = 1) {
     const apps = service.apps.map((app) => {
       const rank = ranksWithin(app, overview.edges);
       columns = Math.max(columns, ...[...rank.values()].map((r) => r + 1));
-      for (const id of app.screens) placeOf.set(id, { service: service.id, app: app.id, column: rank.get(id) });
+      for (const id of app.nodes) placeOf.set(id, { service: service.id, app: app.id, column: rank.get(id) });
       return { ...app, rank };
     });
     return { ...service, apps, columns };
@@ -123,14 +123,14 @@ export function layoutOverview(overview, index, spacing = 1) {
       const appBox = { id: app.id, service: service.id, kind: 'app', x: service.x + 6, y, w: service.w - 12, h: 0 };
       const heights = new Array(service.columns).fill(0);
       const rowsTop = y + APP_HEAD;
-      for (const id of app.screens) {
+      for (const id of app.nodes) {
         const column = app.rank.get(id);
         const name = screenName(id);
         const h = nodeH(name);
         nodes.push({ id, name, lines: linesOf(name), app: app.id, type: overview.types?.[id] ?? 'screen', x: xs[column], y: rowsTop + heights[column], w: NODE_W, h });
         heights[column] += h + ROW_GAP;
       }
-      appBox.h = APP_HEAD + Math.max(40, ...heights) + APP_PAD - (app.screens.length > 0 ? ROW_GAP : 0);
+      appBox.h = APP_HEAD + Math.max(40, ...heights) + APP_PAD - (app.nodes.length > 0 ? ROW_GAP : 0);
       containers.push(appBox);
       labels.push({ x: xs[0], y: y + 8, w: Math.min(NODE_W, [...app.name].length * 13 + 4), h: 16, text: app.name });
       y = appBox.y + appBox.h + 10 * S;
@@ -223,7 +223,7 @@ function overlapBox(a, b) {
   return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 }
 
-const NODE_CLASS = { screen: 'ov-screen', modal: 'ov-modal', confirm: 'ov-confirm', notification: 'ov-notify', api: 'ov-api', external: 'ov-external' };
+const NODE_CLASS = { requirement: 'ov-req', auto: 'ov-auto', app: 'ov-appnode', api: 'ov-api', external: 'ov-external' };
 
 export function renderOverview(overview, index) {
   const layout = layoutUntilClean((spacing) => layoutOverview(overview, index, spacing));
@@ -239,7 +239,7 @@ export function renderOverview(overview, index) {
     const { lines } = node;
     const top = node.y + node.h / 2 - ((lines.length - 1) * LINE) / 2 + 5;
     const text = lines.map((line, i) => `<tspan x="${node.x + node.w / 2}" y="${top + i * LINE}">${escapeHtml(line)}</tspan>`).join('');
-    return `<g data-overview-node="${escapeHtml(node.id)}"><rect class="${NODE_CLASS[node.type] ?? 'ov-screen'}" x="${node.x}" y="${node.y}" width="${node.w}" height="${node.h}" rx="${node.type === 'api' || node.type === 'external' ? 4 : 8}"/><text class="ov-name">${text}</text></g>`;
+    return `<g data-overview-node="${escapeHtml(node.id)}"><rect class="${NODE_CLASS[node.type] ?? 'ov-req'}" x="${node.x}" y="${node.y}" width="${node.w}" height="${node.h}" rx="${node.type === 'api' || node.type === 'external' ? 4 : 10}"/><text class="ov-name">${text}</text></g>`;
   }).join('');
   return { markup: boxes + titles + lines + shapes, width, height, collisions, spacing };
 }

@@ -77,7 +77,8 @@ test('기능명세서는 공통 규칙 한 번, 기능마다 누가·넣는 것�
   const text = bodyText(html);
   assert.match(html, /<svg class="state-diagram"/);
   assert.match(text, /공통 규칙 .*숨김은 보이지 않음.*입력 규칙을 어기면.*한 번만 요청.*불러오는 중·빈 화면·오류·권한 없음·보기 전용/);
-  assert.match(text, /항목 만들기 서버 처리 배정 관리자 가능 · 담당자 숨김/, '누가는 제목 옆 한 줄');
+  assert.match(text, /관리자 서비스 관리자 웹/, '서비스마다 나눈다');
+  assert.match(text, /항목 만들기 서버 처리 배정 관리자 가능/, '누가는 제목 옆 한 줄, 그 서비스 사용자만');
   assert.match(text, /누가에 없는 사용자는 할 수 없음/, '불가인 사용자는 공통 규칙 한 줄로 뺀다');
   assert.match(text, /제목 텍스트 예 최대 50자/, '항목 · 형식 · 필수 · 범위 순서');
   assert.match(text, /성공 항목을 배정했습니다/);

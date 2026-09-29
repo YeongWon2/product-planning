@@ -9,15 +9,22 @@ import { findCollisions, overlap } from '../src/render/layout-check.mjs';
 const example = () => parseSpec(readFileSync(new URL('../examples/assignment/spec.json', import.meta.url), 'utf8'));
 const resultOf = () => { const { spec, problems } = example(); return runPipeline(spec, problems); };
 
-test('전체 흐름도는 서비스마다 틀을 두고 그 안에 앱과 화면, 바깥에 API 서버를 둔다', () => {
-  const { derived } = resultOf();
+test('전체 흐름은 화면이 아니라 요구사항을 상자로 두고, 서비스 틀 안에 앱별로 놓는다', () => {
+  const { derived, spec } = resultOf();
   const { overview } = derived;
-  assert.deepEqual(overview.services.map((service) => [service.id, service.apps.map((app) => app.id)]), [['SV1', ['P1']], ['SV2', ['P2']]]);
+  assert.deepEqual(overview.services.map((service) => service.id), ['SV1', 'SV2']);
+  const nodes = overview.services.flatMap((service) => service.apps.flatMap((app) => app.nodes));
+  for (const requirement of spec.requirements) assert.ok(nodes.includes(requirement.id), `${requirement.id}가 전체 흐름에 있다`);
+  assert.ok(nodes.every((id) => !id.startsWith('sc:')), '화면은 전체 흐름에 없다');
   assert.deepEqual(overview.systems.map((system) => system.id), ['API1']);
-  const kinds = new Set(overview.edges.map((edge) => edge.kind));
-  for (const kind of ['flow', 'cross', 'call']) assert.ok(kinds.has(kind), `${kind} 선이 있다`);
-  assert.ok(overview.edges.some((edge) => edge.kind === 'cross' && edge.to.startsWith('sc:P2:')), '다른 서비스로 가는 영향이 선으로 이어진다');
-  assert.ok(overview.edges.filter((edge) => edge.kind === 'call').every((edge) => edge.to === 'API1'));
+});
+
+test('선은 먼저 만들어야 쓸 수 있는 순서, 다른 서비스 영향, API 호출 세 가지다', () => {
+  const { overview } = resultOf().derived;
+  const edge = (kind) => overview.edges.filter((item) => item.kind === kind);
+  assert.deepEqual(edge('order').map((item) => [item.from, item.to, item.label]), [['R1', 'R2', '항목']]);
+  assert.ok(edge('cross').some((item) => item.from === 'R1' && item.to === 'app:P2'), '다른 서비스 앱으로 가는 영향');
+  assert.ok(edge('call').length > 0 && edge('call').every((item) => item.to === 'API1'));
 });
 
 test('전체 흐름도는 겹침이 없고, 화면은 자기 앱 틀 안에, 앱 틀은 자기 서비스 틀 안에 있다', () => {
@@ -52,6 +59,7 @@ test('전체 흐름도 SVG는 서비스 이름과 API 서버를 보이고 같은
   const { markup } = renderOverview(result.derived.overview, result.index);
   assert.match(markup, /class="ov-service"/);
   assert.match(markup, />관리자 서비스</);
+  assert.match(markup, /class="ov-req"/);
   assert.match(markup, />항목 API</);
   assert.equal(markup, renderOverview(result.derived.overview, result.index).markup);
 });

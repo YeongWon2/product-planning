@@ -46,3 +46,36 @@ test('PRD 맨 위에 구분과 서비스·앱·플랫폼·API를 한 줄씩 보�
   assert.match(text, /선수 서비스 선수 앱 \(iOS·Android\)/);
   assert.match(text, /IDP API API 서버/);
 });
+
+test('기능명세서는 서비스마다 나누고, 함께 쓰는 기능은 양쪽에 두되 누가에는 그 서비스 사용자만 보인다', () => {
+  const { spec } = parseSpec(JSON.stringify({
+    meta: { title: 't' },
+    product: { kind: 'feature', systems: [{ id: 'S1', name: '코치 서비스', kind: 'service', apps: ['P1'] }, { id: 'S2', name: '선수 서비스', kind: 'service', apps: ['P2'] }] },
+    userTypes: [{ id: 'U1', name: '코치' }, { id: 'U2', name: '선수' }],
+    apps: [{ id: 'P1', name: '코치 웹', platform: 'web' }, { id: 'P2', name: '선수 앱', platform: 'ios' }],
+    entities: [{ id: 'E1', name: '과제' }],
+    actions: [
+      { id: 'LIST', name: '과제 목록 보기', entity: 'E1', kind: 'list' },
+      { id: 'MAKE', name: '과제 부여하기', entity: 'E1', kind: 'create' },
+    ],
+    permissions: [
+      { userType: 'U1', action: 'LIST', value: 'allow' }, { userType: 'U2', action: 'LIST', value: 'allow' },
+      { userType: 'U1', action: 'MAKE', value: 'allow' }, { userType: 'U2', action: 'MAKE', value: 'deny' },
+    ],
+    requirements: [{ id: 'R1', name: '코치가 과제를 준다', userType: 'U1' }, { id: 'R2', name: '선수가 과제를 본다', userType: 'U2' }],
+    scenarios: [
+      { id: 'SC1', name: '부여', requirement: 'R1', steps: [{ userType: 'U1', app: 'P1', action: 'LIST' }, { userType: 'U1', app: 'P1', action: 'MAKE' }] },
+      { id: 'SC2', name: '보기', requirement: 'R2', steps: [{ userType: 'U2', app: 'P2', action: 'LIST' }] },
+    ],
+  }));
+  const html = renderPages(runPipeline(spec), { name: 't' })['t.spec.html'];
+  const text = html.split('data-part="spec"')[1].replace(/<svg[\s\S]*?<\/svg>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const coach = text.slice(text.indexOf('코치 서비스'), text.indexOf('선수 서비스'));
+  const player = text.slice(text.indexOf('선수 서비스'));
+  assert.ok(text.indexOf('코치 서비스') < text.indexOf('선수 서비스'));
+  assert.match(coach, /과제 목록 보기 코치 가능/);
+  assert.match(coach, /과제 부여하기/);
+  assert.ok(!/선수 가능/.test(coach), '코치 서비스의 누가에는 선수가 없다');
+  assert.match(player, /과제 목록 보기 선수 가능/);
+  assert.ok(!player.includes('과제 부여하기'), '선수 서비스에서 쓰지 않는 기능은 없다');
+});

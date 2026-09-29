@@ -2229,12 +2229,9 @@
             {
               "id": "P1",
               "name": "관리자 웹",
-              "screens": [
-                "sc:P1:E1:list",
-                "sc:P1:E1:modal:AC3",
-                "sc:P1:E1:view",
-                "sc:P1:E1:form:AC5",
-                "sc:P1:E1:confirm:AC4"
+              "nodes": [
+                "R1",
+                "R2"
               ]
             }
           ]
@@ -2246,9 +2243,8 @@
             {
               "id": "P2",
               "name": "담당자 앱",
-              "screens": [
-                "sc:P2:notify:AC3",
-                "sc:P2:E1:view"
+              "nodes": [
+                "app:P2"
               ]
             }
           ]
@@ -2263,107 +2259,39 @@
       ],
       "edges": [
         {
-          "from": "sc:P1:E1:list",
-          "to": "sc:P1:E1:modal:AC3",
-          "kind": "flow",
-          "label": "항목 만들기"
+          "from": "R1",
+          "to": "R2",
+          "kind": "order",
+          "label": "항목"
         },
         {
-          "from": "sc:P1:E1:modal:AC3",
-          "to": "sc:P1:E1:view",
-          "kind": "flow",
-          "label": "완료"
-        },
-        {
-          "from": "sc:P1:E1:view",
-          "to": "sc:P2:notify:AC3",
+          "from": "R1",
+          "to": "app:P2",
           "kind": "cross",
           "label": "담당자 앱에 알림"
         },
         {
-          "from": "sc:P2:notify:AC3",
-          "to": "sc:P2:E1:view",
-          "kind": "flow",
-          "label": "알림 열기"
-        },
-        {
-          "from": "sc:P1:E1:list",
-          "to": "sc:P1:E1:view",
-          "kind": "flow",
-          "label": "항목 상세 보기"
-        },
-        {
-          "from": "sc:P1:E1:view",
-          "to": "sc:P1:E1:form:AC5",
-          "kind": "flow",
-          "label": "항목 수정하기"
-        },
-        {
-          "from": "sc:P1:E1:form:AC5",
-          "to": "sc:P1:E1:view",
-          "kind": "flow",
-          "label": "완료"
-        },
-        {
-          "from": "sc:P1:E1:view",
-          "to": "sc:P1:E1:confirm:AC4",
-          "kind": "flow",
-          "label": "항목 마감하기"
-        },
-        {
-          "from": "sc:P1:E1:confirm:AC4",
-          "to": "sc:P1:E1:view",
-          "kind": "flow",
-          "label": "완료"
-        },
-        {
-          "from": "sc:P1:E1:list",
+          "from": "R1",
           "to": "API1",
           "kind": "call",
-          "label": "항목 목록 보기"
+          "label": "호출 3"
         },
         {
-          "from": "sc:P1:E1:view",
+          "from": "R2",
           "to": "API1",
           "kind": "call",
-          "label": "항목 상세 보기"
-        },
-        {
-          "from": "sc:P1:E1:modal:AC3",
-          "to": "API1",
-          "kind": "call",
-          "label": "항목 만들기"
-        },
-        {
-          "from": "sc:P1:E1:confirm:AC4",
-          "to": "API1",
-          "kind": "call",
-          "label": "항목 마감하기"
-        },
-        {
-          "from": "sc:P1:E1:form:AC5",
-          "to": "API1",
-          "kind": "call",
-          "label": "항목 수정하기"
+          "label": "호출 4"
         }
       ],
       "names": {
-        "sc:P1:E1:list": "항목 목록",
-        "sc:P1:E1:modal:AC3": "항목 만들기",
-        "sc:P1:E1:view": "항목 상세",
-        "sc:P2:notify:AC3": "새 항목 알림",
-        "sc:P2:E1:view": "항목 상세",
-        "sc:P1:E1:form:AC5": "항목 수정하기",
-        "sc:P1:E1:confirm:AC4": "항목 마감하기 확인"
+        "R1": "관리자가 항목을 배정한다",
+        "R2": "관리자가 항목을 마감한다",
+        "app:P2": "담당자 앱 (영향 받음)"
       },
       "types": {
-        "sc:P1:E1:list": "screen",
-        "sc:P1:E1:modal:AC3": "modal",
-        "sc:P1:E1:view": "screen",
-        "sc:P2:notify:AC3": "notification",
-        "sc:P2:E1:view": "screen",
-        "sc:P1:E1:form:AC5": "screen",
-        "sc:P1:E1:confirm:AC4": "confirm"
+        "R1": "requirement",
+        "R2": "requirement",
+        "app:P2": "app"
       }
     },
     "edgeCases": [

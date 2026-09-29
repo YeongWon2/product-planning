@@ -125,17 +125,17 @@ function flowchartsPart({ spec, index, derived }) {
   const pinned = [];
   if (derived.overview.services.length > 0) {
     const { markup, width, height } = renderOverview(derived.overview, index);
-    pinned.push({ id: 'flowchart-overview', title: '전체 흐름', subtitle: '서비스 틀 안의 앱·화면, 다른 서비스로 가는 영향, API 호출', width, height, markup });
+    pinned.push({ id: 'flowchart-overview', title: '전체 흐름', subtitle: '서비스·앱별 요구사항과 먼저 만들어야 쓰는 순서, 다른 서비스 영향, API 호출', width, height, markup });
   }
   const legend = '<p class="legend"><span class="shape fc-shape-start">시작·끝</span><span class="shape">처리</span><span class="shape fc-shape-decision">판단</span><span class="shape fc-shape-message">안내</span><span class="shape fc-shape-state">상태 변화</span><span class="muted">전체 흐름은 서비스 사이 연결, 시나리오는 순서, 기능은 판단 갈래, 페이지는 화면 상태를 보입니다. 문구와 권한 값은 기능명세서에 있습니다.</span></p>';
   return part('flowcharts', `${legend}${renderBoard({ rows: packRows(frames, pinned), withScript: false })}`);
 }
 
 // 누가: 사용자 유형마다 한 토막. 모든 상태에서 같으면 값만, 다르면 "진행 중 가능, 완료 정할 것"처럼 상태를 붙인다.
-function whoLine(action, spec, index, cells) {
+function whoLine(action, spec, index, cells, users = null) {
   const label = (value) => (value === null ? '정할 것' : value === 'allow' ? '가능' : LABELS.permission[value]);
   const parts = [];
-  for (const userType of spec.userTypes.filter((item) => !isAutomatic(index, item.id))) {
+  for (const userType of spec.userTypes.filter((item) => !isAutomatic(index, item.id) && (users === null || users.has(item.id)))) {
     const own = cells.filter((cell) => cell.userType === userType.id && cell.action === action.id);
     // 모든 상태에서 불가인 사용자는 적지 않는다. 공통 규칙에 '누가에 없는 사용자는 할 수 없음'이 있다.
     if (own.length === 0 || own.every((cell) => cell.value === 'deny')) continue;
@@ -247,10 +247,32 @@ function commonRules(spec) {
   return `<p class="common"><span class="k">공통 규칙</span> ${lines.map((line) => h(line)).join(' ')}</p>${wordingBlock}`;
 }
 
-function specPart({ spec, index, derived }) {
+// 서비스마다 나눈다. 기능은 그 기능이 쓰이는 앱(시나리오 단계)이 속한 서비스 아래에 두고,
+// 두 서비스에서 함께 쓰면 양쪽에 두되 '누가'에는 그 서비스의 앱을 쓰는 사용자만 보인다.
+function specPart(result) {
+  const { spec, index } = result;
+  const services = spec.product.systems.filter((system) => system.kind === 'service');
+  if (services.length === 0) return part('spec', commonRules(spec) + entityGroups(result, spec.actions, null) || empty('동작이 없습니다'));
+  const steps = spec.scenarios.flatMap((scenario) => scenario.steps);
+  const sections = services.map((service) => {
+    const apps = new Set(service.apps);
+    const own = steps.filter((step) => apps.has(step.app));
+    const actions = spec.actions.filter((action) => own.some((step) => step.action === action.id));
+    if (actions.length === 0) return '';
+    const users = new Set(own.map((step) => step.userType));
+    const appNames = service.apps.filter((id) => index.is(id, 'app')).map((id) => index.name(id)).join(', ');
+    return `<section class="service"${mark(service.id, 'system')}><h3 class="service-head">${h(index.name(service.id))} <span class="muted">${h(appNames)}</span></h3>${entityGroups(result, actions, users)}</section>`;
+  }).join('');
+  const placed = new Set(services.flatMap((service) => steps.filter((step) => service.apps.includes(step.app)).map((step) => step.action)));
+  const rest = spec.actions.filter((action) => !placed.has(action.id));
+  const restSection = rest.length === 0 ? '' : `<section class="service"><h3 class="service-head">서비스 정해지지 않음</h3>${entityGroups(result, rest, null)}</section>`;
+  return part('spec', (sections + restSection) ? commonRules(spec) + sections + restSection : empty('동작이 없습니다'));
+}
+
+function entityGroups({ spec, index, derived }, actionsInScope, users) {
   const automaticActions = new Set(spec.scenarios.flatMap((scenario) => scenario.steps).filter((step) => isAutomatic(index, step.userType)).map((step) => step.action));
-  const groups = spec.entities.map((entity) => {
-    const actions = spec.actions.filter((action) => action.entity === entity.id);
+  return spec.entities.map((entity) => {
+    const actions = actionsInScope.filter((action) => action.entity === entity.id);
     if (actions.length === 0) return '';
     const diagram = entity.states.length === 0 ? '' : `<div class="state-wrap">${renderStates(entity, index)}</div>`;
     const functions = actions.map((action) => {
@@ -259,7 +281,7 @@ function specPart({ spec, index, derived }) {
         .filter(Boolean).map((tag) => `<span class="tag">${h(tag)}</span>`).join('');
       const hasCells = derived.permissionCells.some((cell) => cell.action === action.id && !isAutomatic(index, cell.userType));
       const who = automatic ? '<span class="muted">규칙에 따라 저절로 일어남</span>'
-        : whoLine(action, spec, index, derived.permissionCells) || (hasCells ? '<span class="gap">아무도 할 수 없음</span>' : '<span class="gap">동작 가능표 없음</span>');
+        : whoLine(action, spec, index, derived.permissionCells, users) || (hasCells ? '<span class="gap">아무도 할 수 없음</span>' : '<span class="gap">동작 가능표 없음</span>');
       return `<div class="function"${mark(action.id, 'action')}>`
         + `<div class="function-head"><h4>${h(index.name(action.id))}${tags}</h4><div class="who">${who}</div></div>`
         + (automatic ? '' : inputsTable(action))
@@ -269,7 +291,6 @@ function specPart({ spec, index, derived }) {
     }).join('');
     return `<article class="group"${mark(entity.id, 'entity')}><h3>${h(index.name(entity.id))}</h3>${diagram}${functions}</article>`;
   }).join('');
-  return part('spec', groups ? commonRules(spec) + groups : empty('동작이 없습니다'));
 }
 
 const STYLE = `
@@ -302,6 +323,7 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertic
 .priority{display:inline-block;border-radius:4px;padding:0 6px;font-size:12px;font-weight:600}
 .priority-must{background:#fdecea;color:var(--bad)}.priority-should{background:#fff4e5;color:var(--warn)}.priority-could,.priority-none{background:var(--soft);color:var(--muted)}
 .group{border:1px solid var(--line);border-radius:10px;padding:4px 18px 14px;margin:14px 0}
+.service{margin:22px 0 8px}.service-head{font-size:19px;margin:0 0 4px;padding:8px 12px;border-left:5px solid var(--accent);background:var(--soft);border-radius:6px}
 .group>h3{margin-top:14px}
 .scenario-list{list-style:none;padding:0;margin:0}.scenario-list li{padding:4px 0}.scenario-list a{color:var(--ink);font-weight:600;text-decoration:none;border-bottom:1px dotted var(--muted)}
 .tag{display:inline-block;font-size:11px;font-weight:500;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 7px;margin-left:4px;vertical-align:middle}
