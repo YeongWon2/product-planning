@@ -143,12 +143,31 @@ export function deriveFlow(spec, index) {
     return { stepScreen: working, current: arrival.to };
   }
 
+  // F12: 기한 같은 규칙으로 저절로 일어나는 단계. 사람이 화면을 거쳐 하는 일이 아니므로 화면·이동을 만들지 않고,
+  // 결과가 보이는 곳(그 개체의 상세, 없으면 목록)에 연결한다. 사람 단계가 화면을 다 만든 뒤에 찾는다.
+  const isAutomatic = (userType) => index.get(userType)?.kind === 'userType' && index.get(userType).item.automatic === true;
+  const automaticSteps = [];
+  function shownAt(action, app) {
+    const candidates = [...screens.values()].filter((screen) => screen.entity === action.entity && screen.type === 'screen');
+    for (const pattern of ['view', 'list']) {
+      const matches = candidates.filter((screen) => screen.id.endsWith(`:${action.entity}:${pattern}`));
+      const found = matches.find((screen) => screen.app === app) ?? matches[0];
+      if (found) return found.id;
+    }
+    ask(`auto:flow:shown:${action.id}`, `${quote(action.name)}의 결과가 보이는 화면이 없다. 이 개체를 보는 목록이나 상세 동작이 필요하다`);
+    return null;
+  }
+
   for (const scenario of spec.scenarios) {
     let current = null;
     scenario.steps.forEach((step, position) => {
       const entry = index.get(step.action);
       // 알 수 없는 동작·개체는 검사 단계가 참조 오류로 보고한다. 흐름은 그 단계를 건너뛴다.
       if (entry?.kind !== 'action' || !index.is(entry.item.entity, 'entity')) return;
+      if (isAutomatic(step.userType)) {
+        automaticSteps.push({ key: `${scenario.id}#${position + 1}`, action: entry.item, app: step.app });
+        return;
+      }
       const before = current;
       const result = applyStep(entry.item, step.app, current);
       if (result.stepScreen !== null) {
@@ -157,6 +176,10 @@ export function deriveFlow(spec, index) {
       }
       current = result.current;
     });
+  }
+  for (const { key, action, app } of automaticSteps) {
+    const screen = shownAt(action, app);
+    if (screen !== null) stepScreens[key] = screen;
   }
 
   return {

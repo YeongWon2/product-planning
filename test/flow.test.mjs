@@ -115,3 +115,53 @@ test('같은 화면으로 되돌아가는 고리가 있어도 끝난다', () => 
   assert.equal(flow.screens.length, 2);
   assert.equal(flow.edges.length, 2);
 });
+
+const automatic = (action, app = 'P1') => ({ userType: 'U9', app, action });
+const withAutomatic = (input) => flowOf({
+  userTypes: [{ id: 'U1', name: '관리자' }, { id: 'U9', name: '시스템', automatic: true }],
+  ...input,
+});
+
+test('F12 자동 처리 단계는 새 화면 없이 그 개체가 보이는 상세 화면에 연결한다', () => {
+  const flow = withAutomatic({
+    actions: [
+      { id: 'L', name: '항목 목록 보기', entity: 'E1', kind: 'list' },
+      { id: 'V', name: '항목 상세 보기', entity: 'E1', kind: 'view' },
+      { id: 'X', name: '항목 기한 종료', entity: 'E1', kind: 'other' },
+    ],
+    // 자동 시나리오가 먼저 나와도 사람 시나리오가 만든 화면을 찾는다.
+    scenarios: [
+      { id: 'S0', name: '기한', steps: [automatic('X')] },
+      { id: 'S1', name: '보기', steps: [step('L'), step('V')] },
+    ],
+  });
+  assert.equal(flow.stepScreens['S0#1'], 'sc:P1:E1:view');
+  assert.deepEqual(flow.screens.map((s) => s.id), ['sc:P1:E1:list', 'sc:P1:E1:view'], '자동 처리는 화면을 만들지 않는다');
+  assert.equal(flow.edges.some((e) => e.label === '항목 기한 종료'), false, '자동 처리는 이동을 만들지 않는다');
+  assert.deepEqual(flow.entries, ['sc:P1:E1:list']);
+  assert.deepEqual(flow.questions, []);
+});
+
+test('F12 단계의 앱에 화면이 없으면 다른 앱의 상세·목록 화면을 쓴다', () => {
+  const flow = withAutomatic({
+    actions: [
+      { id: 'L', name: '항목 목록 보기', entity: 'E1', kind: 'list' },
+      { id: 'X', name: '항목 기한 종료', entity: 'E1', kind: 'other' },
+    ],
+    scenarios: [
+      { id: 'S1', name: '보기', steps: [step('L')] },
+      { id: 'S0', name: '기한', steps: [automatic('X', 'P2')] },
+    ],
+  });
+  assert.equal(flow.stepScreens['S0#1'], 'sc:P1:E1:list');
+});
+
+test('F12 결과를 보여 줄 화면이 없으면 정할 것으로 올린다', () => {
+  const flow = withAutomatic({
+    actions: [{ id: 'X', name: '항목 기한 종료', entity: 'E1', kind: 'other' }],
+    scenarios: [{ id: 'S0', name: '기한', steps: [automatic('X')] }],
+  });
+  assert.equal(flow.stepScreens['S0#1'], undefined);
+  assert.deepEqual(flow.questions.map((q) => q.name), ["'항목 기한 종료'의 결과가 보이는 화면이 없다. 이 개체를 보는 목록이나 상세 동작이 필요하다"]);
+  assert.deepEqual(flow.screens, []);
+});

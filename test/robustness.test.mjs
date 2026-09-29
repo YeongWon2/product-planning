@@ -94,3 +94,9 @@ test('적용되지 않은 흐름 바꾸기는 경고하고, 허용되지 않은 
   assert.ok(report.issues.some((item) => item.rule === 'shape' && /flowOverrides\[2\]\.as/.test(item.message)));
   assert.equal(derived.screens.find((screen) => screen.id === 'sc:P1:E1:modal:AC3').rule, 'F3');
 });
+
+test('사용자 유형의 automatic이 true/false가 아니면 형식 오류로 보고한다', () => {
+  const { problems, spec } = parseSpec(JSON.stringify({ userTypes: [{ id: 'U9', name: '시스템', automatic: '예' }] }));
+  assert.ok(problems.some((p) => p.path === 'userTypes[0].automatic'), JSON.stringify(problems));
+  assert.equal(spec.userTypes[0].automatic, undefined);
+});

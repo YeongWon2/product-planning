@@ -111,6 +111,7 @@ function normalize(raw) {
 
   const named = (key) => spec[key].map((item, i) => ({ ...item, name: n.name(item, `${key}[${i}]`) }));
   for (const key of ['userTypes', 'apps', 'requirements', 'events', 'decisions']) spec[key] = named(key);
+  spec.userTypes = spec.userTypes.map((userType, i) => ({ ...userType, automatic: n.boolean(userType, 'automatic', `userTypes[${i}]`) }));
 
   spec.entities = spec.entities.map((entity, i) => {
     const path = `entities[${i}]`;

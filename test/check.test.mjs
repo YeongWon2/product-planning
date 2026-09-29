@@ -89,3 +89,13 @@ test('어느 시나리오에도 쓰이지 않는 동작과 동작이 없는 개�
   assert.deepEqual(scope.map((i) => [i.level, i.targets[0].name]), [['warn', '항목 내보내기'], ['warn', '보관함']]);
   assert.equal(runPipeline(example()).report.issues.some((i) => i.rule === 'request-scope'), false, '예제는 모두 시나리오에 쓰인다');
 });
+
+test('우선순위가 없거나 틀린 요구사항은 경고한다', () => {
+  const spec = example();
+  delete spec.requirements[0].priority;
+  spec.requirements[1].priority = '높음';
+  const { report } = runPipeline(parseSpec(JSON.stringify(spec)).spec);
+  const found = report.issues.filter((i) => i.rule === 'requirement-priority');
+  assert.deepEqual(found.map((i) => [i.level, i.targets[0].id]), [['warn', 'R1'], ['warn', 'R2']]);
+  assert.equal(runPipeline(example()).report.issues.some((i) => i.rule === 'requirement-priority'), false);
+});

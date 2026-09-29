@@ -355,7 +355,15 @@ export function requestScope({ spec, index }) {
   return { checked: spec.actions.length + spec.entities.length, issues };
 }
 
+// 우선순위가 없으면 무엇부터 만들지 정할 수 없다. 착수는 막지 않지만 100%로 치지 않는다.
+export function requirementPriority({ spec, index }) {
+  const issues = spec.requirements
+    .filter((requirement) => !Object.hasOwn(LABELS.priority, requirement.priority))
+    .map((requirement) => issue('requirement-priority', 'warn', `요구사항 ${quote(index.name(requirement.id))}에 우선순위(필수·권장·선택)가 없습니다`, [target(index, requirement.id)]));
+  return { checked: spec.requirements.length, issues };
+}
+
 export const RULES = [
   shape, required, idMissing, idDuplicate, names, referencesKnown, requirementCoverage, permissionGaps, states,
-  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, outOfScope, questionOwners, inputRules, asyncFeedback, requestScope,
+  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, outOfScope, questionOwners, inputRules, asyncFeedback, requestScope, requirementPriority,
 ];
