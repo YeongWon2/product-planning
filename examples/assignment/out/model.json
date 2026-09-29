@@ -1933,7 +1933,7 @@
           {
             "id": "page:sc:P1:E1:view:n9",
             "type": "process",
-            "text": "화면 표시\n· 항목 수정하기"
+            "text": "화면 표시\n· 항목 수정하기\n· 항목 마감하기"
           },
           {
             "id": "page:sc:P1:E1:view:n10",
@@ -2165,7 +2165,7 @@
           {
             "id": "page:sc:P1:E1:form:AC5:n7",
             "type": "process",
-            "text": "화면 표시"
+            "text": "화면 표시\n· 항목 수정하기"
           },
           {
             "id": "page:sc:P1:E1:form:AC5:n8",
@@ -2545,7 +2545,8 @@
             "app": "관리자 웹",
             "actions": [
               "항목 만들기",
-              "항목 상세 보기"
+              "항목 상세 보기",
+              "항목 목록 보기"
             ],
             "states": [
               "불러오는 중",
@@ -2555,7 +2556,7 @@
               "보기 전용"
             ]
           },
-          "fingerprint": "5d97adaf"
+          "fingerprint": "d55c89d1"
         },
         {
           "key": "H10:sc:P1:E1:list",
@@ -2568,10 +2569,11 @@
             "empty": "아직 항목이 없습니다",
             "actions": [
               "항목 만들기",
-              "항목 상세 보기"
+              "항목 상세 보기",
+              "항목 목록 보기"
             ]
           },
-          "fingerprint": "8510d80a"
+          "fingerprint": "3c07d006"
         },
         {
           "key": "H8:sc:P1:E1:view",
@@ -2585,7 +2587,8 @@
             "actions": [
               "담당자 앱에 알림",
               "항목 수정하기",
-              "항목 마감하기"
+              "항목 마감하기",
+              "항목 상세 보기"
             ],
             "states": [
               "불러오는 중",
@@ -2595,7 +2598,7 @@
               "보기 전용"
             ]
           },
-          "fingerprint": "00e89819"
+          "fingerprint": "e57a7854"
         },
         {
           "key": "H8:sc:P2:E1:view",
@@ -2627,7 +2630,7 @@
           "context": {
             "app": "관리자 웹",
             "actions": [
-              "완료"
+              "항목 수정하기"
             ],
             "states": [
               "불러오는 중",
@@ -2637,7 +2640,7 @@
               "보기 전용"
             ]
           },
-          "fingerprint": "dd34132a"
+          "fingerprint": "8864289d"
         },
         {
           "key": "W:S1#1",
@@ -2650,6 +2653,11 @@
             "userType": "배정 관리자",
             "app": "관리자 웹",
             "screen": "항목 목록",
+            "screenActions": [
+              "항목 만들기",
+              "항목 상세 보기",
+              "항목 목록 보기"
+            ],
             "action": {
               "name": "항목 목록 보기",
               "inputs": [],
@@ -2668,7 +2676,7 @@
               ]
             }
           },
-          "fingerprint": "4d6ce598",
+          "fingerprint": "ab481410",
           "userType": "U1"
         },
         {
@@ -2682,6 +2690,9 @@
             "userType": "배정 관리자",
             "app": "관리자 웹",
             "screen": "항목 만들기",
+            "screenActions": [
+              "항목 만들기"
+            ],
             "action": {
               "name": "항목 만들기",
               "inputs": [
@@ -2721,7 +2732,7 @@
               ]
             }
           },
-          "fingerprint": "31555e1b",
+          "fingerprint": "749e0996",
           "userType": "U1"
         },
         {
@@ -2735,6 +2746,12 @@
             "userType": "배정 관리자",
             "app": "관리자 웹",
             "screen": "항목 상세 · 관리자 웹",
+            "screenActions": [
+              "담당자 앱에 알림",
+              "항목 수정하기",
+              "항목 마감하기",
+              "항목 상세 보기"
+            ],
             "action": {
               "name": "항목 상세 보기",
               "inputs": [],
@@ -2763,7 +2780,7 @@
               ]
             }
           },
-          "fingerprint": "4cc3eb1e",
+          "fingerprint": "7d130153",
           "userType": "U1"
         },
         {
@@ -2777,6 +2794,11 @@
             "userType": "배정 관리자",
             "app": "관리자 웹",
             "screen": "항목 목록",
+            "screenActions": [
+              "항목 만들기",
+              "항목 상세 보기",
+              "항목 목록 보기"
+            ],
             "action": {
               "name": "항목 목록 보기",
               "inputs": [],
@@ -2795,7 +2817,7 @@
               ]
             }
           },
-          "fingerprint": "4d6ce598",
+          "fingerprint": "ab481410",
           "userType": "U1"
         },
         {
@@ -2809,6 +2831,12 @@
             "userType": "배정 관리자",
             "app": "관리자 웹",
             "screen": "항목 상세 · 관리자 웹",
+            "screenActions": [
+              "담당자 앱에 알림",
+              "항목 수정하기",
+              "항목 마감하기",
+              "항목 상세 보기"
+            ],
             "action": {
               "name": "항목 상세 보기",
               "inputs": [],
@@ -2837,7 +2865,7 @@
               ]
             }
           },
-          "fingerprint": "4cc3eb1e",
+          "fingerprint": "7d130153",
           "userType": "U1"
         },
         {
@@ -2851,6 +2879,9 @@
             "userType": "배정 관리자",
             "app": "관리자 웹",
             "screen": "항목 수정하기",
+            "screenActions": [
+              "항목 수정하기"
+            ],
             "action": {
               "name": "항목 수정하기",
               "inputs": [
@@ -2912,7 +2943,7 @@
               ]
             }
           },
-          "fingerprint": "2fcae7b2",
+          "fingerprint": "09c012b6",
           "userType": "U1"
         },
         {
@@ -2926,6 +2957,12 @@
             "userType": "배정 관리자",
             "app": "관리자 웹",
             "screen": "항목 상세 · 관리자 웹",
+            "screenActions": [
+              "담당자 앱에 알림",
+              "항목 수정하기",
+              "항목 마감하기",
+              "항목 상세 보기"
+            ],
             "action": {
               "name": "항목 마감하기",
               "inputs": [],
@@ -2964,7 +3001,7 @@
               ]
             }
           },
-          "fingerprint": "bed15e27",
+          "fingerprint": "7b2b1990",
           "userType": "U1"
         }
       ],

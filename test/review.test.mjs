@@ -97,3 +97,26 @@ test('판단 뒤 그 항목의 사실이 바뀌면 낡은 판단으로 알린다
   assert.match(stale[0].message, /항목 만들기/);
   assert.match(stale[1].message, /워크스루/);
 });
+
+test('화면 안의 단추 동작도 검토지 화면 정보에 들어가고, 자동 처리 단계는 워크스루에서 뺀다', () => {
+  const { spec } = parseSpec(JSON.stringify({
+    meta: { title: 't' },
+    userTypes: [{ id: 'U1', name: '코치' }, { id: 'U9', name: '시스템', automatic: true }],
+    apps: [{ id: 'P1', name: '코치 웹' }],
+    entities: [{ id: 'E1', name: '회차', states: [{ id: 'A', name: '수행 완료', initial: true }, { id: 'B', name: '확인됨', terminal: true }], transitions: [{ from: 'A', to: 'B', action: 'OK' }] }],
+    actions: [{ id: 'LIST', name: '회차 목록 보기', entity: 'E1', kind: 'list' }, { id: 'OK', name: '제출물 확인하기', entity: 'E1', kind: 'update' }, { id: 'AUTO', name: '기한 종료', entity: 'E1', kind: 'other' }],
+    scenarios: [
+      { id: 'S1', name: '확인', kind: 'main', steps: [{ userType: 'U1', app: 'P1', action: 'LIST' }, { userType: 'U1', app: 'P1', action: 'OK' }] },
+      { id: 'S2', name: '자동', kind: 'main', steps: [{ userType: 'U9', app: 'P1', action: 'AUTO' }] },
+    ],
+  }));
+  const result = runPipeline(spec);
+  const sheet = result.derived.review.worksheet;
+  const page = sheet.find((item) => item.key === 'H8:sc:P1:E1:list');
+  assert.ok(page.context.actions.includes('제출물 확인하기'), JSON.stringify(page.context.actions));
+  const step = sheet.find((item) => item.key === 'W:S1#2');
+  assert.ok(step.context.screenActions.includes('제출물 확인하기'));
+  assert.ok(!sheet.some((item) => item.key === 'W:S2#1'), '자동 처리 단계는 워크스루가 아니다');
+  const chart = result.derived.flowcharts.find((item) => item.kind === 'page' && item.of === 'sc:P1:E1:list');
+  assert.ok(chart.nodes.some((node) => node.text.includes('· 제출물 확인하기')), '페이지 플로우차트에도 화면 안의 단추가 보인다');
+});

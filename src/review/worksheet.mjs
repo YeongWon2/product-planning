@@ -51,20 +51,32 @@ export function buildWorksheet(spec, index, flow, cells) {
       steps: scenario.steps.map((step) => ({ who: nameOf(step.userType), app: nameOf(step.app), action: nameOf(step.action), text: step.text, inputs: index.get(step.action)?.item.inputs?.map((input) => input.name) ?? [] })),
     });
   }
+  // 화면에서 할 수 있는 것: 다른 화면으로 가는 이동과, 그 화면 안의 단추(입력 없는 동작, 흐름 규칙 F5).
+  const isAutomatic = (userType) => index.get(userType)?.kind === 'userType' && index.get(userType).item.automatic === true;
+  const screenActions = (screenId) => {
+    const exits = flow.edges.filter((edge) => edge.from === screenId && edge.label !== '완료').map((edge) => edge.label);
+    const inPlace = spec.scenarios.flatMap((scenario) => scenario.steps.map((step, i) => ({ step, key: `${scenario.id}#${i + 1}` })))
+      .filter(({ step, key }) => flow.stepScreens[key] === screenId && !isAutomatic(step.userType))
+      .map(({ step }) => nameOf(step.action));
+    return [...new Set([...exits, ...inPlace])];
+  };
   for (const screen of flow.screens.filter((item) => item.type === 'screen')) {
-    const exits = flow.edges.filter((edge) => edge.from === screen.id).map((edge) => edge.label);
+    const exits = screenActions(screen.id);
     push('H8', screen.id, screen.name, { app: nameOf(screen.app), actions: [...new Set(exits)], states: screen.states });
     if (screen.rule === 'F1') {
       const list = spec.actions.find((action) => action.entity === screen.entity && action.kind === 'list');
       push('H10', screen.id, screen.name, { empty: list?.empty ?? spec.wording.empty ?? null, actions: [...new Set(exits)] });
     }
   }
+  // 워크스루는 사람이 하는 기본 흐름 단계만. 자동 처리 단계에는 사람의 인지 단계가 없다.
   for (const scenario of spec.scenarios.filter((item) => item.kind === 'main' || item.kind === undefined)) {
     scenario.steps.forEach((step, i) => {
+      if (isAutomatic(step.userType)) return;
       const action = index.get(step.action)?.item;
       const screen = flow.stepScreens[`${scenario.id}#${i + 1}`];
       push('W', `${scenario.id}#${i + 1}`, `${scenario.name} ${i + 1}단계: ${step.text ?? nameOf(step.action)}`, {
         userType: nameOf(step.userType), app: nameOf(step.app), screen: screen ? flow.screens.find((item) => item.id === screen)?.name : null,
+        screenActions: screen ? screenActions(screen) : [],
         action: action ? { name: action.name, ...actionFacts(action) } : null,
       }, { userType: step.userType });
     });

@@ -150,8 +150,12 @@ export function deriveFlowcharts(spec, index, cells, flow) {
       const shows = spec.actions.find((action) => action.entity === screen.entity && action.kind === (screen.rule === 'F1' ? 'list' : 'view'));
       b.link(b.decide('데이터가 있나?'), b.node('end', withText('비어 있음 안내', shows?.empty ?? spec.wording.empty)), 'no', '아니오');
     }
-    const exits = flow.edges.filter((edge) => edge.from === screen.id && edge.rule === 'F10')
-      .map((edge) => `· ${edge.label}`);
+    // 화면에서 할 수 있는 것: 다른 화면으로 가는 이동과 그 화면 안의 단추(입력 없는 동작)
+    const inPlace = spec.scenarios.flatMap((scenario) => scenario.steps.map((step, i) => ({ step, key: `${scenario.id}#${i + 1}` })))
+      .filter(({ step, key }) => flow.stepScreens[key] === screen.id && !isAutomatic(step.userType) && index.get(step.action)?.item.kind !== 'list' && index.get(step.action)?.item.kind !== 'view')
+      .map(({ step }) => nameOf(step.action));
+    const exits = [...new Set([...flow.edges.filter((edge) => edge.from === screen.id && edge.rule === 'F10').map((edge) => edge.label), ...inPlace])]
+      .map((label) => `· ${label}`);
     b.advance(b.node('process', ['화면 표시', ...exits].join('\n')));
     b.finish();
     return { kind: 'page', of: screen.id, requirement: null, name, app: screen.app, nodes: b.nodes, edges: b.edges };
