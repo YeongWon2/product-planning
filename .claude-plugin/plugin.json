@@ -1,7 +1,7 @@
 {
   "name": "product-planning",
   "description": "어떤 입력으로 시작해도 같은 구조·같은 품질의 기획서(PRD·시나리오·화면 흐름·완료 조건)를 HTML 한 파일로 만드는 기획 파이프라인",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "author": {
     "name": "YeongWon2"
   },
