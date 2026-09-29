@@ -1,4 +1,4 @@
-import { LABELS, WORDING, josa, quote } from '../model/labels.mjs';
+import { LABELS, PRODUCT, WORDING, josa, quote } from '../model/labels.mjs';
 import { statesForAction } from '../derive/permissions.mjs';
 
 // 규칙 하나는 함수 하나다. 모든 규칙은 (ctx) → { checked, issues } 를 돌려주고,
@@ -409,7 +409,32 @@ export function wording({ spec, index }) {
   return { checked, issues };
 }
 
+// 서비스 구성: 무엇을 만드는지(새 서비스·기능 추가·프로젝트), 몇 개의 시스템에 걸치는지, 앱은 어느 서비스에 속하는지.
+export function product({ spec, index }) {
+  const issues = [];
+  const warn = (message, targets = []) => issues.push(issue('product', 'warn', message, targets));
+  const { kind, systems } = spec.product;
+  let checked = 2;
+  if (kind === undefined) warn(`구분(product.kind)이 없습니다. ${Object.entries(PRODUCT.kind).map(([key, label]) => `${key}(${label})`).join('·')} 중 하나로 적으세요`);
+  if (systems.length === 0) warn('시스템(product.systems)이 없습니다. 이 기획이 걸치는 서비스·API 서버·외부 시스템을 적으세요');
+  const owned = new Set(systems.filter((system) => system.kind === 'service').flatMap((system) => system.apps));
+  if (systems.length > 0) {
+    for (const app of spec.apps) {
+      checked += 2;
+      if (!owned.has(app.id)) warn(`앱 ${quote(index.name(app.id), '이/가')} 어느 서비스에도 속하지 않습니다`, [target(index, app.id)]);
+      if (app.platform === undefined) warn(`앱 ${quote(index.name(app.id))}에 플랫폼(platform)이 없습니다`, [target(index, app.id)]);
+    }
+  }
+  for (const action of spec.actions) {
+    for (const call of action.calls) {
+      checked += 1;
+      if (!index.is(call, 'system')) warn(`${quote(action.name, '이/가')} 부르는 시스템 ${quote(call)}이 시스템 목록에 없습니다`, [{ id: String(action.id), name: action.name }]);
+    }
+  }
+  return { checked, issues };
+}
+
 export const RULES = [
   shape, required, idMissing, idDuplicate, names, referencesKnown, requirementCoverage, permissionGaps, states,
-  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, questionOwners, inputRules, asyncFeedback, requestScope, requirementPriority, plainText, wording,
+  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, questionOwners, inputRules, asyncFeedback, requestScope, requirementPriority, plainText, wording, product,
 ];

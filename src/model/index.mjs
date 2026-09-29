@@ -34,6 +34,7 @@ export function buildIndex(spec) {
     }
   }
   for (const metric of spec.summary.metrics) add('metric', metric);
+  for (const system of spec.product?.systems ?? []) add('system', system);
 
   return {
     get: (id) => entries.get(id),

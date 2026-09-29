@@ -1,3 +1,4 @@
+import { PRODUCT } from './labels.mjs';
 import { readFileSync } from 'node:fs';
 
 export const DEFAULT_PROFILE = Object.freeze({
@@ -109,6 +110,7 @@ function normalize(raw) {
   const wording = raw.wording === undefined || (typeof raw.wording === 'object' && raw.wording !== null && !Array.isArray(raw.wording)) ? { ...(raw.wording ?? {}) } : (n.report('wording', '객체여야 합니다'), {});
   for (const key of Object.keys(wording)) if (typeof wording[key] !== 'string') { n.report(`wording.${key}`, '문자열이어야 합니다'); delete wording[key]; }
   spec.wording = wording;
+  spec.product = normalizeProduct(raw.product, n);
   spec.meta = { ...meta, profile: normalizeProfile(meta.profile, n) };
   spec.summary = {
     ...summary,
@@ -121,6 +123,12 @@ function normalize(raw) {
 
   const named = (key) => spec[key].map((item, i) => ({ ...item, name: n.name(item, `${key}[${i}]`) }));
   for (const key of ['userTypes', 'apps', 'requirements', 'events', 'decisions']) spec[key] = named(key);
+  spec.apps = spec.apps.map((app, i) => {
+    if (app.platform === undefined || Object.hasOwn(PRODUCT.platform, app.platform)) return app;
+    n.report(`apps[${i}].platform`, `${Object.keys(PRODUCT.platform).join('·')} 중 하나여야 합니다`);
+    const { platform, ...rest } = app;
+    return rest;
+  });
   spec.userTypes = spec.userTypes.map((userType, i) => ({ ...userType, automatic: n.boolean(userType, 'automatic', `userTypes[${i}]`) }));
 
   spec.entities = spec.entities.map((entity, i) => {
@@ -150,6 +158,7 @@ function normalize(raw) {
       denied: n.string(action, 'denied', path),
       empty: n.string(action, 'empty', path),
       confirm: normalizeConfirm(action.confirm, `${path}.confirm`, n),
+      calls: n.strings(action.calls, `${path}.calls`),
       failures: n.objects(action.failures, `${path}.failures`),
       crossApp: n.objects(action.crossApp, `${path}.crossApp`).map((target, j) => ({ ...target, message: n.string(target, 'message', `${path}.crossApp[${j}]`) })),
     };
@@ -172,6 +181,30 @@ function normalize(raw) {
 export const INPUT_TYPES = ['text', 'number', 'date', 'period', 'select', 'multiSelect', 'file', 'url', 'boolean'];
 // 글자 수·값·개수처럼 숫자로만 뜻이 맞는 범위. 날짜·기간은 '오늘', '1개월'처럼 글로도 적는다.
 const NUMERIC_RANGE = new Set(['text', 'number', 'multiSelect']);
+
+// 서비스 구성: 구분(kind)과 이 기획이 걸치는 시스템(서비스·API 서버·외부 시스템).
+function normalizeProduct(product, n) {
+  if (product === undefined) return { kind: undefined, systems: [] };
+  if (typeof product !== 'object' || product === null || Array.isArray(product)) {
+    n.report('product', '객체여야 합니다 ({ kind, systems })');
+    return { kind: undefined, systems: [] };
+  }
+  let kind = product.kind;
+  if (kind !== undefined && !Object.hasOwn(PRODUCT.kind, kind)) {
+    n.report('product.kind', `${Object.keys(PRODUCT.kind).join('·')} 중 하나여야 합니다`);
+    kind = undefined;
+  }
+  const systems = n.objects(product.systems, 'product.systems').map((system, i) => {
+    const path = `product.systems[${i}]`;
+    const result = { ...system, name: n.name(system, path), apps: n.strings(system.apps, `${path}.apps`) };
+    if (!Object.hasOwn(PRODUCT.system, system.kind)) {
+      n.report(`${path}.kind`, `${Object.keys(PRODUCT.system).join('·')} 중 하나여야 합니다`);
+      result.kind = 'service';
+    }
+    return result;
+  });
+  return { ...product, kind, systems };
+}
 
 // 확인 창: message는 필수 문구, ok·cancel은 단추 글(없으면 공통 문구).
 function normalizeConfirm(confirm, path, n) {

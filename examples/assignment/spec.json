@@ -47,11 +47,13 @@
   "apps": [
     {
       "id": "P1",
-      "name": "관리자 웹"
+      "name": "관리자 웹",
+      "platform": "web"
     },
     {
       "id": "P2",
-      "name": "담당자 앱"
+      "name": "담당자 앱",
+      "platform": "ios"
     }
   ],
   "requirements": [
@@ -106,13 +108,19 @@
       "id": "AC1",
       "name": "항목 목록 보기",
       "entity": "E1",
-      "kind": "list"
+      "kind": "list",
+      "calls": [
+        "API1"
+      ]
     },
     {
       "id": "AC2",
       "name": "항목 상세 보기",
       "entity": "E1",
-      "kind": "view"
+      "kind": "view",
+      "calls": [
+        "API1"
+      ]
     },
     {
       "id": "AC3",
@@ -148,6 +156,9 @@
           "effect": "새 항목 알림",
           "message": "새 항목이 배정되었습니다"
         }
+      ],
+      "calls": [
+        "API1"
       ]
     },
     {
@@ -167,7 +178,10 @@
       "confirm": {
         "message": "마감하면 담당자는 더 수정할 수 없습니다. 마감할까요?",
         "ok": "마감"
-      }
+      },
+      "calls": [
+        "API1"
+      ]
     },
     {
       "id": "AC5",
@@ -204,6 +218,9 @@
           "name": "저장 실패",
           "message": "저장하지 못했습니다. 다시 시도해 주세요"
         }
+      ],
+      "calls": [
+        "API1"
       ]
     }
   ],
@@ -406,5 +423,31 @@
     "sessionExpired": "다시 로그인해 주세요",
     "confirmOk": "확인",
     "confirmCancel": "취소"
+  },
+  "product": {
+    "kind": "feature",
+    "systems": [
+      {
+        "id": "SV1",
+        "name": "관리자 서비스",
+        "kind": "service",
+        "apps": [
+          "P1"
+        ]
+      },
+      {
+        "id": "SV2",
+        "name": "담당자 서비스",
+        "kind": "service",
+        "apps": [
+          "P2"
+        ]
+      },
+      {
+        "id": "API1",
+        "name": "항목 API",
+        "kind": "api"
+      }
+    ]
   }
 }

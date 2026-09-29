@@ -4,6 +4,13 @@ export const WORDING = Object.freeze({
   network: '통신 실패', unknown: '알 수 없는 오류', sessionExpired: '로그인 만료', confirmOk: '확인 단추', confirmCancel: '취소 단추',
 });
 
+// 서비스 구성의 값.
+export const PRODUCT = Object.freeze({
+  kind: { service: '새 서비스', feature: '기존 서비스에 기능 추가', project: '기간이 정해진 프로젝트' },
+  system: { service: '서비스', api: 'API 서버', external: '외부 시스템' },
+  platform: { web: '웹', ios: 'iOS', android: 'Android', desktop: '데스크톱', 'mobile-web': '모바일 웹' },
+});
+
 export const LABELS = Object.freeze({
   permission: { allow: '허용', hide: '숨김', disable: '비활성', deny: '불가' },
   priority: { must: '필수', should: '권장', could: '선택' },

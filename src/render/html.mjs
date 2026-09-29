@@ -1,4 +1,4 @@
-import { LABELS, WORDING, quote, readableRef } from '../model/labels.mjs';
+import { LABELS, PRODUCT, WORDING, quote, readableRef } from '../model/labels.mjs';
 import { escapeHtml as h, jsonForScript } from './escape.mjs';
 import { renderFlowchart } from './flowchart-svg.mjs';
 import { BOARD_SCRIPT, BOARD_STYLE, packRows, renderBoard } from './board.mjs';
@@ -10,7 +10,7 @@ const FORMAT = 'product-planning/spec@1';
 // 흐름과 갈래는 플로우차트(그림)에, 정확한 값(권한·검증·문구)은 기능명세서(표)에 한 번씩만 적는다.
 // 나머지(화면 목록·이동, 완료 조건 초안, 검사 세부, 결정 기록 등)는 AI용 모델 데이터에만 둔다.
 const PARTS = [
-  { key: 'prd', title: 'PRD', lead: '무엇을 왜 만드나', shows: ['summary.problem', 'userTypes', 'summary.metrics', 'requirements'] },
+  { key: 'prd', title: 'PRD', lead: '무엇을 왜 만드나', shows: ['product', 'apps', 'summary.problem', 'userTypes', 'summary.metrics', 'requirements'] },
   { key: 'scenarios', title: '시나리오', lead: '누가 어떤 순서로 하나', shows: ['scenarios', 'acceptance'] },
   { key: 'flowcharts', title: '플로우차트', lead: '어떤 판단을 거쳐 어떻게 끝나나', shows: ['derived.flowcharts'] },
   { key: 'spec', title: '기능명세서', lead: '기능마다 누가, 무엇을 넣고, 무엇이 바뀌고, 어떤 경우를 막나', shows: ['entities', 'actions', 'derived.permissionCells', 'derived.edgeCases'] },
@@ -58,7 +58,22 @@ function prdPart({ spec, index }) {
   const users = spec.userTypes.filter((userType) => userType.automatic !== true);
   const metrics = spec.summary.metrics;
   const requirementRows = spec.requirements.map((requirement) => `<tr${mark(requirement.id, 'requirement')}><td><span class="priority priority-${h(requirement.priority ?? 'none')}">${h(LABELS.priority[requirement.priority] ?? '우선순위 없음')}</span></td><td>${h(index.name(requirement.id))}</td><td>${h(index.has(requirement.userType) ? index.name(requirement.userType) : '')}</td></tr>`);
+  const { kind, systems } = spec.product;
+  const services = systems.filter((system) => system.kind === 'service');
+  const others = systems.filter((system) => system.kind !== 'service');
+  const count = (label, n) => (n > 0 ? `${label} ${n}개` : null);
+  const summary = [PRODUCT.kind[kind] ?? '구분 정해지지 않음', count('서비스', services.length), count('API', systems.filter((system) => system.kind === 'api').length), count('외부 시스템', systems.filter((system) => system.kind === 'external').length)].filter(Boolean).join(' · ');
+  const appLabel = (id) => {
+    const app = spec.apps.find((item) => item.id === id);
+    return app ? `${index.name(app.id)}${app.platform ? ` (${PRODUCT.platform[app.platform]})` : ''}` : String(id);
+  };
+  const structure = `<p class="structure"><span class="k">구성</span> ${h(summary)}</p>`
+    + (systems.length === 0 ? '' : `<ul class="plain systems">${[
+      ...services.map((system) => `<li${mark(system.id, 'system')}><strong>${h(index.name(system.id))}</strong> ${h(system.apps.map(appLabel).join(', '))}</li>`),
+      ...others.map((system) => `<li${mark(system.id, 'system')}><strong>${h(index.name(system.id))}</strong> ${h(PRODUCT.system[system.kind])}</li>`),
+    ].join('')}</ul>`);
   return part('prd', [
+    structure,
     '<h3>해결할 문제</h3>',
     problem ? `<p class="lead">${h(problem)} ${sourceNote(spec.summary.problem.source)}</p>` : empty('해결할 문제가 적혀 있지 않습니다'),
     '<h3>대상 사용자</h3>',
@@ -270,7 +285,7 @@ main{max-width:1080px;margin:0 auto;padding:24px 16px 80px}
 .part-head h2{margin:0;font-size:22px}.part-head p{margin:0;color:var(--muted);font-size:13px}
 .part-body{padding:4px 24px 24px}
 h3{font-size:17px;margin:22px 0 8px}h4{font-size:15px;margin:14px 0 6px}
-.lead{font-size:16px}
+.lead{font-size:16px}.structure{margin:4px 0 6px;font-size:15px}.systems li{font-size:14px}
 .plain{list-style:none;padding:0;margin:0}.plain li{padding:4px 0;border-bottom:1px dashed var(--line)}
 .muted{color:var(--muted);font-size:13px}.empty{color:var(--muted)}
 .source{font-size:12px;color:var(--muted);background:var(--soft);border-radius:4px;padding:0 6px}.source-assumption{color:var(--warn);background:var(--gap)}
