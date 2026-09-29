@@ -2,10 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadSpec, parseSpec } from '../src/model/load.mjs';
 import { runPipeline } from '../src/check/run.mjs';
-import { buildModel, buildPrompt, renderHtml } from '../src/render/html.mjs';
+import { buildModel, buildPrompt, renderPages } from '../src/render/html.mjs';
 
 const example = () => loadSpec(new URL('../examples/assignment/spec.json', import.meta.url).pathname).spec;
-const render = (spec) => renderHtml(runPipeline(parseSpec(JSON.stringify(spec)).spec));
+const pagesOf = (spec) => renderPages(runPipeline(parseSpec(JSON.stringify(spec)).spec), { name: 'assignment' });
+// 부분마다 파일이 따로 있다. 테스트는 네 파일을 이어 붙여 한 번에 본다.
+const FILES = ['assignment.html', 'assignment.scenarios.html', 'assignment.flowcharts.html', 'assignment.spec.html'];
+const render = (spec) => { const pages = pagesOf(spec); return FILES.map((file) => pages[file]).join('\n'); };
+const renderHtml = (result) => renderPages(result, { name: 'assignment' })['assignment.html'];
 
 // 사람이 브라우저에서 보는 글자만 남긴다. 스크립트(모델 데이터·도화지 조작)는 뺀다.
 function bodyText(html) {
@@ -18,10 +22,23 @@ function bodyText(html) {
 }
 const part = (html, key) => html.split(`data-part="${key}"`)[1].split('</section>')[0];
 
-test('사람이 읽는 문서는 PRD → 시나리오 → 플로우차트 → 기능명세서 네 부분이다', () => {
-  const html = render(example());
-  assert.deepEqual([...html.matchAll(/data-part="([a-z]+)"/g)].map((m) => m[1]), ['prd', 'scenarios', 'flowcharts', 'spec']);
-  assert.deepEqual([...html.matchAll(/<a class="part-link" href="#([a-z]+)">/g)].map((m) => m[1]), ['prd', 'scenarios', 'flowcharts', 'spec']);
+test('사람이 읽는 문서는 부분마다 파일이 따로 있고 위쪽 탭으로 오간다', () => {
+  const pages = pagesOf(example());
+  assert.deepEqual(Object.keys(pages), FILES);
+  FILES.forEach((file, i) => {
+    const html = pages[file];
+    assert.match(html, /^<!doctype html>/);
+    assert.deepEqual([...html.matchAll(/data-part="([a-z]+)"/g)].map((m) => m[1]), [['prd', 'scenarios', 'flowcharts', 'spec'][i]]);
+    assert.deepEqual([...html.matchAll(/<a class="part-link[^"]*" href="([^"]+)"/g)].map((m) => m[1]), FILES, '탭은 네 파일로 간다');
+    assert.match(html, new RegExp(`<a class="part-link current" href="${FILES[i].replace('.', '\\.')}"`), '지금 부분이 표시된다');
+  });
+  assert.equal(FILES.filter((file) => pages[file].includes('id="spec-model"')).length, 1, '모델 데이터는 첫 파일에만 넣는다');
+});
+
+test('플로우차트 파일은 화면 전체를 도화지로 쓴다', () => {
+  const html = pagesOf(example())['assignment.flowcharts.html'];
+  assert.match(html, /<body class="fullscreen">/);
+  assert.match(html, /\.fullscreen \.board-live \.board-view\{height:calc\(100vh/);
 });
 
 test('본문에는 내부 ID와 개발에 필요 없는 정보가 보이지 않는다', () => {

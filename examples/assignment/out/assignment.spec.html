@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>항목 배정 · 기능명세서</title><meta name="spec-format" content="product-planning/spec@1"><meta name="spec-version" content="1"><meta name="spec-ready" content="false"><meta name="spec-score" content="0.992"><style>
+:root{--ink:#1f2430;--muted:#5b6372;--line:#e3e6ec;--soft:#f6f7f9;--ok:#1a7f4b;--bad:#b42318;--warn:#b54708;--gap:#fff4e5}
+*{box-sizing:border-box}
+body{margin:0;background:#f3f4f7;color:var(--ink);font:15px/1.65 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+.top{position:sticky;top:0;z-index:5;background:#ffffffee;backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.top-inner{max-width:1080px;margin:0 auto;padding:12px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.top h1{font-size:18px;margin:0;flex:1 1 auto}
+.part-links{display:flex;gap:6px;flex-wrap:wrap}
+.part-link{font-size:13px;text-decoration:none;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:3px 12px;background:#fff}.part-link.current{background:var(--ink);color:#fff;border-color:var(--ink)}
+.copy-prompt{font:13px sans-serif;border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:999px;padding:4px 12px;cursor:pointer}
+.prompt-box{width:100%;min-height:96px;font:12px ui-monospace,monospace;margin-top:8px}
+main{max-width:1080px;margin:0 auto;padding:24px 16px 80px}
+.pending{background:#fdecea;border:1px solid #f5c2bd;color:var(--bad);border-radius:10px;padding:12px 16px;margin:0 0 24px}.pending ul{margin:6px 0 0;padding-left:20px}
+.part{background:#fff;border-radius:14px;margin:0 0 28px;box-shadow:0 1px 2px #0000000d;overflow:visible;border-top:6px solid var(--accent)}
+.part-prd{--accent:#2f5fd0}.part-scenarios{--accent:#1a7f4b}.part-flowcharts{--accent:#7a4cc2}.part-spec{--accent:#c2410c}
+.part-head{display:flex;gap:14px;align-items:center;padding:20px 24px 8px}
+.part-no{flex:0 0 36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;font:700 17px/36px sans-serif;text-align:center}
+.part-head h2{margin:0;font-size:22px}.part-head p{margin:0;color:var(--muted);font-size:13px}
+.part-body{padding:4px 24px 24px}
+h3{font-size:17px;margin:22px 0 8px}h4{font-size:15px;margin:14px 0 6px}
+.lead{font-size:16px}
+.plain{list-style:none;padding:0;margin:0}.plain li{padding:4px 0;border-bottom:1px dashed var(--line)}
+.muted{color:var(--muted);font-size:13px}.empty{color:var(--muted)}
+.source{font-size:12px;color:var(--muted);background:var(--soft);border-radius:4px;padding:0 6px}.source-assumption{color:var(--warn);background:var(--gap)}
+.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px;margin:6px 0}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{color:var(--muted);font-weight:600;font-size:12px;white-space:nowrap}
+.priority{display:inline-block;border-radius:4px;padding:0 6px;font-size:12px;font-weight:600}
+.priority-must{background:#fdecea;color:var(--bad)}.priority-should{background:#fff4e5;color:var(--warn)}.priority-could,.priority-none{background:var(--soft);color:var(--muted)}
+.group{border:1px solid var(--line);border-radius:10px;padding:4px 18px 14px;margin:14px 0}
+.group>h3{margin-top:14px}
+.scenario-list{list-style:none;padding:0;margin:0}.scenario-list li{padding:4px 0}.scenario-list a{color:var(--ink);font-weight:600;text-decoration:none;border-bottom:1px dotted var(--muted)}
+.tag{display:inline-block;font-size:11px;font-weight:500;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 7px;margin-left:4px;vertical-align:middle}
+.sub{color:var(--muted);font-size:13px;margin-bottom:4px}
+.conditions{list-style:none;padding:0;margin:0}.conditions li{padding:6px 10px;background:var(--soft);border-radius:6px;margin:4px 0}
+.k{display:inline-block;font-size:11px;font-weight:700;color:var(--muted);margin:0 4px 0 6px}.k:first-child{margin-left:0}.k.ok{color:var(--ok)}.k.bad{color:var(--bad)}
+.function{border-top:1px solid var(--line);padding:10px 0 12px}
+.function-head{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}.function-head h4{margin:0;flex:1 1 auto}
+.who{font-size:13px;color:var(--muted)}.who-item strong{color:var(--ink);font-weight:600}
+.common{background:var(--soft);border-radius:8px;padding:8px 12px;font-size:13px;margin:8px 0 4px}.wording{list-style:none;margin:2px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 16px}
+.blocked{margin:4px 0 0;font-size:13px}
+.state-wrap{overflow-x:auto;margin:4px 0 8px}.state-diagram{display:block}
+.states{font-size:13px;color:var(--muted);margin:0 0 6px}.state{color:var(--ink);background:var(--soft);border-radius:4px;padding:0 6px}.arrow{margin:0 4px}
+.perm-allow{color:var(--ok)}.perm-gap{background:var(--gap);color:var(--warn);font-weight:600;padding:0 4px;border-radius:4px}
+.perm-hide,.perm-disable,.perm-deny{color:var(--muted)}
+.gap{background:var(--gap);color:var(--warn);font-weight:600;padding:0 4px;border-radius:4px}
+.inputs{font-size:13px}.inputs td:nth-child(1){white-space:nowrap;font-weight:600}.inputs td:nth-child(2),.inputs td:nth-child(3){white-space:nowrap}
+.messages{list-style:none;padding:0;margin:6px 0 0;font-size:13px}.messages li{padding:1px 0}
+.legend{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px}
+.legend .shape{display:inline-block;padding:0 10px;border:1.4px solid #3d4452;border-radius:6px;font-size:12px;background:#fff}
+.fc-shape-start{background:#1f2430!important;color:#fff;border-radius:999px!important}.fc-shape-decision{background:#fff7e6!important;border-color:#b54708!important}.fc-shape-message{background:#f6f7f9!important;border-style:dashed!important}.fc-shape-state{background:#eef4ff!important;border-color:#2f5fd0!important}
+
+.board{border:1px solid var(--line,#dfe3ea);border-radius:10px;margin:12px 0;background:#f3f4f7;overflow:hidden}
+/* 본문 폭보다 넓게, 화면 가로 폭 가까이 펼친다. 좁은 화면에서는 본문 폭 그대로 쓴다. */
+.board-live{position:relative;width:max(100%,min(calc(100vw - 48px),1800px));left:50%;transform:translateX(-50%)}
+.board-live:fullscreen{width:100%;left:0;transform:none}
+.board-view{overflow:auto;max-height:80vh}
+.board-bar{display:none;gap:6px;align-items:center;padding:8px;border-bottom:1px solid var(--line,#dfe3ea);background:#ffffff;flex-wrap:wrap}
+.board-bar button,.board-bar select{font:13px sans-serif;border:1px solid #d5dae3;background:#ffffff;border-radius:6px;padding:4px 10px;cursor:pointer}
+.board-level{min-width:52px;text-align:center;font:600 13px sans-serif;color:#1f2430}
+.board-help{display:none;margin:0;padding:6px 10px;font-size:12px;color:#5b6372;background:#ffffff;border-top:1px solid var(--line,#dfe3ea)}
+.board-live .board-bar{display:flex}.board-live .board-help{display:block}
+.board-live .board-view{height:78vh;max-height:none;overflow:hidden;cursor:grab;touch-action:none;outline:none}
+.board-live .board-view.dragging{cursor:grabbing}
+.board-live svg{display:block;width:100%;height:100%;user-select:none}
+.board:fullscreen{display:flex;flex-direction:column;border-radius:0}.board:fullscreen .board-view{flex:1;height:auto}
+@media print{.board-bar,.board-help{display:none!important}.board-view{height:auto!important;overflow:visible!important}}
+
+/* 플로우차트 파일: 머리글 아래를 모두 도화지로 쓴다 */
+.fullscreen main{max-width:none;padding:0}.fullscreen .part{border-radius:0;margin:0;box-shadow:none}.fullscreen .part-head{padding:10px 16px 0}.fullscreen .part-body{padding:0}
+.fullscreen .legend{padding:0 16px 8px}.fullscreen .board-live{width:100%;left:0;transform:none;border-radius:0;border-left:0;border-right:0;margin:0}
+.fullscreen .board-live .board-view{height:calc(100vh - 176px)}
+@media print{.top{position:static}.part{box-shadow:none;break-inside:auto}.group,.function,tr{break-inside:avoid}}
+</style></head><body><header class="top"><div class="top-inner"><h1>항목 배정</h1><nav class="part-links"><a class="part-link" href="assignment.html">1 PRD</a><a class="part-link" href="assignment.scenarios.html">2 시나리오</a><a class="part-link" href="assignment.flowcharts.html">3 플로우차트</a><a class="part-link current" href="assignment.spec.html">4 기능명세서</a></nav><button type="button" class="copy-prompt" data-copy-prompt data-index="assignment.html" title="AI에게 붙여 넣을 프롬프트를 복사합니다">프롬프트 복사</button></div></header><main><section id="spec" class="part part-spec" data-part="spec"><header class="part-head"><span class="part-no">4</span><div><h2>기능명세서</h2><p>기능마다 누가, 무엇을 넣고, 무엇이 바뀌고, 어떤 경우를 막나</p></div></header><div class="part-body"><p class="common"><span class="k">공통 규칙</span> 누가에 없는 사용자는 할 수 없음. 숨김은 보이지 않음, 비활성은 보이지만 눌리지 않음, 불가는 권한 없음 안내. 입력 규칙을 어기면 칸 아래 오류를 안내하고 저장하지 않음. 서버 처리는 처리 중 다시 눌러도 한 번만 요청함. 목록·상세 화면은 불러오는 중·빈 화면·오류·권한 없음·보기 전용 상태를 갖는다.</p><div class="common"><span class="k">공통 문구</span><ul class="wording"><li><span class="k">입력 오류</span> 입력 내용을 확인해 주세요</li><li><span class="k">권한 없음</span> 권한이 없습니다</li><li><span class="k">빈 화면</span> 아직 항목이 없습니다</li><li><span class="k">불러오기 오류</span> 불러오지 못했습니다. 다시 시도해 주세요</li><li><span class="k">통신 실패</span> 네트워크 연결을 확인해 주세요</li><li><span class="k">알 수 없는 오류</span> 문제가 생겼습니다. 잠시 후 다시 시도해 주세요</li><li><span class="k">로그인 만료</span> 다시 로그인해 주세요</li><li><span class="k">확인 단추</span> 확인</li><li><span class="k">취소 단추</span> 취소</li></ul></div><article class="group" data-spec-id="E1" data-spec-kind="entity"><h3>항목</h3><div class="state-wrap"><svg class="state-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 307 68" width="307" height="68" role="img" aria-label="&#39;항목&#39; 상태 변화"><defs><marker id="st-arrow-E1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#6b7385"/></marker></defs><style>.st-node{fill:#eef4ff;stroke:#2f5fd0;stroke-width:1.4}.st-terminal{fill:#f6f7f9;stroke:#3d4452}.st-initial{fill:#2f5fd0}.st-name{font:600 13px sans-serif;fill:#1f2430;text-anchor:middle}.st-edge path{fill:none;stroke:#6b7385;stroke-width:1.4}.st-label{font:11px sans-serif;fill:#5b6372;text-anchor:middle;paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round}</style><g class="st-edge"><path d="M116 34 L217 34" marker-end="url(#st-arrow-E1)"/><text class="st-label" x="166.5" y="29">항목 마감하기</text></g><g data-state="ST1" data-initial="true"><rect class="st-node" x="16" y="16" width="100" height="36" rx="18"/><circle class="st-initial" cx="8" cy="34" r="4"/><text class="st-name" x="66" y="39">진행 중</text></g><g data-state="ST2" data-terminal="true"><rect class="st-node st-terminal" x="217" y="16" width="74" height="36" rx="18"/><text class="st-name" x="254" y="39">완료</text></g></svg></div><div class="function" data-spec-id="AC1" data-spec-kind="action"><div class="function-head"><h4>항목 목록 보기</h4><div class="who"><span class="who-item"><strong>배정 관리자</strong> <span class="perm perm-allow">가능</span></span> · <span class="who-item"><strong>담당자</strong> <span class="perm perm-allow">가능</span></span></div></div></div><div class="function" data-spec-id="AC2" data-spec-kind="action"><div class="function-head"><h4>항목 상세 보기</h4><div class="who"><span class="who-item"><strong>배정 관리자</strong> <span class="perm perm-allow">가능</span></span> · <span class="who-item"><strong>담당자</strong> <span class="perm perm-allow">가능</span></span></div></div></div><div class="function" data-spec-id="AC3" data-spec-kind="action"><div class="function-head"><h4>항목 만들기<span class="tag">서버 처리</span></h4><div class="who"><span class="who-item"><strong>배정 관리자</strong> <span class="perm perm-allow">가능</span></span> · <span class="who-item"><strong>담당자</strong> <span class="perm perm-hide">숨김</span></span></div></div><div class="table-wrap"><table class="inputs"><thead><tr><th>항목</th><th>형식</th><th>필수</th><th>범위·조건</th></tr></thead><tbody><tr><td>제목</td><td>텍스트</td><td>예</td><td>최대 50자</td></tr><tr><td>담당자</td><td>하나 선택</td><td>예</td><td>팀의 담당자 목록에서 고름</td></tr></tbody></table></div><ul class="messages"><li><span class="k ok">성공</span> 항목을 배정했습니다</li><li><span class="k bad">저장 실패</span> 저장하지 못했습니다. 다시 시도해 주세요</li><li><span class="k">다른 앱</span> 담당자 앱 담당자: 새 항목 알림 — 알림 "새 항목이 배정되었습니다"</li></ul><p class="blocked"><span class="k bad">막는 경우</span> 입력 규칙 위반 · 저장 실패</p></div><div class="function" data-spec-id="AC4" data-spec-kind="action"><div class="function-head"><h4>항목 마감하기<span class="tag">서버 처리</span></h4><div class="who"><span class="who-item"><strong>배정 관리자</strong> <span class="perm perm-allow">진행 중 가능</span>, <span class="perm perm-hide">완료 숨김</span></span> · <span class="who-item"><strong>담당자</strong> <span class="perm perm-hide">숨김</span></span></div></div><ul class="messages"><li><span class="k">상태</span> 항목: 진행 중 → 완료</li><li><span class="k">확인 창</span> 마감하면 담당자는 더 수정할 수 없습니다. 마감할까요? [마감 / 취소]</li><li><span class="k ok">성공</span> 항목을 마감했습니다</li><li><span class="k bad">마감 실패</span> 마감하지 못했습니다. 다시 시도해 주세요</li></ul><p class="blocked"><span class="k bad">막는 경우</span> &#39;완료&#39; 상태 · 확인 창에서 취소 · 마감 실패</p></div><div class="function" data-spec-id="AC5" data-spec-kind="action"><div class="function-head"><h4>항목 수정하기<span class="tag">서버 처리</span></h4><div class="who"><span class="who-item"><strong>배정 관리자</strong> <span class="perm perm-allow">진행 중 가능</span>, <span class="perm perm-gap">완료 정할 것</span></span> · <span class="who-item"><strong>담당자</strong> <span class="perm perm-hide">숨김</span></span></div></div><div class="table-wrap"><table class="inputs"><thead><tr><th>항목</th><th>형식</th><th>필수</th><th>범위·조건</th></tr></thead><tbody><tr><td>제목</td><td>텍스트</td><td>예</td><td>최대 50자</td></tr><tr><td>담당자</td><td>하나 선택</td><td>예</td><td>팀의 담당자 목록에서 고름</td></tr><tr><td>마감일</td><td>날짜</td><td>아니오</td><td>오늘 이후</td></tr><tr><td>메모</td><td><span class="gap">형식 없음</span></td><td>아니오</td><td></td></tr></tbody></table></div><ul class="messages"><li><span class="k ok">성공</span> 항목을 수정했습니다</li><li><span class="k bad">저장 실패</span> 저장하지 못했습니다. 다시 시도해 주세요</li></ul><p class="blocked"><span class="k bad">막는 경우</span> 입력 규칙 위반 · &#39;완료&#39; 상태 · 저장 실패</p></div></article></div></section></main><script type="application/json" id="spec-prompt">"아래 기획서대로 구현해 주세요.\n- 기획서 (사람용): {html}\n- 모델 데이터 (AI용, 정확한 값은 이쪽): {model}\n읽는 법: document.parts가 문서 구성, spec이 원본, derived.flowcharts가 시나리오별 흐름, derived.permissionCells가 권한표, derived.edgeCases가 기능별 엣지 케이스 전체, report가 검사 결과입니다."</script><script>
+(function () {
+  var button = document.querySelector('[data-copy-prompt]');
+  var template = JSON.parse(document.getElementById('spec-prompt').textContent);
+  var here = location.href.split('#')[0].split('?')[0];
+  var file = here.indexOf('file://') === 0 ? decodeURIComponent(here.slice(7)).replace(/^\/([A-Za-z]:)/, '$1') : here;
+  var dir = file.replace(/[^\/\\]*$/, '');
+  var prompt = template.split('{html}').join(dir + button.getAttribute('data-index')).split('{model}').join(dir + 'model.json');
+  function fallback() {
+    var box = document.createElement('textarea');
+    box.value = prompt; box.readOnly = true; box.className = 'prompt-box';
+    button.insertAdjacentElement('afterend', box); box.focus(); box.select();
+    button.textContent = '아래 글을 복사하세요';
+  }
+  button.addEventListener('click', function () {
+    var done = function () { button.textContent = '복사했습니다'; setTimeout(function () { button.textContent = '프롬프트 복사'; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(prompt).then(done, fallback);
+    else fallback();
+  });
+})();
+</script></body></html>

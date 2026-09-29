@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseSpec } from '../src/model/load.mjs';
 import { runPipeline } from '../src/check/run.mjs';
-import { renderHtml } from '../src/render/html.mjs';
+import { renderPages } from '../src/render/html.mjs';
 
 const WORDING = {
   inputError: '입력 내용을 확인해 주세요', denied: '권한이 없습니다', empty: '아직 항목이 없습니다', loadError: '불러오지 못했습니다. 다시 시도해 주세요',
@@ -60,7 +60,7 @@ test('기능명세서는 공통 문구를 한 번 적고, 기능마다 덮어쓴
       confirm: { message: '마감하면 선수는 더 제출할 수 없습니다. 마감할까요?', ok: '마감', cancel: '취소' }, denied: '내가 부여한 과제만 마감할 수 있어요',
       success: '과제를 마감했습니다', failures: [], crossApp: [{ app: 'P2', userType: 'U2', effect: '목록에서 사라진다', message: '코치가 과제를 마감했어요' }] },
   ] });
-  const html = renderHtml(runPipeline(spec));
+  const html = renderPages(runPipeline(spec), { name: 't' })['t.spec.html'];
   const text = html.split('data-part="spec"')[1].replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<svg[\s\S]*?<\/svg>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&#39;/g, "'").replace(/\s+/g, ' ');
   assert.match(text, /공통 문구 .*입력 오류 입력 내용을 확인해 주세요.*권한 없음 권한이 없습니다.*빈 화면 아직 항목이 없습니다.*통신 실패 네트워크 이슈가 발생했습니다.*로그인 만료 다시 로그인해 주세요/);
   assert.match(text, /빈 화면 아직 과제가 없어요/, '덮어쓴 빈 화면 문구');

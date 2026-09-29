@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parseSpec } from '../src/model/load.mjs';
 import { runPipeline } from '../src/check/run.mjs';
-import { renderHtml } from '../src/render/html.mjs';
+import { renderPages } from '../src/render/html.mjs';
 
 // 최종 리뷰에서 나온 입력들. 원천 → 검사 → HTML 끝까지 통과시킨다.
 const exampleText = readFileSync(new URL('../examples/assignment/spec.json', import.meta.url), 'utf8');
@@ -13,7 +13,7 @@ function pipelineOf(mutate) {
   mutate(raw);
   const { spec, problems } = parseSpec(JSON.stringify(raw));
   const result = runPipeline(spec, problems);
-  return { ...result, html: renderHtml(result) };
+  return { ...result, html: Object.values(renderPages(result, { name: 't' })).join('\n') };
 }
 
 const readyExample = (raw) => {

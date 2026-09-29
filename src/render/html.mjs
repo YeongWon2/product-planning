@@ -258,7 +258,7 @@ body{margin:0;background:#f3f4f7;color:var(--ink);font:15px/1.65 -apple-system,B
 .top-inner{max-width:1080px;margin:0 auto;padding:12px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 .top h1{font-size:18px;margin:0;flex:1 1 auto}
 .part-links{display:flex;gap:6px;flex-wrap:wrap}
-.part-link{font-size:13px;text-decoration:none;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:3px 12px;background:#fff}
+.part-link{font-size:13px;text-decoration:none;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:3px 12px;background:#fff}.part-link.current{background:var(--ink);color:#fff;border-color:var(--ink)}
 .copy-prompt{font:13px sans-serif;border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:999px;padding:4px 12px;cursor:pointer}
 .prompt-box{width:100%;min-height:96px;font:12px ui-monospace,monospace;margin-top:8px}
 main{max-width:1080px;margin:0 auto;padding:24px 16px 80px}
@@ -301,6 +301,10 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertic
 .legend .shape{display:inline-block;padding:0 10px;border:1.4px solid #3d4452;border-radius:6px;font-size:12px;background:#fff}
 .fc-shape-start{background:#1f2430!important;color:#fff;border-radius:999px!important}.fc-shape-decision{background:#fff7e6!important;border-color:#b54708!important}.fc-shape-message{background:#f6f7f9!important;border-style:dashed!important}.fc-shape-state{background:#eef4ff!important;border-color:#2f5fd0!important}
 ${BOARD_STYLE}
+/* 플로우차트 파일: 머리글 아래를 모두 도화지로 쓴다 */
+.fullscreen main{max-width:none;padding:0}.fullscreen .part{border-radius:0;margin:0;box-shadow:none}.fullscreen .part-head{padding:10px 16px 0}.fullscreen .part-body{padding:0}
+.fullscreen .legend{padding:0 16px 8px}.fullscreen .board-live{width:100%;left:0;transform:none;border-radius:0;border-left:0;border-right:0;margin:0}
+.fullscreen .board-live .board-view{height:calc(100vh - 176px)}
 @media print{.top{position:static}.part{box-shadow:none;break-inside:auto}.group,.function,tr{break-inside:avoid}}
 `;
 
@@ -329,14 +333,15 @@ export function buildModel(result) {
   };
 }
 
+// 프롬프트는 어느 파일에서 복사해도 첫 파일({이름}.html)과 model.json을 가리킨다. 경로는 열린 위치에서 계산한다.
 const PROMPT_SCRIPT = `<script>
 (function () {
   var button = document.querySelector('[data-copy-prompt]');
   var template = JSON.parse(document.getElementById('spec-prompt').textContent);
   var here = location.href.split('#')[0].split('?')[0];
-  var htmlPath = here.indexOf('file://') === 0 ? decodeURIComponent(here.slice(7)).replace(/^\\/([A-Za-z]:)/, '$1') : here;
-  var modelPath = htmlPath.replace(/[^\\/\\\\]*$/, 'model.json');
-  var prompt = template.split('{html}').join(htmlPath).split('{model}').join(modelPath);
+  var file = here.indexOf('file://') === 0 ? decodeURIComponent(here.slice(7)).replace(/^\\/([A-Za-z]:)/, '$1') : here;
+  var dir = file.replace(/[^\\/\\\\]*$/, '');
+  var prompt = template.split('{html}').join(dir + button.getAttribute('data-index')).split('{model}').join(dir + 'model.json');
   function fallback() {
     var box = document.createElement('textarea');
     box.value = prompt; box.readOnly = true; box.className = 'prompt-box';
@@ -351,22 +356,34 @@ const PROMPT_SCRIPT = `<script>
 })();
 </script>`;
 
-export function renderHtml(result) {
+// 부분마다 파일 하나. 첫 파일({이름}.html)이 PRD이고 AI용 모델 데이터를 품는다.
+export function pageFiles(name) {
+  return PARTS.map((item, position) => ({ key: item.key, file: position === 0 ? `${name}.html` : `${name}.${item.key}.html` }));
+}
+
+const PART_RENDERERS = { prd: prdPart, scenarios: scenariosPart, flowcharts: flowchartsPart, spec: specPart };
+
+export function renderPages(result, { name = 'spec' } = {}) {
   const { spec, report } = result;
   const title = typeof spec.meta.title === 'string' && spec.meta.title !== '' ? spec.meta.title : '이름 없는 기획서';
-  const nav = `<nav class="part-links">${PARTS.map(({ key, title: name }, position) => `<a class="part-link" href="#${key}">${position + 1} ${h(name)}</a>`).join('')}</nav>`;
-  const copyButton = '<button type="button" class="copy-prompt" data-copy-prompt title="AI에게 붙여 넣을 프롬프트를 복사합니다">프롬프트 복사</button>';
-  const body = [pendingBanner(result), prdPart(result), scenariosPart(result), flowchartsPart(result), specPart(result)].join('');
-
-  return '<!doctype html>\n'
-    + '<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-    + `<title>${h(title)}</title>`
-    + `<meta name="spec-format" content="${FORMAT}"><meta name="spec-version" content="${h(spec.meta.version ?? '')}">`
-    + `<meta name="spec-ready" content="${report.ready}"><meta name="spec-score" content="${report.score.ratio}">`
-    + `<style>${STYLE}</style></head>`
-    + `<body><header class="top"><div class="top-inner"><h1>${h(title)}</h1>${nav}${copyButton}</div></header><main>${body}</main>`
-    + `<script type="application/json" id="spec-model">${jsonForScript(buildModel(result))}</script>`
-    + `<script type="application/json" id="spec-prompt">${jsonForScript(buildPrompt())}</script>${PROMPT_SCRIPT}`
-    + (body.includes('data-board') ? BOARD_SCRIPT : '')
-    + '</body></html>\n';
+  const files = pageFiles(name);
+  const pages = {};
+  files.forEach(({ key, file }, position) => {
+    const nav = `<nav class="part-links">${files.map((item, i) => `<a class="part-link${i === position ? ' current' : ''}" href="${h(item.file)}">${i + 1} ${h(PARTS[i].title)}</a>`).join('')}</nav>`;
+    const copyButton = `<button type="button" class="copy-prompt" data-copy-prompt data-index="${h(files[0].file)}" title="AI에게 붙여 넣을 프롬프트를 복사합니다">프롬프트 복사</button>`;
+    const body = (position === 0 ? pendingBanner(result) : '') + PART_RENDERERS[key](result);
+    const fullscreen = key === 'flowcharts';
+    pages[file] = '<!doctype html>\n'
+      + '<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+      + `<title>${h(`${title} · ${PARTS[position].title}`)}</title>`
+      + `<meta name="spec-format" content="${FORMAT}"><meta name="spec-version" content="${h(spec.meta.version ?? '')}">`
+      + `<meta name="spec-ready" content="${report.ready}"><meta name="spec-score" content="${report.score.ratio}">`
+      + `<style>${STYLE}</style></head>`
+      + `<body${fullscreen ? ' class="fullscreen"' : ''}><header class="top"><div class="top-inner"><h1>${h(title)}</h1>${nav}${copyButton}</div></header><main>${body}</main>`
+      + (position === 0 ? `<script type="application/json" id="spec-model">${jsonForScript(buildModel(result))}</script>` : '')
+      + `<script type="application/json" id="spec-prompt">${jsonForScript(buildPrompt())}</script>${PROMPT_SCRIPT}`
+      + (body.includes('data-board') ? BOARD_SCRIPT : '')
+      + '</body></html>\n';
+  });
+  return pages;
 }

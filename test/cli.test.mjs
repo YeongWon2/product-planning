@@ -55,7 +55,7 @@ test('저장소에 올린 예제 출력은 지금 코드로 다시 만든 것과
   const out = mkdtempSync(join(tmpdir(), 'spec-'));
   assert.equal(run('build', example, '--out', out).status, 0);
   const committed = new URL('../examples/assignment/out/', import.meta.url).pathname;
-  for (const file of ['assignment.html', 'model.json', 'report.json']) {
+  for (const file of ['assignment.html', 'assignment.scenarios.html', 'assignment.flowcharts.html', 'assignment.spec.html', 'model.json', 'report.json']) {
     assert.equal(
       readFileSync(join(out, file), 'utf8'),
       readFileSync(join(committed, file), 'utf8'),

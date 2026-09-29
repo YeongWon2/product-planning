@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { loadSpec } from '../src/model/load.mjs';
 import { runPipeline } from '../src/check/run.mjs';
-import { buildModel, buildPrompt, renderHtml } from '../src/render/html.mjs';
+import { buildModel, buildPrompt, renderPages } from '../src/render/html.mjs';
 import { openFile } from '../src/open-file.mjs';
 
 const USAGE = `사용법:
@@ -50,10 +50,12 @@ function build(path, outOption, open) {
   const modelPath = join(outDir, 'model.json');
   mkdirSync(outDir, { recursive: true });
   const paths = { html: resolve(htmlPath), model: resolve(modelPath) };
-  writeFileSync(htmlPath, renderHtml(result));
+  // 부분마다 파일 하나. 첫 파일이 PRD이고 나머지는 {이름}.{부분}.html 이다.
+  const pages = renderPages(result, { name });
+  for (const [file, html] of Object.entries(pages)) writeFileSync(join(outDir, file), html);
   writeFileSync(reportPath, `${JSON.stringify(result.report, null, 2)}\n`);
   writeFileSync(modelPath, `${JSON.stringify(buildModel(result), null, 2)}\n`);
-  process.stdout.write(`${formatReport(result.report, result.derived.questions)}\n\n만든 파일:\n  ${htmlPath}  (사람이 읽는 기획서)\n  ${modelPath}  (AI가 읽는 모델 데이터)\n  ${reportPath}  (검사 결과)\n\n프롬프트 (복사해서 AI에게 붙여 넣기):\n${buildPrompt(paths)}\n`);
+  process.stdout.write(`${formatReport(result.report, result.derived.questions)}\n\n만든 파일:\n${Object.keys(pages).map((file) => `  ${join(outDir, file)}`).join('\n')}  (사람이 읽는 기획서, 부분마다 한 파일)\n  ${modelPath}  (AI가 읽는 모델 데이터)\n  ${reportPath}  (검사 결과)\n\n프롬프트 (복사해서 AI에게 붙여 넣기):\n${buildPrompt(paths)}\n`);
   if (open) {
     // 창을 못 열어도 파일은 만들어졌으므로 빌드는 성공이다. 직접 열 경로만 알린다.
     const opened = openFile(resolve(htmlPath));
