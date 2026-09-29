@@ -83,7 +83,7 @@ test('페이지 플로우차트는 권한·불러오기·빈 화면을 거쳐 �
   assert.equal(chart.name, '과제 상세');
   assert.deepEqual(mainPath(chart), [
     'start:코치 웹 · 과제 상세', 'decision:권한이 있나?', 'process:불러오는 중', 'decision:불러왔나?', 'decision:데이터가 있나?',
-    'process:화면 표시\n· 과제 조기 마감하기 → 과제 조기 마감하기', 'end:끝',
+    'process:화면 표시\n· 과제 조기 마감하기', 'end:끝',
   ]);
   assert.deepEqual(branches(chart), [
     ['아니오', 'end:권한 없음 안내: 권한이 없습니다'], ['아니오', 'message:불러오지 못했습니다'], ['다시 시도', 'process:불러오는 중'], ['아니오', 'end:비어 있음 안내: 아직 과제가 없어요'],

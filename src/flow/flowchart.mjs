@@ -127,7 +127,7 @@ export function deriveFlowcharts(spec, index, cells, flow) {
       b.link(b.decide('데이터가 있나?'), b.node('end', withText('비어 있음 안내', shows?.empty ?? spec.wording.empty)), 'no', '아니오');
     }
     const exits = flow.edges.filter((edge) => edge.from === screen.id && edge.rule === 'F10')
-      .map((edge) => `· ${edge.label} → ${flow.screens.find((item) => item.id === edge.to)?.name ?? ''}`);
+      .map((edge) => `· ${edge.label}`);
     b.advance(b.node('process', ['화면 표시', ...exits].join('\n')));
     b.finish();
     return { kind: 'page', of: screen.id, requirement: null, name, app: screen.app, nodes: b.nodes, edges: b.edges };

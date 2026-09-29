@@ -60,10 +60,11 @@ test('기능명세서는 공통 규칙 한 번, 기능마다 누가·넣는 것�
   assert.match(html, /<svg class="state-diagram"/);
   assert.match(text, /공통 규칙 .*숨김은 보이지 않음.*입력 규칙을 어기면.*한 번만 요청.*불러오는 중·빈 화면·오류·권한 없음·보기 전용/);
   assert.match(text, /항목 만들기 서버 처리 배정 관리자 가능 · 담당자 숨김/, '누가는 제목 옆 한 줄');
+  assert.match(text, /누가에 없는 사용자는 할 수 없음/, '불가인 사용자는 공통 규칙 한 줄로 뺀다');
   assert.match(text, /제목 텍스트 예 최대 50자/, '항목 · 형식 · 필수 · 범위 순서');
   assert.match(text, /성공 항목을 배정했습니다/);
-  assert.match(text, /막는 경우 입력 규칙 위반 · 담당자 · 저장 실패/);
-  assert.match(text, /항목 수정하기[\s\S]*막는 경우 입력 규칙 위반 · 배정 관리자 '완료' 상태 · 담당자/, '일부 상태만 막히면 상태를 붙인다');
+  assert.match(text, /막는 경우 입력 규칙 위반 · 저장 실패/, '사용자는 막는 경우에 되풀이하지 않는다');
+  assert.match(text, /항목 수정하기[\s\S]*막는 경우 입력 규칙 위반 · '완료' 상태/, '할 수 있는 사람도 막히는 상태만 남긴다');
   assert.ok(!text.includes('엣지 케이스'), '경계값 나열은 문서에 없다 (모델 데이터에만)');
   assert.ok(!text.includes('51자'));
   assert.match(text, /배정 관리자 진행 중 가능\s*,\s*완료 정할 것/, '빈칸은 정할 것으로 보인다');
@@ -121,4 +122,18 @@ test('프롬프트 복사 버튼은 파일 위치로 채울 자리표와 읽는 
   assert.match(prompt, /derived\.edgeCases/);
   assert.match(buildPrompt({ html: '/a/b.html', model: '/a/model.json' }), /\/a\/b\.html[\s\S]*\/a\/model\.json/);
   assert.ok(!/<script[^>]+src=/.test(html), '외부 스크립트를 쓰지 않는다');
+});
+
+test('모든 상태에서 불가인 사용자와 공통 문구와 같은 실패는 기능마다 되풀이하지 않는다', () => {
+  const spec = example();
+  const network = '네트워크 연결을 확인해 주세요';
+  spec.wording.network = network;
+  spec.actions.find((a) => a.id === 'AC3').failures.push({ name: '통신 실패', message: network });
+  // 상태 다이어그램 글자는 빼고 본문만 본다.
+  const text = bodyText(part(render(spec), 'spec').replace(/<svg[\s\S]*?<\/svg>/g, ' '));
+  const fn = text.slice(text.indexOf('항목 만들기'), text.indexOf('항목 마감하기'));
+  assert.ok(fn.length > 0);
+  assert.ok(!/담당자 불가/.test(text), '불가만 있는 사용자는 누가에 없다');
+  assert.equal((fn.match(new RegExp(network, 'g')) ?? []).length, 0, '공통 문구와 같은 실패 문구는 기능에 없다');
+  assert.ok(!/막는 경우[^.]*통신 실패/.test(fn), '막는 경우에도 없다');
 });

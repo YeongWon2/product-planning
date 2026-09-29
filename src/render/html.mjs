@@ -115,7 +115,8 @@ function whoLine(action, spec, index, cells) {
   const parts = [];
   for (const userType of spec.userTypes.filter((item) => !isAutomatic(index, item.id))) {
     const own = cells.filter((cell) => cell.userType === userType.id && cell.action === action.id);
-    if (own.length === 0) continue;
+    // 모든 상태에서 불가인 사용자는 적지 않는다. 공통 규칙에 '누가에 없는 사용자는 할 수 없음'이 있다.
+    if (own.length === 0 || own.every((cell) => cell.value === 'deny')) continue;
     const values = new Set(own.map((cell) => cell.value));
     const body = values.size === 1
       ? `<span class="perm perm-${own[0].value ?? 'gap'}">${h(label(own[0].value))}</span>`
@@ -132,15 +133,16 @@ function blockedLine(action, spec, index, derived) {
   const add = (cause) => { if (cause && !causes.includes(cause)) causes.push(cause); };
   const cases = derived.edgeCases.filter((item) => item.action === action.id && !item.ok);
   if (cases.some((item) => item.category === '입력')) add('입력 규칙 위반');
-  for (const userType of spec.userTypes.filter((item) => !isAutomatic(index, item.id))) {
-    const own = derived.permissionCells.filter((cell) => cell.userType === userType.id && cell.action === action.id);
-    const blocked = own.filter((cell) => cell.value !== 'allow');
-    if (blocked.length === 0) continue;
-    add(blocked.length === own.length ? index.name(userType.id) : `${index.name(userType.id)} ${blocked.map((cell) => quote(index.name(cell.state))).join('·')} 상태`);
-  }
+  // 사용자는 '누가'에 이미 있다. 여기에는 할 수 있는 사람이 있는데도 막히는 상태만 남긴다.
+  const cells = derived.permissionCells.filter((cell) => cell.action === action.id && cell.state !== null && !isAutomatic(index, cell.userType));
+  const able = new Set(cells.filter((cell) => cell.value === 'allow').map((cell) => cell.userType));
+  const closedStates = [...new Set(cells.map((cell) => cell.state))]
+    .filter((state) => cells.filter((cell) => cell.state === state && able.has(cell.userType)).every((cell) => cell.value !== 'allow'));
+  if (able.size > 0 && closedStates.length > 0) add(`${closedStates.map((state) => quote(index.name(state))).join('·')} 상태`);
   if (action.irreversible === true) add('확인 창에서 취소');
   const generic = new Set(Object.values(WORDING));
-  for (const failure of action.failures) if (typeof failure.name === 'string' && !generic.has(failure.name)) add(failure.name);
+  const commonText = new Set(Object.values(spec.wording));
+  for (const failure of action.failures) if (typeof failure.name === 'string' && !generic.has(failure.name) && !commonText.has(failure.message)) add(failure.name);
   return causes.length === 0 ? '' : `<p class="blocked"><span class="k bad">막는 경우</span> ${causes.map((cause) => h(cause)).join(' · ')}</p>`;
 }
 
@@ -199,7 +201,9 @@ function resultsList(action, spec, index) {
   if (text(action.empty)) items.push(`<li><span class="k">빈 화면</span> ${h(action.empty)}</li>`);
   if (text(action.denied)) items.push(`<li><span class="k">권한 없음</span> ${h(action.denied)}</li>`);
   if (text(action.success)) items.push(`<li><span class="k ok">성공</span> ${h(action.success)}</li>`);
-  for (const failure of action.failures) items.push(`<li><span class="k bad">${h(text(failure.name) || '실패')}</span> ${h(text(failure.message))}</li>`);
+  // 공통 문구와 같은 실패는 맨 위 공통 문구에 있으므로 되풀이하지 않는다.
+  const commonText = new Set(Object.values(spec.wording));
+  for (const failure of action.failures.filter((item) => !commonText.has(item.message))) items.push(`<li><span class="k bad">${h(text(failure.name) || '실패')}</span> ${h(text(failure.message))}</li>`);
   for (const target of action.crossApp) {
     const who = [target.app, target.userType].filter((id) => index.has(id)).map((id) => index.name(id)).join(' ');
     const message = text(target.message) ? ` — 알림 "${h(target.message)}"` : ' — <span class="gap">알림 문구 없음</span>';
@@ -211,7 +215,7 @@ function resultsList(action, spec, index) {
 // 모든 기능에 같은 규칙은 한 번만 적는다. 기능마다 되풀이하지 않는다.
 function commonRules(spec) {
   const lines = [
-    '숨김은 보이지 않음, 비활성은 보이지만 눌리지 않음, 불가는 권한 없음 안내.',
+    '누가에 없는 사용자는 할 수 없음. 숨김은 보이지 않음, 비활성은 보이지만 눌리지 않음, 불가는 권한 없음 안내.',
     '입력 규칙을 어기면 칸 아래 오류를 안내하고 저장하지 않음.',
   ];
   if (spec.actions.some((action) => action.async === true)) lines.push('서버 처리는 처리 중 다시 눌러도 한 번만 요청함.');
@@ -231,7 +235,9 @@ function specPart({ spec, index, derived }) {
       const automatic = automaticActions.has(action.id);
       const tags = [automatic ? '자동 처리' : null, action.async === true ? '서버 처리' : null]
         .filter(Boolean).map((tag) => `<span class="tag">${h(tag)}</span>`).join('');
-      const who = automatic ? '<span class="muted">규칙에 따라 저절로 일어남</span>' : (whoLine(action, spec, index, derived.permissionCells) || '<span class="gap">동작 가능표 없음</span>');
+      const hasCells = derived.permissionCells.some((cell) => cell.action === action.id && !isAutomatic(index, cell.userType));
+      const who = automatic ? '<span class="muted">규칙에 따라 저절로 일어남</span>'
+        : whoLine(action, spec, index, derived.permissionCells) || (hasCells ? '<span class="gap">아무도 할 수 없음</span>' : '<span class="gap">동작 가능표 없음</span>');
       return `<div class="function"${mark(action.id, 'action')}>`
         + `<div class="function-head"><h4>${h(index.name(action.id))}${tags}</h4><div class="who">${who}</div></div>`
         + (automatic ? '' : inputsTable(action))

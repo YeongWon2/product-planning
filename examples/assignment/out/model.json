@@ -1492,7 +1492,7 @@
           {
             "id": "page:sc:P1:E1:list:n9",
             "type": "process",
-            "text": "화면 표시\n· 항목 만들기 → 항목 만들기\n· 항목 상세 보기 → 항목 상세 · 관리자 웹"
+            "text": "화면 표시\n· 항목 만들기\n· 항목 상세 보기"
           },
           {
             "id": "page:sc:P1:E1:list:n10",
@@ -1613,7 +1613,7 @@
           {
             "id": "page:sc:P1:E1:view:n9",
             "type": "process",
-            "text": "화면 표시\n· 항목 수정하기 → 항목 수정하기"
+            "text": "화면 표시\n· 항목 수정하기"
           },
           {
             "id": "page:sc:P1:E1:view:n10",
