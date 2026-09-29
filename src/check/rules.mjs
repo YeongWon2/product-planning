@@ -434,7 +434,39 @@ export function product({ spec, index }) {
   return { checked, issues };
 }
 
+// 하네스: 엣지 케이스가 플로우차트에 모두 그려졌는지 확인한다. 빠진 것은 그림을 다시 만들어야 한다.
+export function flowCoverage({ spec, index, derived }) {
+  const issues = [];
+  let checked = 0;
+  const texts = (chart) => new Set(chart.nodes.map((node) => node.text));
+  const labels = (chart) => new Set(chart.edges.map((edge) => edge.label));
+  const fnChart = (action) => derived.flowcharts.find((chart) => chart.kind === 'function' && chart.of === action);
+  const miss = (action, what) => issues.push(issue('flow-coverage', 'warn', `${quote(index.name(action))}의 엣지 케이스 ${what}가 플로우차트에 없습니다`, [target(index, action)]));
+  const seen = new Set();
+  for (const item of derived.edgeCases) {
+    const key = `${item.action}\u0000${item.category}\u0000${item.category === '서버' ? item.given : ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    checked += 1;
+    const chart = fnChart(item.action);
+    const nodes = chart ? texts(chart) : new Set();
+    const edges = chart ? labels(chart) : new Set();
+    const has = {
+      입력: () => nodes.has('입력 규칙을 지켰나?'),
+      권한: () => [...nodes].some((text) => text === '권한이 있나?' || text.endsWith('상태인가?')),
+      상태: () => derived.flowcharts.some((other) => other.nodes.some((node) => node.type === 'state')),
+      '확인 창': () => nodes.has('확인 창에서 확인했나?'),
+      서버: () => item.given === '처리 중 다시 누름' || edges.has(item.given),
+      화면: () => derived.flowcharts.some((other) => other.kind === 'page'),
+      '다른 앱': () => [...nodes].some((text) => text.endsWith('에 알림')),
+      자동: () => derived.flowcharts.some((other) => other.kind === 'scenario' && other.nodes.some((node) => node.type === 'state')),
+    }[item.category];
+    if (has && !has()) miss(item.action, item.category === '서버' ? `'서버: ${item.given}'` : `'${item.category}'`);
+  }
+  return { checked, issues };
+}
+
 export const RULES = [
   shape, required, idMissing, idDuplicate, names, referencesKnown, requirementCoverage, permissionGaps, states,
-  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, questionOwners, inputRules, asyncFeedback, requestScope, requirementPriority, plainText, wording, product,
+  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, questionOwners, inputRules, asyncFeedback, requestScope, requirementPriority, plainText, wording, product, flowCoverage,
 ];

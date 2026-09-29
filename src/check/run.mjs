@@ -5,6 +5,7 @@ import { deriveQuestions } from '../derive/questions.mjs';
 import { deriveAcceptanceDrafts } from '../derive/acceptance.mjs';
 import { deriveFlow } from '../flow/derive.mjs';
 import { deriveFlowcharts } from '../flow/flowchart.mjs';
+import { deriveOverview } from '../flow/overview.mjs';
 import { deriveEdgeCases } from '../derive/edge-cases.mjs';
 import { RULES } from './rules.mjs';
 
@@ -38,6 +39,7 @@ function derive(spec, index) {
     questions: deriveQuestions(spec, index, { gaps: grid.gaps, flowQuestions: flow.questions }),
     acceptanceDrafts: deriveAcceptanceDrafts(spec, index, grid.cells),
     flowcharts: deriveFlowcharts(spec, index, grid.cells, flow),
+    overview: deriveOverview(spec, index, flow),
     edgeCases: deriveEdgeCases(spec, index, grid.cells),
   };
 }

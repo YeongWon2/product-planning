@@ -64,7 +64,7 @@ test('시나리오 플로우차트는 판단 없이 기능 순서와 상태 변�
   assert.deepEqual(mainPath(chartOf('scenario', 'S2')), ['start:시스템 · 규칙에 따라 자동', 'process:기한이 지나면 끝난다', 'end:끝']);
 });
 
-test('기능 플로우차트는 상태 조건·입력 규칙·확인 창·서버 결과의 판단과 갈래를 그린다', () => {
+test('기능 플로우차트는 권한·상태 조건·입력 규칙·확인 창·서버 결과의 판단과 갈래를 그린다', () => {
   const chart = chartOf('function', 'CLOSE');
   assert.deepEqual(mainPath(chart), [
     'start:과제 조기 마감하기', "decision:'과제'가 '진행 중' 상태인가?", 'process:마감 사유 입력', 'decision:입력 규칙을 지켰나?',
@@ -76,6 +76,22 @@ test('기능 플로우차트는 상태 조건·입력 규칙·확인 창·서버
   ]);
   assert.equal(chartOf('function', 'EXPIRE'), undefined, '자동 처리는 기능 플로우차트를 만들지 않는다');
   assert.deepEqual(mainPath(chartOf('function', 'LIST')), ['start:과제 목록 보기', 'process:목록을 보여 준다', 'end:끝']);
+});
+
+test('할 수 없는 사용자가 있으면 권한 판단을, 공통 서버 오류가 정해져 있으면 그 갈래를 더한다', () => {
+  const withMore = parseSpec(JSON.stringify({
+    ...JSON.parse(JSON.stringify(spec)),
+    wording: { ...spec.wording, network: '네트워크를 확인해 주세요', unknown: '잠시 후 다시 시도해 주세요', sessionExpired: '다시 로그인해 주세요' },
+    userTypes: [...spec.userTypes, { id: 'U2', name: '선수' }],
+    permissions: [...spec.permissions, { userType: 'U2', action: 'CLOSE', state: 'ON', value: 'deny' }, { userType: 'U2', action: 'CLOSE', state: 'OFF', value: 'deny' }],
+  })).spec;
+  const chart = runPipeline(withMore).derived.flowcharts.find((item) => item.kind === 'function' && item.of === 'CLOSE');
+  const path = mainPath(chart);
+  assert.equal(path[1], 'decision:권한이 있나?');
+  const labels = branches(chart).map(([label, to]) => `${label}:${to}`);
+  assert.ok(labels.includes('아니오:end:권한 없음 안내'));
+  for (const name of ['통신 실패', '알 수 없는 오류', '로그인 만료']) assert.ok(labels.includes(`${name}:message:오류 안내`), name);
+  assert.equal(labels.filter((label) => label.startsWith('통신 실패')).length, 1, '이미 적은 실패는 두 번 그리지 않는다');
 });
 
 test('페이지 플로우차트는 권한·불러오기·빈 화면을 거쳐 화면에서 할 수 있는 것을 보인다', () => {
@@ -139,4 +155,38 @@ test('판단은 마름모, 시작·끝은 둥근 상자로 그리고 긴 글은 
   assert.match(markup, /class="fc-start"/);
   assert.match(markup, /<tspan[^>]*>&#39;과제&#39;가 &#39;진행<\/tspan>/, '긴 판단 글은 줄을 바꾼다');
   assert.equal(markup, renderFlowchart(chartOf('function', 'CLOSE')).markup);
+});
+
+import { findCollisions } from '../src/render/layout-check.mjs';
+
+test('갈래 선은 위로 올라갔다가 오른쪽으로 가서 상자 위로 들어가고, 모든 플로우차트에 겹침이 없다', () => {
+  for (const chart of charts()) {
+    const layout = layoutFlowchart(chart);
+    assert.deepEqual(findCollisions(layout), [], `${chart.kind} ${chart.of}`);
+    const byId = new Map(layout.nodes.map((node) => [node.id, node]));
+    for (const route of layout.routes.filter((item) => item.kind === 'no')) {
+      const target = byId.get(route.to);
+      const [, last] = [route.points[route.points.length - 2], route.points[route.points.length - 1]];
+      assert.equal(last[1], target.y, `${route.from}→${route.to}은 상자 위쪽으로 들어간다`);
+      for (let i = 1; i < route.points.length; i += 1) {
+        const [a, b] = [route.points[i - 1], route.points[i]];
+        assert.ok(a[0] === b[0] || a[1] === b[1], '가로·세로 선분만 쓴다');
+      }
+    }
+  }
+});
+
+test('긴 글도 상자 밖으로 넘치지 않는다', () => {
+  const long = { kind: 'function', of: 'X', name: 'x', nodes: [
+    { id: 'a', type: 'start', text: '아주아주긴이름이붙은기능을시작한다' },
+    { id: 'b', type: 'decision', text: '대상 선수가 모두 이 팀 목표의 상세 목표에 속해 있는가?' },
+    { id: 'c', type: 'end', text: '끝' },
+  ], edges: [{ from: 'a', to: 'b', kind: 'main', label: '' }, { from: 'b', to: 'c', kind: 'main', label: '예' }] };
+  const { nodes } = layoutFlowchart(long);
+  for (const node of nodes) {
+    const widest = Math.max(...node.lines.map((line) => [...line].length)) * 13;
+    const room = node.type === 'decision' ? node.w * 0.62 : node.w - 16;
+    assert.ok(widest <= room, `${node.id}: 글 폭 ${widest} > 자리 ${room}`);
+    assert.ok(node.lines.length * 18 <= (node.type === 'decision' ? node.h * 0.62 : node.h), `${node.id}: 줄이 상자 높이를 넘는다`);
+  }
 });

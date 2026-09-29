@@ -64,10 +64,11 @@ test('시나리오는 요구사항마다 시나리오 한 줄과 완료 조건�
   assert.match(text, /상황 .+ 행동 .+ 결과 .+/, '완료 조건은 상황·행동·결과로 보인다');
 });
 
-test('플로우차트는 시나리오·기능·페이지마다 한 장씩 도화지에 올린다', () => {
+test('플로우차트는 전체 흐름 한 장과 시나리오·기능·페이지마다 한 장씩 도화지에 올린다', () => {
   const html = part(render(example()), 'flowcharts');
   const frames = [...html.matchAll(/data-frame="([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(frames.slice(0, 2), example().scenarios.map((s) => `flowchart-scenario-${s.id}`));
+  assert.equal(frames[0], 'flowchart-overview', '맨 앞은 전체 흐름');
+  assert.deepEqual(frames.slice(1, 3), example().scenarios.map((s) => `flowchart-scenario-${s.id}`));
   assert.ok(frames.some((id) => id.startsWith('flowchart-function-')) && frames.some((id) => id.startsWith('flowchart-page-')), '기능·페이지 플로우차트도 있다');
 });
 

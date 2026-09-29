@@ -1,4 +1,4 @@
-import { quote } from '../model/labels.mjs';
+import { WORDING, quote } from '../model/labels.mjs';
 
 // 플로우차트 세 종류. 같은 사실을 두 번 그리지 않도록 역할을 나눈다.
 //   시나리오: 요구사항을 이루는 기능의 순서와 그때 바뀌는 상태. 판단은 없다.
@@ -71,7 +71,15 @@ export function deriveFlowcharts(spec, index, cells, flow) {
     const b = builder(`function:${action.id}`);
     b.start(action.name);
 
-    // FC1: 어떤 사용자도 못 하는 상태가 있으면 먼저 상태를 판단한다.
+    // FC0: 이 기능을 전혀 할 수 없는 사용자가 있으면 먼저 권한을 판단한다.
+    const humans = cells.filter((cell) => cell.action === action.id && !isAutomatic(cell.userType));
+    const users = [...new Set(humans.map((cell) => cell.userType))];
+    const canUse = (user) => humans.some((cell) => cell.userType === user && cell.value === 'allow');
+    if (users.some(canUse) && users.some((user) => !canUse(user))) {
+      b.link(b.decide('권한이 있나?'), b.node('end', '권한 없음 안내'), 'no', '아니오');
+    }
+
+    // FC1: 할 수 있는 사람도 못 하는 상태가 있으면 상태를 판단한다.
     const own = cells.filter((cell) => cell.action === action.id && cell.state !== null && !isAutomatic(cell.userType));
     const states = [...new Set(own.map((cell) => cell.state))];
     const allowed = states.filter((state) => own.some((cell) => cell.state === state && cell.value === 'allow'));
@@ -93,11 +101,16 @@ export function deriveFlowcharts(spec, index, cells, flow) {
       b.link(warning, processId, 'loop', '다시 입력');
     }
     if (action.irreversible === true) b.link(b.decide('확인 창에서 확인했나?'), b.node('end', '취소'), 'no', '아니오');
-    if (action.async === true && action.failures.length > 0) {
+    // FC4: 기능 고유의 실패와, 공통 문구로 정한 불특정 오류(통신 실패·알 수 없는 오류·로그인 만료)를 모두 갈래로 그린다.
+    const named = action.failures.map((failure) => (typeof failure.name === 'string' ? failure.name : ''));
+    const generic = action.async === true
+      ? ['network', 'unknown', 'sessionExpired'].filter((key) => typeof spec.wording[key] === 'string' && spec.wording[key] !== '' && !named.includes(WORDING[key])).map((key) => WORDING[key])
+      : [];
+    if (action.async === true && named.length + generic.length > 0) {
       const decision = b.decide(`${action.name} 성공?`);
-      for (const failure of action.failures) {
+      for (const name of [...named, ...generic]) {
         const message = b.node('message', '오류 안내');
-        b.link(decision, message, 'no', typeof failure.name === 'string' ? failure.name : '');
+        b.link(decision, message, 'no', name);
         b.link(message, b.node('end', '끝'), 'no');
       }
     }

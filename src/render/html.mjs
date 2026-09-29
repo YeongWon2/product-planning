@@ -3,6 +3,7 @@ import { escapeHtml as h, jsonForScript } from './escape.mjs';
 import { renderFlowchart } from './flowchart-svg.mjs';
 import { BOARD_SCRIPT, BOARD_STYLE, packRows, renderBoard } from './board.mjs';
 import { renderStates } from './state-svg.mjs';
+import { renderOverview } from './overview-svg.mjs';
 
 const FORMAT = 'product-planning/spec@1';
 
@@ -12,7 +13,7 @@ const FORMAT = 'product-planning/spec@1';
 const PARTS = [
   { key: 'prd', title: 'PRD', lead: '무엇을 왜 만드나', shows: ['product', 'apps', 'summary.problem', 'userTypes', 'summary.metrics', 'requirements'] },
   { key: 'scenarios', title: '시나리오', lead: '누가 어떤 순서로 하나', shows: ['scenarios', 'acceptance'] },
-  { key: 'flowcharts', title: '플로우차트', lead: '어떤 판단을 거쳐 어떻게 끝나나', shows: ['derived.flowcharts'] },
+  { key: 'flowcharts', title: '플로우차트', lead: '어떤 판단을 거쳐 어떻게 끝나나', shows: ['derived.overview', 'derived.flowcharts'] },
   { key: 'spec', title: '기능명세서', lead: '기능마다 누가, 무엇을 넣고, 무엇이 바뀌고, 어떤 경우를 막나', shows: ['entities', 'actions', 'derived.permissionCells', 'derived.edgeCases'] },
 ];
 const DATA_ONLY = [
@@ -120,8 +121,14 @@ function flowchartsPart({ spec, index, derived }) {
     const { markup, width, height } = renderFlowchart(chart);
     return { id: `flowchart-${chart.kind}-${chart.of}`, title: chart.name, subtitle: CHART_SUBTITLE[chart.kind](chart, spec, index), width, height, markup };
   });
-  const legend = '<p class="legend"><span class="shape fc-shape-start">시작·끝</span><span class="shape">처리</span><span class="shape fc-shape-decision">판단</span><span class="shape fc-shape-message">안내</span><span class="shape fc-shape-state">상태 변화</span><span class="muted">시나리오는 순서, 기능은 판단 갈래, 페이지는 화면 상태를 보입니다. 문구와 권한 값은 기능명세서에 있습니다.</span></p>';
-  return part('flowcharts', `${legend}${renderBoard({ rows: packRows(frames), withScript: false })}`);
+  // 맨 윗줄: 서비스·앱·화면·API를 한눈에 보는 전체 흐름도
+  const pinned = [];
+  if (derived.overview.services.length > 0) {
+    const { markup, width, height } = renderOverview(derived.overview, index);
+    pinned.push({ id: 'flowchart-overview', title: '전체 흐름', subtitle: '서비스 틀 안의 앱·화면, 다른 서비스로 가는 영향, API 호출', width, height, markup });
+  }
+  const legend = '<p class="legend"><span class="shape fc-shape-start">시작·끝</span><span class="shape">처리</span><span class="shape fc-shape-decision">판단</span><span class="shape fc-shape-message">안내</span><span class="shape fc-shape-state">상태 변화</span><span class="muted">전체 흐름은 서비스 사이 연결, 시나리오는 순서, 기능은 판단 갈래, 페이지는 화면 상태를 보입니다. 문구와 권한 값은 기능명세서에 있습니다.</span></p>';
+  return part('flowcharts', `${legend}${renderBoard({ rows: packRows(frames, pinned), withScript: false })}`);
 }
 
 // 누가: 사용자 유형마다 한 토막. 모든 상태에서 같으면 값만, 다르면 "진행 중 가능, 완료 정할 것"처럼 상태를 붙인다.
@@ -370,6 +377,18 @@ const PROMPT_SCRIPT = `<script>
   });
 })();
 </script>`;
+
+// 하네스: 모든 그림을 겹침 검사와 함께 다시 그려 보고, 간격을 넓혀도 남은 겹침을 돌려준다.
+export function drawingReport(result) {
+  const { derived, index } = result;
+  const left = [];
+  for (const chart of derived.flowcharts) {
+    const { collisions } = renderFlowchart(chart);
+    for (const item of collisions) left.push({ drawing: `${chart.kind}:${chart.name}`, ...item });
+  }
+  if (derived.overview.services.length > 0) for (const item of renderOverview(derived.overview, index).collisions) left.push({ drawing: '전체 흐름', ...item });
+  return left;
+}
 
 // 부분마다 파일 하나. 첫 파일({이름}.html)이 PRD이고 AI용 모델 데이터를 품는다.
 export function pageFiles(name) {

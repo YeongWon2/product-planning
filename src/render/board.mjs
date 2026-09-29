@@ -17,6 +17,13 @@ const FRAME_STYLE = [
   '.fc-message{fill:#f6f7f9;stroke:#8a93a3;stroke-width:1;stroke-dasharray:4 3}',
   '.fc-state{fill:#eef4ff;stroke:#2f5fd0;stroke-width:1.2}',
   '.fc-edge path{fill:none;stroke:#6b7385;stroke-width:1.4}.fc-edge-no path{stroke:#b54708}.fc-edge-loop path{stroke-dasharray:5 4}',
+  '.ov-service{fill:#f4f7ff;stroke:#2f5fd0;stroke-width:1.6}.ov-app{fill:#ffffff;stroke:#c9d3ea;stroke-width:1}',
+  '.ov-service-name{font:700 15px sans-serif;fill:#2f5fd0}.ov-app-name{font:600 12px sans-serif;fill:#5b6372}',
+  '.ov-screen,.ov-modal,.ov-confirm,.ov-notify{fill:#ffffff;stroke:#3d4452;stroke-width:1.2}.ov-modal{stroke-dasharray:5 4}.ov-confirm{stroke:#c2410c}.ov-notify{fill:#eef4ff;stroke:#2f5fd0}',
+  '.ov-api,.ov-external{fill:#1f2430;stroke:#1f2430}.ov-api+.ov-name,.ov-external+.ov-name{fill:#ffffff}',
+  '.ov-name{font:13px sans-serif;fill:#1f2430;text-anchor:middle}',
+  '.ov-edge path{fill:none;stroke:#6b7385;stroke-width:1.3}.ov-edge-cross path{stroke:#2f5fd0;stroke-width:1.8}.ov-edge-call path{stroke:#7a4cc2;stroke-dasharray:6 3}',
+  '.ov-label{font:11px sans-serif;fill:#5b6372;text-anchor:middle;paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round}',
   '.fc-label{font:12px sans-serif;fill:#5b6372;text-anchor:middle;paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round}',
 ].join('');
 

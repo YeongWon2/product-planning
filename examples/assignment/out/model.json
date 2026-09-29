@@ -26,6 +26,7 @@
         "key": "flowcharts",
         "title": "플로우차트",
         "shows": [
+          "derived.overview",
           "derived.flowcharts"
         ]
       },
@@ -1114,46 +1115,86 @@
           },
           {
             "id": "function:AC3:n2",
+            "type": "decision",
+            "text": "권한이 있나?"
+          },
+          {
+            "id": "function:AC3:n3",
+            "type": "end",
+            "text": "권한 없음 안내"
+          },
+          {
+            "id": "function:AC3:n4",
             "type": "process",
             "text": "제목·담당자 입력"
           },
           {
-            "id": "function:AC3:n3",
+            "id": "function:AC3:n5",
             "type": "decision",
             "text": "입력 규칙을 지켰나?"
           },
           {
-            "id": "function:AC3:n4",
+            "id": "function:AC3:n6",
             "type": "message",
             "text": "입력 오류 안내"
           },
           {
-            "id": "function:AC3:n5",
+            "id": "function:AC3:n7",
             "type": "decision",
             "text": "항목 만들기 성공?"
           },
           {
-            "id": "function:AC3:n6",
+            "id": "function:AC3:n8",
             "type": "message",
             "text": "오류 안내"
           },
           {
-            "id": "function:AC3:n7",
+            "id": "function:AC3:n9",
             "type": "end",
             "text": "끝"
           },
           {
-            "id": "function:AC3:n8",
+            "id": "function:AC3:n10",
+            "type": "message",
+            "text": "오류 안내"
+          },
+          {
+            "id": "function:AC3:n11",
+            "type": "end",
+            "text": "끝"
+          },
+          {
+            "id": "function:AC3:n12",
+            "type": "message",
+            "text": "오류 안내"
+          },
+          {
+            "id": "function:AC3:n13",
+            "type": "end",
+            "text": "끝"
+          },
+          {
+            "id": "function:AC3:n14",
+            "type": "message",
+            "text": "오류 안내"
+          },
+          {
+            "id": "function:AC3:n15",
+            "type": "end",
+            "text": "끝"
+          },
+          {
+            "id": "function:AC3:n16",
             "type": "message",
             "text": "성공 안내"
           },
           {
-            "id": "function:AC3:n9",
+            "id": "function:AC3:n17",
             "type": "message",
             "text": "'담당자 앱'에 알림"
           },
           {
-            "id": "function:AC3:n10",
+            "id": "function:AC3:n18",
             "type": "end",
             "text": "끝"
           }
@@ -1168,54 +1209,102 @@
           {
             "from": "function:AC3:n2",
             "to": "function:AC3:n3",
-            "kind": "main",
-            "label": ""
-          },
-          {
-            "from": "function:AC3:n3",
-            "to": "function:AC3:n4",
             "kind": "no",
             "label": "아니오"
           },
           {
-            "from": "function:AC3:n4",
-            "to": "function:AC3:n2",
-            "kind": "loop",
-            "label": "다시 입력"
-          },
-          {
-            "from": "function:AC3:n3",
-            "to": "function:AC3:n5",
+            "from": "function:AC3:n2",
+            "to": "function:AC3:n4",
             "kind": "main",
             "label": "예"
+          },
+          {
+            "from": "function:AC3:n4",
+            "to": "function:AC3:n5",
+            "kind": "main",
+            "label": ""
           },
           {
             "from": "function:AC3:n5",
             "to": "function:AC3:n6",
             "kind": "no",
-            "label": "저장 실패"
+            "label": "아니오"
           },
           {
             "from": "function:AC3:n6",
-            "to": "function:AC3:n7",
-            "kind": "no",
-            "label": ""
+            "to": "function:AC3:n4",
+            "kind": "loop",
+            "label": "다시 입력"
           },
           {
             "from": "function:AC3:n5",
-            "to": "function:AC3:n8",
+            "to": "function:AC3:n7",
             "kind": "main",
             "label": "예"
           },
           {
+            "from": "function:AC3:n7",
+            "to": "function:AC3:n8",
+            "kind": "no",
+            "label": "저장 실패"
+          },
+          {
             "from": "function:AC3:n8",
             "to": "function:AC3:n9",
+            "kind": "no",
+            "label": ""
+          },
+          {
+            "from": "function:AC3:n7",
+            "to": "function:AC3:n10",
+            "kind": "no",
+            "label": "통신 실패"
+          },
+          {
+            "from": "function:AC3:n10",
+            "to": "function:AC3:n11",
+            "kind": "no",
+            "label": ""
+          },
+          {
+            "from": "function:AC3:n7",
+            "to": "function:AC3:n12",
+            "kind": "no",
+            "label": "알 수 없는 오류"
+          },
+          {
+            "from": "function:AC3:n12",
+            "to": "function:AC3:n13",
+            "kind": "no",
+            "label": ""
+          },
+          {
+            "from": "function:AC3:n7",
+            "to": "function:AC3:n14",
+            "kind": "no",
+            "label": "로그인 만료"
+          },
+          {
+            "from": "function:AC3:n14",
+            "to": "function:AC3:n15",
+            "kind": "no",
+            "label": ""
+          },
+          {
+            "from": "function:AC3:n7",
+            "to": "function:AC3:n16",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "function:AC3:n16",
+            "to": "function:AC3:n17",
             "kind": "main",
             "label": ""
           },
           {
-            "from": "function:AC3:n9",
-            "to": "function:AC3:n10",
+            "from": "function:AC3:n17",
+            "to": "function:AC3:n18",
             "kind": "main",
             "label": ""
           }
@@ -1235,55 +1324,95 @@
           {
             "id": "function:AC4:n2",
             "type": "decision",
-            "text": "'항목'이 '진행 중' 상태인가?"
+            "text": "권한이 있나?"
           },
           {
             "id": "function:AC4:n3",
             "type": "end",
-            "text": "할 수 없음"
+            "text": "권한 없음 안내"
           },
           {
             "id": "function:AC4:n4",
+            "type": "decision",
+            "text": "'항목'이 '진행 중' 상태인가?"
+          },
+          {
+            "id": "function:AC4:n5",
+            "type": "end",
+            "text": "할 수 없음"
+          },
+          {
+            "id": "function:AC4:n6",
             "type": "process",
             "text": "항목 마감하기 실행"
           },
           {
-            "id": "function:AC4:n5",
+            "id": "function:AC4:n7",
             "type": "decision",
             "text": "확인 창에서 확인했나?"
           },
           {
-            "id": "function:AC4:n6",
+            "id": "function:AC4:n8",
             "type": "end",
             "text": "취소"
           },
           {
-            "id": "function:AC4:n7",
+            "id": "function:AC4:n9",
             "type": "decision",
             "text": "항목 마감하기 성공?"
           },
           {
-            "id": "function:AC4:n8",
+            "id": "function:AC4:n10",
             "type": "message",
             "text": "오류 안내"
           },
           {
-            "id": "function:AC4:n9",
+            "id": "function:AC4:n11",
             "type": "end",
             "text": "끝"
           },
           {
-            "id": "function:AC4:n10",
+            "id": "function:AC4:n12",
+            "type": "message",
+            "text": "오류 안내"
+          },
+          {
+            "id": "function:AC4:n13",
+            "type": "end",
+            "text": "끝"
+          },
+          {
+            "id": "function:AC4:n14",
+            "type": "message",
+            "text": "오류 안내"
+          },
+          {
+            "id": "function:AC4:n15",
+            "type": "end",
+            "text": "끝"
+          },
+          {
+            "id": "function:AC4:n16",
+            "type": "message",
+            "text": "오류 안내"
+          },
+          {
+            "id": "function:AC4:n17",
+            "type": "end",
+            "text": "끝"
+          },
+          {
+            "id": "function:AC4:n18",
             "type": "message",
             "text": "성공 안내"
           },
           {
-            "id": "function:AC4:n11",
+            "id": "function:AC4:n19",
             "type": "state",
             "text": "'항목' 진행 중 → 완료"
           },
           {
-            "id": "function:AC4:n12",
+            "id": "function:AC4:n20",
             "type": "end",
             "text": "끝"
           }
@@ -1310,48 +1439,96 @@
           {
             "from": "function:AC4:n4",
             "to": "function:AC4:n5",
-            "kind": "main",
-            "label": ""
-          },
-          {
-            "from": "function:AC4:n5",
-            "to": "function:AC4:n6",
             "kind": "no",
             "label": "아니오"
           },
           {
-            "from": "function:AC4:n5",
-            "to": "function:AC4:n7",
+            "from": "function:AC4:n4",
+            "to": "function:AC4:n6",
             "kind": "main",
             "label": "예"
+          },
+          {
+            "from": "function:AC4:n6",
+            "to": "function:AC4:n7",
+            "kind": "main",
+            "label": ""
           },
           {
             "from": "function:AC4:n7",
             "to": "function:AC4:n8",
             "kind": "no",
-            "label": "마감 실패"
-          },
-          {
-            "from": "function:AC4:n8",
-            "to": "function:AC4:n9",
-            "kind": "no",
-            "label": ""
+            "label": "아니오"
           },
           {
             "from": "function:AC4:n7",
-            "to": "function:AC4:n10",
+            "to": "function:AC4:n9",
             "kind": "main",
             "label": "예"
           },
           {
+            "from": "function:AC4:n9",
+            "to": "function:AC4:n10",
+            "kind": "no",
+            "label": "마감 실패"
+          },
+          {
             "from": "function:AC4:n10",
             "to": "function:AC4:n11",
+            "kind": "no",
+            "label": ""
+          },
+          {
+            "from": "function:AC4:n9",
+            "to": "function:AC4:n12",
+            "kind": "no",
+            "label": "통신 실패"
+          },
+          {
+            "from": "function:AC4:n12",
+            "to": "function:AC4:n13",
+            "kind": "no",
+            "label": ""
+          },
+          {
+            "from": "function:AC4:n9",
+            "to": "function:AC4:n14",
+            "kind": "no",
+            "label": "알 수 없는 오류"
+          },
+          {
+            "from": "function:AC4:n14",
+            "to": "function:AC4:n15",
+            "kind": "no",
+            "label": ""
+          },
+          {
+            "from": "function:AC4:n9",
+            "to": "function:AC4:n16",
+            "kind": "no",
+            "label": "로그인 만료"
+          },
+          {
+            "from": "function:AC4:n16",
+            "to": "function:AC4:n17",
+            "kind": "no",
+            "label": ""
+          },
+          {
+            "from": "function:AC4:n9",
+            "to": "function:AC4:n18",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "function:AC4:n18",
+            "to": "function:AC4:n19",
             "kind": "main",
             "label": ""
           },
           {
-            "from": "function:AC4:n11",
-            "to": "function:AC4:n12",
+            "from": "function:AC4:n19",
+            "to": "function:AC4:n20",
             "kind": "main",
             "label": ""
           }
@@ -1371,50 +1548,90 @@
           {
             "id": "function:AC5:n2",
             "type": "decision",
-            "text": "'항목'이 '진행 중' 상태인가?"
+            "text": "권한이 있나?"
           },
           {
             "id": "function:AC5:n3",
             "type": "end",
-            "text": "할 수 없음"
+            "text": "권한 없음 안내"
           },
           {
             "id": "function:AC5:n4",
+            "type": "decision",
+            "text": "'항목'이 '진행 중' 상태인가?"
+          },
+          {
+            "id": "function:AC5:n5",
+            "type": "end",
+            "text": "할 수 없음"
+          },
+          {
+            "id": "function:AC5:n6",
             "type": "process",
             "text": "제목·담당자·마감일·메모 입력"
           },
           {
-            "id": "function:AC5:n5",
+            "id": "function:AC5:n7",
             "type": "decision",
             "text": "입력 규칙을 지켰나?"
           },
           {
-            "id": "function:AC5:n6",
+            "id": "function:AC5:n8",
             "type": "message",
             "text": "입력 오류 안내"
           },
           {
-            "id": "function:AC5:n7",
+            "id": "function:AC5:n9",
             "type": "decision",
             "text": "항목 수정하기 성공?"
           },
           {
-            "id": "function:AC5:n8",
+            "id": "function:AC5:n10",
             "type": "message",
             "text": "오류 안내"
           },
           {
-            "id": "function:AC5:n9",
+            "id": "function:AC5:n11",
             "type": "end",
             "text": "끝"
           },
           {
-            "id": "function:AC5:n10",
+            "id": "function:AC5:n12",
+            "type": "message",
+            "text": "오류 안내"
+          },
+          {
+            "id": "function:AC5:n13",
+            "type": "end",
+            "text": "끝"
+          },
+          {
+            "id": "function:AC5:n14",
+            "type": "message",
+            "text": "오류 안내"
+          },
+          {
+            "id": "function:AC5:n15",
+            "type": "end",
+            "text": "끝"
+          },
+          {
+            "id": "function:AC5:n16",
+            "type": "message",
+            "text": "오류 안내"
+          },
+          {
+            "id": "function:AC5:n17",
+            "type": "end",
+            "text": "끝"
+          },
+          {
+            "id": "function:AC5:n18",
             "type": "message",
             "text": "성공 안내"
           },
           {
-            "id": "function:AC5:n11",
+            "id": "function:AC5:n19",
             "type": "end",
             "text": "끝"
           }
@@ -1441,48 +1658,96 @@
           {
             "from": "function:AC5:n4",
             "to": "function:AC5:n5",
-            "kind": "main",
-            "label": ""
-          },
-          {
-            "from": "function:AC5:n5",
-            "to": "function:AC5:n6",
             "kind": "no",
             "label": "아니오"
           },
           {
-            "from": "function:AC5:n6",
-            "to": "function:AC5:n4",
-            "kind": "loop",
-            "label": "다시 입력"
-          },
-          {
-            "from": "function:AC5:n5",
-            "to": "function:AC5:n7",
+            "from": "function:AC5:n4",
+            "to": "function:AC5:n6",
             "kind": "main",
             "label": "예"
+          },
+          {
+            "from": "function:AC5:n6",
+            "to": "function:AC5:n7",
+            "kind": "main",
+            "label": ""
           },
           {
             "from": "function:AC5:n7",
             "to": "function:AC5:n8",
             "kind": "no",
-            "label": "저장 실패"
+            "label": "아니오"
           },
           {
             "from": "function:AC5:n8",
-            "to": "function:AC5:n9",
-            "kind": "no",
-            "label": ""
+            "to": "function:AC5:n6",
+            "kind": "loop",
+            "label": "다시 입력"
           },
           {
             "from": "function:AC5:n7",
-            "to": "function:AC5:n10",
+            "to": "function:AC5:n9",
             "kind": "main",
             "label": "예"
           },
           {
+            "from": "function:AC5:n9",
+            "to": "function:AC5:n10",
+            "kind": "no",
+            "label": "저장 실패"
+          },
+          {
             "from": "function:AC5:n10",
             "to": "function:AC5:n11",
+            "kind": "no",
+            "label": ""
+          },
+          {
+            "from": "function:AC5:n9",
+            "to": "function:AC5:n12",
+            "kind": "no",
+            "label": "통신 실패"
+          },
+          {
+            "from": "function:AC5:n12",
+            "to": "function:AC5:n13",
+            "kind": "no",
+            "label": ""
+          },
+          {
+            "from": "function:AC5:n9",
+            "to": "function:AC5:n14",
+            "kind": "no",
+            "label": "알 수 없는 오류"
+          },
+          {
+            "from": "function:AC5:n14",
+            "to": "function:AC5:n15",
+            "kind": "no",
+            "label": ""
+          },
+          {
+            "from": "function:AC5:n9",
+            "to": "function:AC5:n16",
+            "kind": "no",
+            "label": "로그인 만료"
+          },
+          {
+            "from": "function:AC5:n16",
+            "to": "function:AC5:n17",
+            "kind": "no",
+            "label": ""
+          },
+          {
+            "from": "function:AC5:n9",
+            "to": "function:AC5:n18",
+            "kind": "main",
+            "label": "예"
+          },
+          {
+            "from": "function:AC5:n18",
+            "to": "function:AC5:n19",
             "kind": "main",
             "label": ""
           }
@@ -1951,6 +2216,152 @@
         ]
       }
     ],
+    "overview": {
+      "services": [
+        {
+          "id": "SV1",
+          "name": "관리자 서비스",
+          "apps": [
+            {
+              "id": "P1",
+              "name": "관리자 웹",
+              "screens": [
+                "sc:P1:E1:list",
+                "sc:P1:E1:modal:AC3",
+                "sc:P1:E1:view",
+                "sc:P1:E1:form:AC5",
+                "sc:P1:E1:confirm:AC4"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "SV2",
+          "name": "담당자 서비스",
+          "apps": [
+            {
+              "id": "P2",
+              "name": "담당자 앱",
+              "screens": [
+                "sc:P2:notify:AC3",
+                "sc:P2:E1:view"
+              ]
+            }
+          ]
+        }
+      ],
+      "systems": [
+        {
+          "id": "API1",
+          "name": "항목 API",
+          "kind": "api"
+        }
+      ],
+      "edges": [
+        {
+          "from": "sc:P1:E1:list",
+          "to": "sc:P1:E1:modal:AC3",
+          "kind": "flow",
+          "label": "항목 만들기"
+        },
+        {
+          "from": "sc:P1:E1:modal:AC3",
+          "to": "sc:P1:E1:view",
+          "kind": "flow",
+          "label": "완료"
+        },
+        {
+          "from": "sc:P1:E1:view",
+          "to": "sc:P2:notify:AC3",
+          "kind": "cross",
+          "label": "담당자 앱에 알림"
+        },
+        {
+          "from": "sc:P2:notify:AC3",
+          "to": "sc:P2:E1:view",
+          "kind": "flow",
+          "label": "알림 열기"
+        },
+        {
+          "from": "sc:P1:E1:list",
+          "to": "sc:P1:E1:view",
+          "kind": "flow",
+          "label": "항목 상세 보기"
+        },
+        {
+          "from": "sc:P1:E1:view",
+          "to": "sc:P1:E1:form:AC5",
+          "kind": "flow",
+          "label": "항목 수정하기"
+        },
+        {
+          "from": "sc:P1:E1:form:AC5",
+          "to": "sc:P1:E1:view",
+          "kind": "flow",
+          "label": "완료"
+        },
+        {
+          "from": "sc:P1:E1:view",
+          "to": "sc:P1:E1:confirm:AC4",
+          "kind": "flow",
+          "label": "항목 마감하기"
+        },
+        {
+          "from": "sc:P1:E1:confirm:AC4",
+          "to": "sc:P1:E1:view",
+          "kind": "flow",
+          "label": "완료"
+        },
+        {
+          "from": "sc:P1:E1:list",
+          "to": "API1",
+          "kind": "call",
+          "label": "항목 목록 보기"
+        },
+        {
+          "from": "sc:P1:E1:view",
+          "to": "API1",
+          "kind": "call",
+          "label": "항목 상세 보기"
+        },
+        {
+          "from": "sc:P1:E1:modal:AC3",
+          "to": "API1",
+          "kind": "call",
+          "label": "항목 만들기"
+        },
+        {
+          "from": "sc:P1:E1:confirm:AC4",
+          "to": "API1",
+          "kind": "call",
+          "label": "항목 마감하기"
+        },
+        {
+          "from": "sc:P1:E1:form:AC5",
+          "to": "API1",
+          "kind": "call",
+          "label": "항목 수정하기"
+        }
+      ],
+      "names": {
+        "sc:P1:E1:list": "항목 목록",
+        "sc:P1:E1:modal:AC3": "항목 만들기",
+        "sc:P1:E1:view": "항목 상세",
+        "sc:P2:notify:AC3": "새 항목 알림",
+        "sc:P2:E1:view": "항목 상세",
+        "sc:P1:E1:form:AC5": "항목 수정하기",
+        "sc:P1:E1:confirm:AC4": "항목 마감하기 확인"
+      },
+      "types": {
+        "sc:P1:E1:list": "screen",
+        "sc:P1:E1:modal:AC3": "modal",
+        "sc:P1:E1:view": "screen",
+        "sc:P2:notify:AC3": "notification",
+        "sc:P2:E1:view": "screen",
+        "sc:P1:E1:form:AC5": "screen",
+        "sc:P1:E1:confirm:AC4": "confirm"
+      }
+    },
     "edgeCases": [
       {
         "action": "AC1",
@@ -2357,8 +2768,8 @@
   "report": {
     "ready": false,
     "score": {
-      "checked": 271,
-      "passed": 269,
+      "checked": 296,
+      "passed": 294,
       "ratio": 0.993,
       "assumptionRatio": 0.125,
       "blockingQuestions": 1,
