@@ -1,6 +1,8 @@
 import { LABELS, quote } from '../model/labels.mjs';
 import { escapeHtml as h, jsonForScript } from './escape.mjs';
-import { renderFlowSvg } from './flow-svg.mjs';
+import { layoutFlow, renderFlowSvg } from './flow-svg.mjs';
+import { renderFlowchart } from './flowchart-svg.mjs';
+import { BOARD_SCRIPT, BOARD_STYLE, packRows, renderBoard } from './board.mjs';
 
 const FORMAT = 'product-planning/spec@1';
 
@@ -15,6 +17,7 @@ const RULE_TEXT = {
   F8: '마침 → 연 화면으로',
   F9: '다른 앱에 영향 → 알림',
   F10: '시나리오 단계 순서',
+  F12: '자동 처리 → 결과가 보이는 화면',
   결정: '사람의 결정',
 };
 
@@ -23,7 +26,7 @@ const SECTIONS = [
   ['scenarios', '사용자와 시나리오'],
   ['entities', '개체와 상태'],
   ['permissions', '동작 가능표'],
-  ['flow', '화면 흐름'],
+  ['flow', '흐름도'],
   ['screens', '화면 목록'],
   ['acceptance', '완료 조건'],
   ['metrics', '지표와 이벤트'],
@@ -135,13 +138,34 @@ function permissionsSection({ spec, index, derived }) {
   return section('permissions', '동작 가능표', body || empty('동작 가능표를 만들 동작이 없습니다'));
 }
 
-function flowSection({ spec, derived }) {
-  if (derived.screens.length === 0) return section('flow', '화면 흐름', empty('도출된 화면이 없습니다'));
-  const svg = `<div class="flow">${renderFlowSvg({ apps: spec.apps, screens: derived.screens, edges: derived.edges, entries: derived.entries })}</div>`;
-  const legend = '<p class="legend"><span class="shape shape-screen">화면</span> <span class="shape shape-modal">모달</span> <span class="shape shape-confirm">확인 창</span> <span class="shape shape-notification">알림</span></p>';
+// 화면 지도(화면 사이 이동)와 시나리오마다 플로우차트(판단 분기)를 한 도화지에 프레임으로 올린다.
+// 첫 줄은 화면 지도, 그다음 줄부터 요구사항마다 그 시나리오들을 나란히 둔다.
+function flowSection({ spec, index, derived }) {
+  const pinned = [];
+  if (derived.screens.length > 0) {
+    const input = { apps: spec.apps, screens: derived.screens, edges: derived.edges, entries: derived.entries };
+    const { width, height } = layoutFlow(input);
+    pinned.push({ id: 'screen-map', title: '화면 지도', subtitle: '화면 사이 이동 (흐름 규칙 F1~F12)', width, height, markup: renderFlowSvg(input) });
+  }
+  const frameOf = (chart) => {
+    const { markup, width, height } = renderFlowchart(chart);
+    const scenario = spec.scenarios.find((item) => item.id === chart.scenario);
+    const kind = LABELS.scenarioKind[scenario?.kind] ?? '';
+    const requirement = chart.requirement && index.has(chart.requirement) ? index.name(chart.requirement) : '요구사항 없음';
+    return { id: `flowchart-${chart.scenario}`, title: chart.name, subtitle: [requirement, kind].filter(Boolean).join(' · '), width, height, markup };
+  };
+  // 요구사항 순서대로, 요구사항이 없는 시나리오는 맨 뒤에 둔다.
+  const order = new Map(spec.requirements.map((requirement, position) => [requirement.id, position]));
+  const charts = [...derived.flowcharts].sort((a, b) => (order.get(a.requirement) ?? order.size) - (order.get(b.requirement) ?? order.size));
+  const rows = packRows(charts.map(frameOf), pinned);
+  if (rows.length === 0) return section('flow', '흐름도', empty('그릴 시나리오나 화면이 없습니다'));
+
+  const legend = '<p class="legend"><span class="shape fc-shape-start">시작·끝</span> <span class="shape">처리</span> <span class="shape fc-shape-decision">판단</span> <span class="shape fc-shape-message">안내</span> <span class="shape fc-shape-state">상태 변화</span>'
+    + ' · 화면 지도: <span class="shape shape-screen">화면</span> <span class="shape shape-modal">모달</span> <span class="shape shape-confirm">확인 창</span> <span class="shape shape-notification">알림</span></p>';
   const name = new Map(derived.screens.map((screen) => [screen.id, screen.name]));
-  const rows = derived.edges.map((edge) => `<tr><td>${h(name.get(edge.from))}</td><td>${h(edge.label)}</td><td>${h(name.get(edge.to))}</td><td>${h(edge.rule)} · ${h(RULE_TEXT[edge.rule] ?? '')}</td></tr>`);
-  return section('flow', '화면 흐름', `${legend}${svg}${table(['출발 화면', '행동', '도착 화면', '적용 규칙'], rows)}`);
+  const edgeRows = derived.edges.map((edge) => `<tr><td>${h(name.get(edge.from))}</td><td>${h(edge.label)}</td><td>${h(name.get(edge.to))}</td><td>${h(edge.rule)} · ${h(RULE_TEXT[edge.rule] ?? '')}</td></tr>`);
+  const edgeTable = edgeRows.length === 0 ? '' : `<details><summary>화면 이동 표 (${edgeRows.length}건)</summary>${table(['출발 화면', '행동', '도착 화면', '적용 규칙'], edgeRows)}</details>`;
+  return section('flow', '흐름도', `${legend}${renderBoard({ rows, withScript: false })}${edgeTable}`);
 }
 
 function screensSection({ index, derived }) {
@@ -233,7 +257,7 @@ th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-ali
 .meta{color:var(--muted);font-size:13px}.empty{color:var(--muted)}
 .gap{background:var(--gap);color:var(--warn);font-weight:600}
 .perm-allow{color:var(--ok)}.perm-hide,.perm-disable,.perm-deny{color:var(--muted)}
-.flow{overflow-x:auto;border:1px solid var(--line);border-radius:8px;margin:12px 0}
+.fc-shape-start{background:#1f2430;color:#fff;border-radius:999px!important}.fc-shape-decision{background:#fff7e6;border-color:#b54708!important}.fc-shape-message{background:#f6f7f9;border-style:dashed!important}.fc-shape-state{background:#eef4ff;border-color:#2f5fd0!important}
 .legend .shape{display:inline-block;padding:0 10px;border:1.4px solid #3d4452;border-radius:6px;font-size:12px}
 .shape-modal{border-style:dashed!important}.shape-confirm{border-color:#c2410c!important}.shape-notification{border-color:#2f5fd0!important;border-radius:999px!important;background:#eef4ff}
 .condition{display:grid;grid-template-columns:48px 1fr;gap:2px 12px;margin:6px 0 12px;padding:8px 12px;border-left:3px solid var(--line)}
@@ -241,6 +265,7 @@ th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-ali
 details summary{cursor:pointer;color:var(--warn);font-weight:600;margin:8px 0}
 .issues li{margin:4px 0}.issues-block li::marker{color:var(--bad)}.issues-warn li::marker{color:var(--warn)}
 .rule{font:12px ui-monospace,monospace;color:var(--muted)}code{font:12px ui-monospace,monospace;color:var(--muted)}
+${BOARD_STYLE}
 @media print{nav{display:none}h2{break-after:avoid}.card,.condition,tr{break-inside:avoid}}
 `;
 
@@ -263,5 +288,6 @@ export function renderHtml(result) {
     + `<style>${STYLE}</style></head>`
     + `<body><main><h1>${h(title)}</h1>${nav}${sections}</main>`
     + `<script type="application/json" id="spec-model">${jsonForScript(model)}</script>`
+    + (sections.includes('data-board') ? BOARD_SCRIPT : '')
     + '</body></html>\n';
 }

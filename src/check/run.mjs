@@ -4,6 +4,7 @@ import { permissionGrid } from '../derive/permissions.mjs';
 import { deriveQuestions } from '../derive/questions.mjs';
 import { deriveAcceptanceDrafts } from '../derive/acceptance.mjs';
 import { deriveFlow } from '../flow/derive.mjs';
+import { deriveFlowcharts } from '../flow/flowchart.mjs';
 import { RULES } from './rules.mjs';
 
 const round3 = (value) => Math.round(value * 1000) / 1000;
@@ -35,6 +36,7 @@ function derive(spec, index) {
     permissionGaps: grid.gaps,
     questions: deriveQuestions(spec, index, { gaps: grid.gaps, flowQuestions: flow.questions }),
     acceptanceDrafts: deriveAcceptanceDrafts(spec, index, grid.cells),
+    flowcharts: deriveFlowcharts(spec, index, grid.cells),
   };
 }
 
