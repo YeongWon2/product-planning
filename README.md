@@ -113,6 +113,25 @@ node scripts/spec.mjs build examples/assignment/spec.json
 
 설치하면 `spec` 스킬이 생긴다. "기획서 써줘", "이 자료로 PRD 정리해줘", "착수 가능한지 봐줘"처럼 요청하면 인터뷰 → `spec.json` 작성 → 검사 → HTML 빌드 순서로 진행한다.
 
+## 버전과 배포
+
+버전은 `.claude-plugin/plugin.json` 한 곳에만 있고, **사람이 올리지 않는다.** Claude Code는 이 값이 바뀌어야 설치한 사람에게 업데이트를 내려보내므로 올리는 일을 자동화했다.
+
+`main`에 push하면 [release 워크플로](.github/workflows/release.yml)가 테스트를 돌린 뒤, 마지막 배포 태그 이후의 커밋을 보고 정한다.
+
+| 마지막 배포 이후 커밋 | 다음 버전 |
+|---|---|
+| 플러그인 파일 (`.claude-plugin/` `skills/` `src/` `scripts/` `docs/`)이 바뀐 커밋이 없음 | 배포하지 않음 |
+| `feat` 커밋이 있음 | minor |
+| `fix`·그 밖의 커밋만 있음 | patch |
+| 호환이 깨지는 커밋 (`feat!:`, 본문 `BREAKING CHANGE:`) | major (1.0.0 전에는 minor) |
+
+배포하면 `plugin.json` 버전, [`CHANGELOG.md`](CHANGELOG.md), 태그 `product-planning--v{버전}`, GitHub Release가 함께 만들어진다. 배포 커밋은 봇이 `main`에 올리므로 다음 작업 전에 `git pull`로 받는다.
+
+미리 보기: `node tools/release.mjs plan`
+
+설치한 쪽은 `/plugin`의 마켓플레이스 화면에서 자동 업데이트를 켜거나 `claude plugin update product-planning@product-planning`으로 받는다.
+
 ## 로드맵
 
 - [ ] **P0** 모델 · 관계 규칙 · 예외 목록 · 휴리스틱 질문 확정

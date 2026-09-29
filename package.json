@@ -1,6 +1,5 @@
 {
   "name": "product-planning",
-  "version": "0.1.0",
   "description": "어떤 입력으로 시작해도 같은 구조, 같은 품질의 기획서를 만드는 기획 파이프라인",
   "type": "module",
   "private": true,
