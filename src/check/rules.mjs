@@ -1,4 +1,4 @@
-import { LABELS, quote } from '../model/labels.mjs';
+import { LABELS, josa, quote } from '../model/labels.mjs';
 import { statesForAction } from '../derive/permissions.mjs';
 
 // 규칙 하나는 함수 하나다. 모든 규칙은 (ctx) → { checked, issues } 를 돌려주고,
@@ -296,7 +296,48 @@ export function questionOwners({ spec, index }) {
   return { checked: spec.questions.length, issues };
 }
 
+export function shape({ problems }) {
+  const issues = problems.map((problem) => issue('shape', 'block', `형식 오류: ${problem.path} — ${problem.expected}`, []));
+  return { checked: Math.max(issues.length, 1), issues };
+}
+
+const REQUIRED_SECTIONS = [
+  ['userTypes', 'userType'], ['apps', 'app'], ['requirements', 'requirement'],
+  ['entities', 'entity'], ['actions', 'action'], ['scenarios', 'scenario'],
+];
+
+// 비어 있는 영역이 있으면 검사할 대상 자체가 없어 모든 관계 규칙이 통과해 버린다. 그래서 먼저 막는다.
+export function required({ spec }) {
+  const issues = REQUIRED_SECTIONS
+    .filter(([key]) => spec[key].length === 0)
+    .map(([, kind]) => issue('required', 'block', `${josa(LABELS.kind[kind], '이/가')} 하나도 없습니다`, []));
+  if (spec.summary.metrics.length === 0) issues.push(issue('required', 'block', '목표 지표가 하나도 없습니다', []));
+  return { checked: REQUIRED_SECTIONS.length + 1, issues };
+}
+
+export function scenarioSteps({ spec, index }) {
+  const issues = spec.scenarios
+    .filter((scenario) => scenario.steps.length === 0)
+    .map((scenario) => issue('scenario-steps', 'block', `시나리오 ${quote(index.name(scenario.id))}에 단계가 없습니다`, [target(index, scenario.id)]));
+  return { checked: spec.scenarios.length, issues };
+}
+
+const OVERRIDE_REASON = {
+  'not-form': '목록·상세를 보는 동작이라 모달·화면을 고를 수 없습니다',
+  'no-inputs': '입력이 없어 지금 화면의 버튼으로 처리됩니다',
+  'no-opener': '모달이 뜰 바탕 화면이 없어 화면으로 열었습니다',
+  unused: '어느 시나리오 단계에서도 쓰이지 않습니다',
+};
+
+// 사람이 적은 결정이 흐름에 반영되지 않았다면 알려야 한다. 착수를 막을 일은 아니므로 경고다.
+export function flowOverrideResults({ index, derived }) {
+  const issues = derived.overrideResults
+    .filter((entry) => entry.result !== 'applied' && index.is(entry.action, 'action'))
+    .map((entry) => issue('flow-override', 'warn', `흐름 바꾸기가 ${quote(index.name(entry.action))}에 적용되지 않았습니다: ${OVERRIDE_REASON[entry.result]}`, [target(index, entry.action)]));
+  return { checked: derived.overrideResults.length, issues };
+}
+
 export const RULES = [
-  idMissing, idDuplicate, names, referencesKnown, requirementCoverage, permissionGaps, states,
-  flowSteps, flowOrphans, metricEvents, problemSource, outOfScope, questionOwners, inputRules, asyncFeedback,
+  shape, required, idMissing, idDuplicate, names, referencesKnown, requirementCoverage, permissionGaps, states,
+  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, outOfScope, questionOwners, inputRules, asyncFeedback,
 ];

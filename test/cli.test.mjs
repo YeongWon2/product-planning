@@ -19,10 +19,10 @@ test('check는 착수 불가면 1로 끝나고 한글 요약을 낸다', () => {
 test('check는 착수 가능하면 0으로 끝난다', () => {
   const dir = mkdtempSync(join(tmpdir(), 'spec-'));
   const ready = join(dir, 'spec.json');
-  writeFileSync(ready, JSON.stringify({
-    meta: { title: '준비된 기획서' },
-    summary: { problem: { text: '문제', source: { kind: 'doc', ref: '문서' } }, outOfScope: ['없음'] },
-  }));
+  // 예제에 일부러 비워 둔 동작 가능표 칸 하나만 채우면 착수 가능이 된다.
+  const spec = JSON.parse(readFileSync(example, 'utf8'));
+  spec.permissions.push({ userType: 'U1', action: 'AC5', state: 'ST2', value: 'hide' });
+  writeFileSync(ready, JSON.stringify(spec));
   const result = run('check', ready);
   assert.equal(result.status, 0, result.stdout);
   assert.match(result.stdout, /착수 가능/);

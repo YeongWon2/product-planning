@@ -24,12 +24,12 @@ function formatReport(report, questions) {
 }
 
 function load(path) {
-  const { spec, error } = loadSpec(path);
+  const { spec, error, problems } = loadSpec(path);
   if (error !== null) {
     process.stderr.write(`${error}\n`);
     process.exit(EXIT.unreadable);
   }
-  return runPipeline(spec);
+  return runPipeline(spec, problems);
 }
 
 function check(path) {

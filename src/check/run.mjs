@@ -30,6 +30,7 @@ function derive(spec, index) {
     edges: flow.edges,
     stepScreens: flow.stepScreens,
     entries: flow.entries,
+    overrideResults: flow.overrideResults,
     permissionCells: grid.cells,
     permissionGaps: grid.gaps,
     questions: deriveQuestions(spec, index, { gaps: grid.gaps, flowQuestions: flow.questions }),
@@ -70,9 +71,10 @@ function check(ctx) {
   };
 }
 
-export function runPipeline(spec) {
+// problems 는 parseSpec·loadSpec 이 돌려준 형식 오류 목록이다. 넘기지 않으면 형식 검사를 할 수 없다.
+export function runPipeline(spec, problems = []) {
   const index = buildIndex(spec);
   const derived = derive(spec, index);
-  const report = check({ spec, index, derived });
+  const report = check({ spec, index, derived, problems });
   return { spec, index, derived, report };
 }

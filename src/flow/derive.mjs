@@ -20,10 +20,16 @@ export function deriveFlow(spec, index) {
   const stepScreens = {};
   const entries = [];
 
+  // 'screen'·'modal'이 아닌 값은 형식 오류로 보고되므로 적용하지 않는다.
   const overrides = new Map();
   for (const override of spec.flowOverrides) {
-    if (!overrides.has(override.action)) overrides.set(override.action, override);
+    if ((override.as === 'screen' || override.as === 'modal') && !overrides.has(override.action)) overrides.set(override.action, override);
   }
+  // 사람의 결정이 흐름에 반영됐는지 검사 단계가 알 수 있게 동작별 결과를 남긴다.
+  const overrideResults = new Map();
+  const noteOverride = (action, result) => {
+    if (overrides.has(action.id) && overrideResults.get(action.id) !== 'applied') overrideResults.set(action.id, result);
+  };
   const hasKind = (entity, kind) => spec.actions.some((action) => action.entity === entity && action.kind === kind);
 
   function addScreen(screen) {
@@ -61,6 +67,7 @@ export function deriveFlow(spec, index) {
     let reason = asModal
       ? `입력 ${count}개가 모달 기준 ${modalMaxInputs}개 이하`
       : current === null ? '연 화면이 없어 화면으로 연다' : `입력 ${count}개가 모달 기준 ${modalMaxInputs}개 초과`;
+    if (override) noteOverride(action, current === null ? 'no-opener' : 'applied');
     if (override && current !== null) {
       rule = '결정';
       reason = index.has(override.decision) ? index.name(override.decision) : '사람의 결정';
@@ -99,6 +106,7 @@ export function deriveFlow(spec, index) {
   // 단계 하나를 적용하고 { stepScreen, current } 를 돌려준다. current 는 다음 단계가 시작할 화면이다.
   function applyStep(action, app, current) {
     if (action.kind === 'list' || action.kind === 'view') {
+      noteOverride(action, 'not-form');
       const target = action.kind === 'list' ? listScreen(app, action) : viewScreen(app, action);
       addEdge(current, target, action.name, 'F10');
       return { stepScreen: target, current: target };
@@ -110,6 +118,7 @@ export function deriveFlow(spec, index) {
 
     let working = current;
     if (action.inputs.length === 0) {
+      noteOverride(action, 'no-inputs');
       if (current === null) {
         ask(`auto:flow:where:${action.id}`, `${quote(action.name, '을/를')} 어느 화면에서 하는가?`);
         return { stepScreen: null, current };
@@ -156,5 +165,6 @@ export function deriveFlow(spec, index) {
     stepScreens,
     questions: [...questions.values()],
     entries,
+    overrideResults: [...overrides.keys()].map((action) => ({ action, result: overrideResults.get(action) ?? 'unused' })),
   };
 }

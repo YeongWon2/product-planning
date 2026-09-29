@@ -24,8 +24,8 @@ export function permissionGrid(spec, index) {
 
   const cells = [];
   const gaps = [];
-  for (const userType of spec.userTypes) {
-    for (const action of spec.actions) {
+  for (const userType of index.canonical(spec.userTypes)) {
+    for (const action of index.canonical(spec.actions)) {
       const states = statesForAction(action, index);
       // 개체를 찾을 수 없는 동작은 칸을 만들 수 없다. 참조 오류는 검사 단계가 보고한다.
       if (states === null) continue;

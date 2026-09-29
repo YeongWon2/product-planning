@@ -44,6 +44,8 @@ export function buildIndex(spec) {
       if (!entry) return `(알 수 없음: ${id})`;
       return typeof entry.item.name === 'string' && entry.item.name !== '' ? entry.item.name : `(이름 없음: ${id})`;
     },
+    // 같은 ID가 여러 번 나오면 색인에 먼저 등록된 항목만 쓴다. 표·흐름이 중복으로 두 번 그려지지 않게 한다.
+    canonical: (items) => items.filter((item) => entries.get(item.id)?.item === item),
     duplicates: [...duplicateKinds].map(([id, kinds]) => ({ id, kinds })),
   };
 }

@@ -107,18 +107,18 @@ function entitiesSection({ spec, index }) {
 }
 
 function permissionsSection({ spec, index, derived }) {
-  const body = spec.entities.map((entity) => {
+  const body = index.canonical(spec.entities).map((entity) => {
     const cells = derived.permissionCells.filter((cell) => index.get(cell.action)?.item.entity === entity.id);
     if (cells.length === 0) return '';
     const columns = entity.states.length === 0 ? [null] : entity.states.map((state) => state.id);
     const head = ['사용자 유형', '동작', ...columns.map((state) => (state === null ? '모든 경우' : h(index.name(state))))];
     const rows = [];
-    for (const userType of spec.userTypes) {
-      for (const action of spec.actions.filter((item) => item.entity === entity.id)) {
+    for (const userType of index.canonical(spec.userTypes)) {
+      for (const action of index.canonical(spec.actions).filter((item) => item.entity === entity.id)) {
         const own = cells.filter((cell) => cell.userType === userType.id && cell.action === action.id);
         if (own.length === 0) continue;
         // 상태와 무관한 칸은 여러 열을 합치므로 첫 열의 값처럼 읽히지 않게 '모든 상태'를 붙인다.
-        const cellMarkup = (cell, span = 1) => {
+        const cellMarkup = (cell = { value: null }, span = 1) => {
           const base = cell.value === null ? '정할 것' : LABELS.permission[cell.value];
           const label = span > 1 ? `${base} · 모든 상태` : base;
           const className = cell.value === null ? 'gap' : `perm-${cell.value}`;
