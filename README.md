@@ -111,7 +111,13 @@ node scripts/spec.mjs build examples/assignment/spec.json
 /plugin install product-planning@product-planning
 ```
 
-설치하면 `spec` 스킬이 생긴다. "기획서 써줘", "이 자료로 PRD 정리해줘", "착수 가능한지 봐줘"처럼 요청하면 인터뷰 → `spec.json` 작성 → 검사 → HTML 빌드 순서로 진행한다.
+설치하면 `/yw-product-spec` 명령이 생긴다 (전체 이름 `/product-planning:yw-product-spec`). 대화 중에 알아서 켜지지 않고, 명령으로 부를 때만 돈다.
+
+```text
+/yw-product-spec 관리자가 담당자에게 항목을 배정하고 담당자는 앱에서 알림을 받는다
+```
+
+요청한 범위만 다룬다. 사람 답이 필요 없는 이슈는 스스로 고치고, 답이 필요한 빈칸만 1~3개씩 물으며, **검사 통과율 100%·착수 가능**이 될 때까지 반복한 뒤 HTML로 빌드한다. 요청에 없는 동작이나 개체가 섞이면 `request-scope` 경고로 걸려 100%가 되지 않는다.
 
 ## 버전과 배포
 

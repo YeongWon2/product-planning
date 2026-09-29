@@ -337,7 +337,25 @@ export function flowOverrideResults({ index, derived }) {
   return { checked: derived.overrideResults.length, issues };
 }
 
+// 요청한 것만 기획한다: 동작은 어느 시나리오 단계에서 쓰여야 하고, 개체는 동작이 하나 이상 있어야 한다.
+// 쓰이지 않는 요소는 요청에 없던 기능이거나 시나리오가 빠진 것이다. 어느 쪽인지는 사람이 정하므로 경고로 둔다.
+export function requestScope({ spec, index }) {
+  const usedActions = new Set(spec.scenarios.flatMap((scenario) => scenario.steps.map((step) => step.action)));
+  const issues = [];
+  for (const action of spec.actions) {
+    if (!usedActions.has(action.id)) {
+      issues.push(issue('request-scope', 'warn', `동작 ${quote(index.name(action.id), '이/가')} 어느 시나리오에서도 쓰이지 않습니다. 요청 밖이면 빼고, 필요하면 시나리오에 넣으세요`, [target(index, action.id)]));
+    }
+  }
+  for (const entity of spec.entities) {
+    if (!spec.actions.some((action) => action.entity === entity.id)) {
+      issues.push(issue('request-scope', 'warn', `개체 ${quote(index.name(entity.id))}에는 동작이 없습니다. 요청 밖이면 빼세요`, [target(index, entity.id)]));
+    }
+  }
+  return { checked: spec.actions.length + spec.entities.length, issues };
+}
+
 export const RULES = [
   shape, required, idMissing, idDuplicate, names, referencesKnown, requirementCoverage, permissionGaps, states,
-  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, outOfScope, questionOwners, inputRules, asyncFeedback,
+  scenarioSteps, flowSteps, flowOrphans, flowOverrideResults, metricEvents, problemSource, outOfScope, questionOwners, inputRules, asyncFeedback, requestScope,
 ];

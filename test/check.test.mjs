@@ -79,3 +79,13 @@ test('점수와 착수 판정은 명세 §4의 모양이다', () => {
 test('같은 입력이면 보고서가 같다', () => {
   assert.equal(JSON.stringify(runPipeline(example()).report), JSON.stringify(runPipeline(example()).report));
 });
+
+test('어느 시나리오에도 쓰이지 않는 동작과 동작이 없는 개체는 요청 밖으로 경고한다', () => {
+  const spec = example();
+  spec.actions.push({ id: 'AC9', name: '항목 내보내기', entity: 'E1', kind: 'other' });
+  spec.entities.push({ id: 'E9', name: '보관함', states: [], transitions: [] });
+  const { report } = runPipeline(parseSpec(JSON.stringify(spec)).spec);
+  const scope = report.issues.filter((i) => i.rule === 'request-scope');
+  assert.deepEqual(scope.map((i) => [i.level, i.targets[0].name]), [['warn', '항목 내보내기'], ['warn', '보관함']]);
+  assert.equal(runPipeline(example()).report.issues.some((i) => i.rule === 'request-scope'), false, '예제는 모두 시나리오에 쓰인다');
+});
