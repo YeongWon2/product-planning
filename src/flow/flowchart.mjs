@@ -79,13 +79,24 @@ export function deriveFlowcharts(spec, index, cells, flow) {
       b.link(b.decide('권한이 있나?'), b.node('end', '권한 없음 안내'), 'no', '아니오');
     }
 
-    // FC1: 할 수 있는 사람도 못 하는 상태가 있으면 상태를 판단한다.
+    // FC1: 상태에 따라 할 수 없는 경우를 판단한다.
+    //   할 수 있는 사람 모두가 같은 상태에서만 되면 "'개체'가 X 상태인가?" 하나,
+    //   사용자마다 되는 상태가 다르면 "'사용자'이면 '개체'가 X 상태인가?"를 사용자마다 그린다.
     const own = cells.filter((cell) => cell.action === action.id && cell.state !== null && !isAutomatic(cell.userType));
     const states = [...new Set(own.map((cell) => cell.state))];
-    const allowed = states.filter((state) => own.some((cell) => cell.state === state && cell.value === 'allow'));
-    if (allowed.length > 0 && allowed.length < states.length) {
-      const decision = b.decide(`${quote(nameOf(action.entity), '이/가')} ${allowed.map((state) => quote(nameOf(state))).join('·')} 상태인가?`);
-      b.link(decision, b.node('end', '할 수 없음'), 'no', '아니오');
+    const allowedOf = (user) => states.filter((state) => own.some((cell) => cell.userType === user && cell.state === state && cell.value === 'allow'));
+    const partial = [...new Set(own.map((cell) => cell.userType))]
+      .map((user) => ({ user, allowed: allowedOf(user) }))
+      .filter(({ allowed }) => allowed.length > 0 && allowed.length < states.length);
+    const stateList = (allowed) => allowed.map((state) => quote(nameOf(state))).join('·');
+    const able = [...new Set(own.map((cell) => cell.userType))].filter((user) => allowedOf(user).length > 0);
+    const sameForAll = partial.length > 0 && partial.length === able.length && partial.every(({ allowed }) => allowed.join() === partial[0].allowed.join());
+    if (sameForAll) {
+      b.link(b.decide(`${quote(nameOf(action.entity), '이/가')} ${stateList(partial[0].allowed)} 상태인가?`), b.node('end', '할 수 없음'), 'no', '아니오');
+    } else {
+      for (const { user, allowed } of partial) {
+        b.link(b.decide(`${quote(nameOf(user))}이면 ${quote(nameOf(action.entity), '이/가')} ${stateList(allowed)} 상태인가?`), b.node('end', '할 수 없음'), 'no', '아니오');
+      }
     }
 
     const inputNames = action.inputs.map((input) => input.name).filter((name) => typeof name === 'string' && name !== '');

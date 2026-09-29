@@ -119,12 +119,16 @@
       {
         "id": "P1",
         "name": "관리자 웹",
-        "platform": "web"
+        "platform": [
+          "web"
+        ]
       },
       {
         "id": "P2",
         "name": "담당자 앱",
-        "platform": "ios"
+        "platform": [
+          "ios"
+        ]
       }
     ],
     "requirements": [

@@ -123,9 +123,12 @@ function normalize(raw) {
 
   const named = (key) => spec[key].map((item, i) => ({ ...item, name: n.name(item, `${key}[${i}]`) }));
   for (const key of ['userTypes', 'apps', 'requirements', 'events', 'decisions']) spec[key] = named(key);
+  // 플랫폼은 하나(문자열)나 여럿(목록). 정규화하면 늘 목록이다.
   spec.apps = spec.apps.map((app, i) => {
-    if (app.platform === undefined || Object.hasOwn(PRODUCT.platform, app.platform)) return app;
-    n.report(`apps[${i}].platform`, `${Object.keys(PRODUCT.platform).join('·')} 중 하나여야 합니다`);
+    if (app.platform === undefined) return app;
+    const list = Array.isArray(app.platform) ? app.platform : [app.platform];
+    if (list.length > 0 && list.every((item) => Object.hasOwn(PRODUCT.platform, item))) return { ...app, platform: list };
+    n.report(`apps[${i}].platform`, `${Object.keys(PRODUCT.platform).join('·')} 중 하나나 그 목록이어야 합니다`);
     const { platform, ...rest } = app;
     return rest;
   });

@@ -7,7 +7,7 @@ import { renderPages } from '../src/render/html.mjs';
 const base = (product) => parseSpec(JSON.stringify({
   meta: { title: 't' },
   ...(product === undefined ? {} : { product }),
-  apps: [{ id: 'P1', name: '코치 웹', platform: 'web' }, { id: 'P2', name: '선수 앱', platform: 'ios' }],
+  apps: [{ id: 'P1', name: '코치 웹', platform: 'web' }, { id: 'P2', name: '선수 앱', platform: ['ios', 'android'] }],
   entities: [{ id: 'E1', name: '과제' }],
   actions: [{ id: 'A1', name: '과제 부여하기', entity: 'E1', kind: 'create', calls: ['API'] }],
 }));
@@ -43,6 +43,6 @@ test('PRD 맨 위에 구분과 서비스·앱·플랫폼·API를 한 줄씩 보�
   const text = html.split('data-part="prd"')[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   assert.match(text, /구성 기존 서비스에 기능 추가 · 서비스 2개 · API 1개/);
   assert.match(text, /코치 서비스 코치 웹 \(웹\)/);
-  assert.match(text, /선수 서비스 선수 앱 \(iOS\)/);
+  assert.match(text, /선수 서비스 선수 앱 \(iOS·Android\)/);
   assert.match(text, /IDP API API 서버/);
 });

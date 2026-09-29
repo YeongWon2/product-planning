@@ -58,7 +58,7 @@ function prdPart({ spec, index }) {
   const problem = text(spec.summary.problem?.text);
   const users = spec.userTypes.filter((userType) => userType.automatic !== true);
   const metrics = spec.summary.metrics;
-  const requirementRows = spec.requirements.map((requirement) => `<tr${mark(requirement.id, 'requirement')}><td><span class="priority priority-${h(requirement.priority ?? 'none')}">${h(LABELS.priority[requirement.priority] ?? '우선순위 없음')}</span></td><td>${h(index.name(requirement.id))}</td><td>${h(index.has(requirement.userType) ? index.name(requirement.userType) : '')}</td></tr>`);
+  const requirementRows = spec.requirements.map((requirement) => `<tr${mark(requirement.id, 'requirement')}><td data-label="우선순위"><span class="priority priority-${h(requirement.priority ?? 'none')}">${h(LABELS.priority[requirement.priority] ?? '우선순위 없음')}</span></td><td data-label="요구사항">${h(index.name(requirement.id))}</td><td data-label="누가">${h(index.has(requirement.userType) ? index.name(requirement.userType) : '')}</td></tr>`);
   const { kind, systems } = spec.product;
   const services = systems.filter((system) => system.kind === 'service');
   const others = systems.filter((system) => system.kind !== 'service');
@@ -66,7 +66,7 @@ function prdPart({ spec, index }) {
   const summary = [PRODUCT.kind[kind] ?? '구분 정해지지 않음', count('서비스', services.length), count('API', systems.filter((system) => system.kind === 'api').length), count('외부 시스템', systems.filter((system) => system.kind === 'external').length)].filter(Boolean).join(' · ');
   const appLabel = (id) => {
     const app = spec.apps.find((item) => item.id === id);
-    return app ? `${index.name(app.id)}${app.platform ? ` (${PRODUCT.platform[app.platform]})` : ''}` : String(id);
+    return app ? `${index.name(app.id)}${app.platform ? ` (${app.platform.map((item) => PRODUCT.platform[item]).join('·')})` : ''}` : String(id);
   };
   const structure = `<p class="structure"><span class="k">구성</span> ${h(summary)}</p>`
     + (systems.length === 0 ? '' : `<ul class="plain systems">${[
@@ -82,7 +82,7 @@ function prdPart({ spec, index }) {
     '<h3>목표 지표</h3>',
     metrics.length === 0 ? empty('목표 지표가 없습니다') : `<ul class="plain">${metrics.map((metric) => `<li${mark(metric.id, 'metric')}>${h(index.name(metric.id))}${metric.events.length > 0 ? ` <span class="muted">측정: ${h(metric.events.filter((event) => index.has(event)).map((event) => index.name(event)).join(', '))}</span>` : ''}</li>`).join('')}</ul>`,
     '<h3>요구사항</h3>',
-    requirementRows.length === 0 ? empty('요구사항이 없습니다') : table('requirements', ['우선순위', '요구사항', '누가'], requirementRows),
+    requirementRows.length === 0 ? empty('요구사항이 없습니다') : table('requirements stack', ['우선순위', '요구사항', '누가'], requirementRows),
   ].join(''));
 }
 
@@ -203,9 +203,9 @@ function inputsTable(action) {
   const withError = action.inputs.some((input) => text(input.error));
   const rows = action.inputs.map((input) => {
     const type = INPUT_TYPE[input.type];
-    return `<tr><td>${h(text(input.name))}</td><td>${type ? h(type) : '<span class="gap">형식 없음</span>'}</td><td>${input.required === true ? '예' : '아니오'}</td><td>${h(rangeOf(input))}</td>${withError ? `<td>${h(text(input.error))}</td>` : ''}</tr>`;
+    return `<tr><td data-label="항목">${h(text(input.name))}</td><td data-label="형식">${type ? h(type) : '<span class="gap">형식 없음</span>'}</td><td data-label="필수">${input.required === true ? '예' : '아니오'}</td><td data-label="범위·조건">${h(rangeOf(input))}</td>${withError ? `<td data-label="오류 문구">${h(text(input.error))}</td>` : ''}</tr>`;
   });
-  return table('inputs', ['항목', '형식', '필수', '범위·조건', ...(withError ? ['오류 문구'] : [])], rows);
+  return table('inputs stack', ['항목', '형식', '필수', '범위·조건', ...(withError ? ['오류 문구'] : [])], rows);
 }
 
 function resultsList(action, spec, index) {
@@ -297,7 +297,8 @@ h3{font-size:17px;margin:22px 0 8px}h4{font-size:15px;margin:14px 0 6px}
 .muted{color:var(--muted);font-size:13px}.empty{color:var(--muted)}
 .source{font-size:12px;color:var(--muted);background:var(--soft);border-radius:4px;padding:0 6px}.source-assumption{color:var(--warn);background:var(--gap)}
 .table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px;margin:6px 0}
-th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{color:var(--muted);font-weight:600;font-size:12px;white-space:nowrap}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}td{overflow-wrap:anywhere;word-break:keep-all}
+.part-body,.group,.function,.messages li,.common,.pending li{overflow-wrap:anywhere;word-break:keep-all;min-width:0}th{color:var(--muted);font-weight:600;font-size:12px;white-space:nowrap}
 .priority{display:inline-block;border-radius:4px;padding:0 6px;font-size:12px;font-weight:600}
 .priority-must{background:#fdecea;color:var(--bad)}.priority-should{background:#fff4e5;color:var(--warn)}.priority-could,.priority-none{background:var(--soft);color:var(--muted)}
 .group{border:1px solid var(--line);border-radius:10px;padding:4px 18px 14px;margin:14px 0}
@@ -327,6 +328,8 @@ ${BOARD_STYLE}
 .fullscreen main{max-width:none;padding:0}.fullscreen .part{border-radius:0;margin:0;box-shadow:none}.fullscreen .part-head{padding:10px 16px 0}.fullscreen .part-body{padding:0}
 .fullscreen .legend{padding:0 16px 8px}.fullscreen .board-live{width:100%;left:0;transform:none;border-radius:0;border-left:0;border-right:0;margin:0}
 .fullscreen .board-live .board-view{height:calc(100vh - 176px)}
+/* 좁은 화면: 표는 칸 이름이 붙은 카드로 쌓고, 머리글과 여백을 줄인다 */
+@media (max-width:720px){.stack thead{display:none}.stack,.stack tbody,.stack tr,.stack td{display:block;width:100%}.stack tr{border:1px solid var(--line);border-radius:8px;margin:6px 0;padding:4px 8px}.stack td{border:0;padding:3px 0;white-space:normal!important}.stack td::before{content:attr(data-label);display:block;font-size:11px;color:var(--muted);font-weight:600}.part-body{padding:4px 14px 18px}.part-head{padding:16px 14px 6px}.group{padding:4px 12px 12px}.top-inner{gap:8px}.top h1{font-size:16px;flex-basis:100%}.function-head{display:block}.who{margin-top:2px}.wording{grid-template-columns:1fr}}
 @media print{.top{position:static}.part{box-shadow:none;break-inside:auto}.group,.function,tr{break-inside:avoid}}
 `;
 

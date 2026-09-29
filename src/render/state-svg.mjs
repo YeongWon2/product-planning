@@ -70,6 +70,21 @@ export function layoutStates(entity, index) {
   for (const node of nodes) node.y = top;
   const bottom = top + NODE_HEIGHT;
 
+  // 한 상태의 같은 면(위·아래)에 여러 선이 붙으면 나가는 선은 오른쪽 절반, 들어오는 선은 왼쪽 절반을 나눠 쓴다.
+  const sideCount = new Map();
+  const sideKey = (id, side, dir) => `${id}:${side}:${dir}`;
+  const count = (key) => sideCount.set(key, (sideCount.get(key) ?? 0) + 1);
+  for (const t of above) { count(sideKey(t.from, 'top', 'out')); count(sideKey(t.to, 'top', 'in')); }
+  for (const t of below) { count(sideKey(t.from, 'bottom', 'out')); count(sideKey(t.to, 'bottom', 'in')); }
+  const used = new Map();
+  const slotX = (node, side, dir) => {
+    const key = sideKey(node.id, side, dir);
+    const n = sideCount.get(key) ?? 1;
+    const i = used.get(key) ?? 0;
+    used.set(key, i + 1);
+    const [from, to] = dir === 'out' ? [0.55, 0.9] : [0.1, 0.45];
+    return node.x + node.w * (from + ((to - from) * (i + 1)) / (n + 1));
+  };
   const placed = [];
   const routes = transitions.map((transition) => {
     const source = byId.get(transition.from);
@@ -80,14 +95,14 @@ export function layoutStates(entity, index) {
     let labelBox;
     if (above.includes(transition)) {
       const y = top - 8 - aboveRank.get(transition) * CHANNEL_STEP;
-      const x1 = source.x + source.w * 0.6;
-      const x2 = transition.from === transition.to ? source.x + source.w * 0.3 : target.x + target.w * 0.4;
+      const x1 = slotX(source, 'top', 'out');
+      const x2 = slotX(target, 'top', 'in');
       points = [[x1, top], [x1, y], [x2, y], [x2, top]];
       labelBox = { x: (x1 + x2) / 2 - w / 2, y: y - LABEL_HEIGHT - 1, w, h: LABEL_HEIGHT };
     } else if (below.includes(transition)) {
       const y = bottom + 8 + belowRank.get(transition) * CHANNEL_STEP;
-      const x1 = source.x + source.w * 0.4;
-      const x2 = target.x + target.w * 0.6;
+      const x1 = slotX(source, 'bottom', 'out');
+      const x2 = slotX(target, 'bottom', 'in');
       points = [[x1, bottom], [x1, y], [x2, y], [x2, bottom]];
       labelBox = { x: (x1 + x2) / 2 - w / 2, y: y + 2, w, h: LABEL_HEIGHT };
     } else {

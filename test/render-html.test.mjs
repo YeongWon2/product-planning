@@ -155,3 +155,11 @@ test('모든 상태에서 불가인 사용자와 공통 문구와 같은 실패�
   assert.equal((fn.match(new RegExp(network, 'g')) ?? []).length, 0, '공통 문구와 같은 실패 문구는 기능에 없다');
   assert.ok(!/막는 경우[^.]*통신 실패/.test(fn), '막는 경우에도 없다');
 });
+
+test('좁은 화면에서는 표를 칸 이름이 붙은 카드로 쌓고 긴 글은 줄을 바꾼다', () => {
+  const html = pagesOf(example())['assignment.spec.html'];
+  assert.match(html, /@media \(max-width:720px\)\{[^}]*\.stack thead\{display:none\}/);
+  assert.match(html, /td\{[^}]*overflow-wrap:anywhere[^}]*word-break:keep-all/);
+  assert.match(html, /<table class="inputs stack">/);
+  assert.match(html, /<td data-label="범위·조건">/);
+});

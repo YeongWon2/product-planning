@@ -190,3 +190,14 @@ test('긴 글도 상자 밖으로 넘치지 않는다', () => {
     assert.ok(node.lines.length * 18 <= (node.type === 'decision' ? node.h * 0.62 : node.h), `${node.id}: 줄이 상자 높이를 넘는다`);
   }
 });
+
+test('사용자마다 할 수 있는 상태가 다르면 사용자별 상태 판단을 그린다', () => {
+  const partial = parseSpec(JSON.stringify({
+    ...JSON.parse(JSON.stringify(spec)),
+    userTypes: [...spec.userTypes, { id: 'U2', name: '선수' }],
+    permissions: [...spec.permissions, { userType: 'U2', action: 'VIEW', state: 'ON', value: 'allow' }, { userType: 'U2', action: 'VIEW', state: 'OFF', value: 'hide' }],
+  })).spec;
+  const chart = runPipeline(partial).derived.flowcharts.find((item) => item.kind === 'function' && item.of === 'VIEW');
+  assert.ok(mainPath(chart).includes("decision:'선수'이면 '과제'가 '진행 중' 상태인가?"), mainPath(chart).join('\n'));
+  assert.ok(branches(chart).some(([label, to]) => label === '아니오' && to === 'end:할 수 없음'));
+});

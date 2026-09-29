@@ -37,3 +37,9 @@ test('상태 다이어그램 SVG는 시작·끝을 표시하고 같은 입력이
   assert.ok(svg.includes('>과제 조기 마감하기<') || svg.includes('과제 조기 마감…'));
   assert.equal(svg, renderStates(spec.entities[0], index));
 });
+
+import { findCollisions } from '../src/render/layout-check.mjs';
+
+test('상태 다이어그램도 겹침 검사를 통과한다', () => {
+  assert.deepEqual(findCollisions(layoutStates(spec.entities[0], index)), []);
+});
