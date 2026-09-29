@@ -128,6 +128,8 @@ node scripts/spec.mjs build examples/assignment/spec.json
 
 배포하면 `plugin.json` 버전, [`CHANGELOG.md`](CHANGELOG.md), 태그 `product-planning--v{버전}`, GitHub Release가 함께 만들어진다. 배포 커밋은 봇이 `main`에 올리므로 다음 작업 전에 `git pull`로 받는다.
 
+워크플로가 하는 일은 [`test/release-e2e.test.mjs`](test/release-e2e.test.mjs)가 로컬에서 그대로 재현한다. bare 저장소를 원격으로, 인자를 기록하는 가짜 `gh`를 쓰고, 워크플로와 같은 [`publish.sh`](tools/release/publish.sh)를 돌려 태그·봇 커밋·릴리스 인자, 재실행 시 멈춤, 배포 중 `main`이 앞서갈 때 태그를 남기지 않는지를 확인한다.
+
 미리 보기: `node tools/release.mjs plan`
 
 설치한 쪽은 `/plugin`의 마켓플레이스 화면에서 자동 업데이트를 켜거나 `claude plugin update product-planning@product-planning`으로 받는다.

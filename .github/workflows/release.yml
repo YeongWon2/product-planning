@@ -44,12 +44,4 @@ jobs:
           VERSION: ${{ steps.release.outputs.version }}
           NOTES: ${{ steps.release.outputs.notes }}
           GH_TOKEN: ${{ github.token }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .claude-plugin/plugin.json CHANGELOG.md
-          git commit -m "chore(release): product-planning v${VERSION}"
-          git tag -a "$TAG" -m "product-planning v${VERSION}"
-          git push origin HEAD:main "$TAG"
-          printf '%s\n' "$NOTES" > "$RUNNER_TEMP/notes.md"
-          gh release create "$TAG" --title "product-planning v${VERSION}" --notes-file "$RUNNER_TEMP/notes.md"
+        run: bash tools/release/publish.sh
