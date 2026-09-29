@@ -472,6 +472,7 @@ export function flowCoverage({ spec, index, derived }) {
 //   review-evidence  판단마다 실제로 있는 요소를 근거로 들었는가, 검토지에 없는 key는 아닌가
 //   review-severity  심각도 3~4가 결정으로 받아들여지지 않은 채 남았는가 (착수 불가)
 //   review-agreement 두 번의 독립 판단이 80% 이상 일치하는가 (일관성 하네스)
+//   review-stale     판단 뒤 그 항목의 사실(지문)이 바뀌었는가
 const AGREEMENT_MIN = 0.8;
 export function reviewGate({ spec, index, derived }) {
   const issues = [];
@@ -490,6 +491,7 @@ export function reviewGate({ spec, index, derived }) {
     const item = worksheet.find((entry) => entry.key === review.key);
     const label = item ? describeKey(item, index) : `검토 항목 ${review.key ?? '(key 없음)'}`;
     if (!sheetKeys.has(review.key)) { issues.push(issue('review-evidence', 'warn', `${label}는 검토지에 없는 항목입니다`, [])); continue; }
+    if (typeof review.fingerprint === 'string' && review.fingerprint !== item.fingerprint) issues.push(issue('review-stale', 'warn', `${label} 판단 뒤 그 항목의 사실이 바뀌었습니다. 다시 판단하세요`, []));
     if (review.evidence.length === 0) issues.push(issue('review-evidence', 'warn', `${label} 판단에 근거 요소가 없습니다`, []));
     else if (review.evidence.some((id) => !known(id))) issues.push(issue('review-evidence', 'warn', `${label} 판단의 근거 ${review.evidence.filter((id) => !known(id)).map((id) => quote(id)).join(', ')}가 기획서에 없는 요소입니다`, []));
     if (review.verdict === 'issue' && (review.severity ?? 0) >= 3) {

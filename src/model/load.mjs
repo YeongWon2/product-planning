@@ -194,7 +194,7 @@ function normalizeReviews(list, path, n) {
   if (list === undefined) return [];
   return n.objects(list, path).map((item, i) => {
     const at = `${path}[${i}]`;
-    const result = { ...item, key: n.string(item, 'key', at), finding: n.string(item, 'finding', at), fix: n.string(item, 'fix', at), accepted: n.string(item, 'accepted', at), evidence: n.strings(item.evidence, `${at}.evidence`) };
+    const result = { ...item, key: n.string(item, 'key', at), finding: n.string(item, 'finding', at), fix: n.string(item, 'fix', at), accepted: n.string(item, 'accepted', at), fingerprint: n.string(item, 'fingerprint', at), evidence: n.strings(item.evidence, `${at}.evidence`) };
     if (!['pass', 'issue', 'na'].includes(item.verdict)) { n.report(`${at}.verdict`, 'pass·issue·na 중 하나여야 합니다'); delete result.verdict; }
     if (item.severity !== undefined && !(Number.isInteger(item.severity) && item.severity >= 0 && item.severity <= 4)) { n.report(`${at}.severity`, '0~4의 정수여야 합니다'); delete result.severity; }
     return result;

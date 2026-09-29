@@ -81,3 +81,19 @@ test('review 명령은 검토지를 JSON으로 찍는다', () => {
   assert.ok(Array.isArray(sheet.worksheet) && sheet.worksheet.length > 0);
   assert.ok(sheet.instructions.includes('근거'));
 });
+
+test('판단 뒤 그 항목의 사실이 바뀌면 낡은 판단으로 알린다', () => {
+  const base = run();
+  const item = base.derived.review.worksheet.find((entry) => entry.key === 'H5:AC3');
+  assert.match(item.fingerprint, /^[0-9a-f]{8}$/);
+  const reviews = fullReviews(base, (entry) => ({ fingerprint: entry.fingerprint }));
+  assert.deepEqual(issuesOf(run({ reviews, reviewRounds: [reviews, reviews] }), 'review-stale'), []);
+  const spec = JSON.parse(text());
+  spec.actions.find((action) => action.id === 'AC3').inputs[0].max = 80;
+  const changed = parseSpec(JSON.stringify({ ...spec, reviews, reviewRounds: [reviews, reviews] }));
+  const stale = runPipeline(changed.spec, changed.problems).report.issues.filter((entry) => entry.rule === 'review-stale');
+  // 입력이 바뀐 동작의 오류 예방 판단과, 그 동작을 쓰는 워크스루 단계 판단이 함께 낡는다.
+  assert.equal(stale.length, 2, stale.map((entry) => entry.message).join('\n'));
+  assert.match(stale[0].message, /항목 만들기/);
+  assert.match(stale[1].message, /워크스루/);
+});

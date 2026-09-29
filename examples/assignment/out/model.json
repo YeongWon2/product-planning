@@ -2334,7 +2334,8 @@
             "apps": [
               "관리자 웹"
             ]
-          }
+          },
+          "fingerprint": "4ab02524"
         },
         {
           "key": "H5:AC3",
@@ -2379,7 +2380,8 @@
                 "value": "hide"
               }
             ]
-          }
+          },
+          "fingerprint": "45b7a39e"
         },
         {
           "key": "H5:AC5",
@@ -2446,7 +2448,8 @@
                 "value": "hide"
               }
             ]
-          }
+          },
+          "fingerprint": "070ecd63"
         },
         {
           "key": "H6:S1",
@@ -2482,7 +2485,8 @@
                 "inputs": []
               }
             ]
-          }
+          },
+          "fingerprint": "1491bab4"
         },
         {
           "key": "H6:S2",
@@ -2527,7 +2531,8 @@
                 "inputs": []
               }
             ]
-          }
+          },
+          "fingerprint": "6042bf31"
         },
         {
           "key": "H8:sc:P1:E1:list",
@@ -2549,7 +2554,8 @@
               "권한 없음",
               "보기 전용"
             ]
-          }
+          },
+          "fingerprint": "5d97adaf"
         },
         {
           "key": "H10:sc:P1:E1:list",
@@ -2564,7 +2570,8 @@
               "항목 만들기",
               "항목 상세 보기"
             ]
-          }
+          },
+          "fingerprint": "8510d80a"
         },
         {
           "key": "H8:sc:P1:E1:view",
@@ -2587,7 +2594,8 @@
               "권한 없음",
               "보기 전용"
             ]
-          }
+          },
+          "fingerprint": "00e89819"
         },
         {
           "key": "H8:sc:P2:E1:view",
@@ -2606,7 +2614,8 @@
               "권한 없음",
               "보기 전용"
             ]
-          }
+          },
+          "fingerprint": "dc1c29e9"
         },
         {
           "key": "H8:sc:P1:E1:form:AC5",
@@ -2627,7 +2636,8 @@
               "권한 없음",
               "보기 전용"
             ]
-          }
+          },
+          "fingerprint": "dd34132a"
         },
         {
           "key": "W:S1#1",
@@ -2658,6 +2668,7 @@
               ]
             }
           },
+          "fingerprint": "4d6ce598",
           "userType": "U1"
         },
         {
@@ -2710,6 +2721,7 @@
               ]
             }
           },
+          "fingerprint": "31555e1b",
           "userType": "U1"
         },
         {
@@ -2751,6 +2763,7 @@
               ]
             }
           },
+          "fingerprint": "4cc3eb1e",
           "userType": "U1"
         },
         {
@@ -2782,6 +2795,7 @@
               ]
             }
           },
+          "fingerprint": "4d6ce598",
           "userType": "U1"
         },
         {
@@ -2823,6 +2837,7 @@
               ]
             }
           },
+          "fingerprint": "4cc3eb1e",
           "userType": "U1"
         },
         {
@@ -2897,6 +2912,7 @@
               ]
             }
           },
+          "fingerprint": "2fcae7b2",
           "userType": "U1"
         },
         {
@@ -2948,6 +2964,7 @@
               ]
             }
           },
+          "fingerprint": "bed15e27",
           "userType": "U1"
         }
       ],

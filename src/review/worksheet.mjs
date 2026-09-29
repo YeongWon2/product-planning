@@ -13,11 +13,21 @@ export const CRITERIA = Object.freeze({
 
 export const SEVERITY = Object.freeze({ 0: '문제 아님', 1: '표현만의 문제', 2: '지연·혼란, 추가 단계', 3: '잘못된 결과·오류, 우회 필요', 4: '과업을 끝낼 수 없음·데이터 손실' });
 
+// 판단의 근거가 된 사실의 지문. 사실이 바뀌면 지문이 바뀌어 예전 판단이 낡았음을 안다 (FNV-1a 32비트).
+export function fingerprintOf(value) {
+  let hash = 0x811c9dc5;
+  for (const char of JSON.stringify(value)) {
+    hash ^= char.codePointAt(0);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
 export function buildWorksheet(spec, index, flow, cells) {
   const items = [];
   const nameOf = (id) => (index.has(id) ? index.name(id) : String(id));
   const push = (criterion, target, targetName, context, extra = {}) => items.push({
-    key: `${criterion}:${target}`, criterion, criterionName: CRITERIA[criterion].name, question: CRITERIA[criterion].question, target, targetName, context, ...extra,
+    key: `${criterion}:${target}`, criterion, criterionName: CRITERIA[criterion].name, question: CRITERIA[criterion].question, target, targetName, context, fingerprint: fingerprintOf(context), ...extra,
   });
   const actionFacts = (action) => ({
     inputs: action.inputs.map((input) => ({ name: input.name, type: input.type, required: input.required === true, min: input.min, max: input.max, options: input.options, optionsFrom: input.optionsFrom, rules: input.rules, note: input.note })),
@@ -63,7 +73,7 @@ export function buildWorksheet(spec, index, flow, cells) {
 }
 
 export const REVIEW_INSTRUCTIONS = [
-  '검토지의 항목마다 판단해 spec.json의 reviews에 { key, verdict, severity, evidence, finding, fix? } 로 적는다.',
+  '검토지의 항목마다 판단해 spec.json의 reviews에 { key, verdict, severity, evidence, finding, fix?, fingerprint } 로 적는다. fingerprint는 검토지 항목의 값을 그대로 옮긴다.',
   'verdict: pass(문제 없음) · issue(문제 있음) · na(해당 없음, finding에 사유). issue면 severity 1~4 (설계서 5.6절).',
   '모든 판단에는 근거 요소 ID(evidence)가 1개 이상 있어야 한다. 근거는 context에 나온 사실과 spec의 요소 ID·화면 ID만 쓴다. 추측으로 문제를 만들지 않는다.',
   '같은 검토지로 두 번 독립적으로 판단해 reviewRounds: [첫째, 둘째]에 넣고, 어긋난 항목만 다시 따져 reviews에 최종 판단을 적는다. 둘째 판단은 첫째를 보지 않은 별도 에이전트가 한다.',

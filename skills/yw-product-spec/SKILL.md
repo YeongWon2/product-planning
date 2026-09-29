@@ -70,7 +70,7 @@ disable-model-invocation: true
 완료 기준은 `check` 결과가 **착수 가능**이고 **검사 통과율 100%**(경고 0건 포함)인 것이다.
 
 1. `check`를 돌린다. 종료 코드 0 = 착수 가능, 1 = 착수 불가, 2·3 = 입력·경로 오류.
-2. 사람 답이 필요 없는 이슈(형식, 참조, 파생 규칙 위반)는 묻지 않고 고친다.
+2. 사람 답이 필요 없는 이슈(형식, 참조, 파생 규칙 위반)는 묻지 않고 고친다. `review-*` 경고는 5.1절 절차로 처리한다.
 3. 사람 답이 필요한 것은 질문으로 바꿔 한 번에 1~3개만 묻는다. 답을 받으면 `spec.json`에 반영하고 1로 돌아간다.
 4. 멈추는 경우는 둘뿐이다: 100%가 됐다 / 한 바퀴를 돌았는데 통과 수가 늘지 않았다(막힌 이슈와 이유를 보고한다).
 
@@ -87,7 +87,7 @@ disable-model-invocation: true
 규칙 검사가 경고 `review-*`만 남기면 모델 판단 차례다 (설계서 5.3·5.4절).
 
 1. `node <플러그인 루트>/scripts/spec.mjs review <spec.json>`으로 검토지를 받는다. 항목마다 기준·질문·대상·판단에 필요한 사실(context)이 있다.
-2. **첫째 판단**: 항목마다 `{ key, verdict: pass·issue·na, severity(issue면 1~4), evidence: [근거 요소 ID], finding, fix? }`. 근거는 context에 나온 사실과 기획서의 요소·화면 ID만 쓴다. 추측으로 문제를 만들지 않는다.
+2. **첫째 판단**: 항목마다 `{ key, verdict: pass·issue·na, severity(issue면 1~4), evidence: [근거 요소 ID], finding, fix?, fingerprint }`. `fingerprint`는 검토지 항목의 값을 그대로 옮긴다. 기획서를 고친 뒤 `review-stale`이 나오면 그 항목만 다시 판단한다. 근거는 context에 나온 사실과 기획서의 요소·화면 ID만 쓴다. 추측으로 문제를 만들지 않는다.
 3. **둘째 판단**: 첫째를 보여 주지 않은 별도 에이전트에게 같은 검토지와 지침(`instructions`)만 주고 판단하게 한다.
 4. 둘을 `reviewRounds: [첫째, 둘째]`에 넣고, 어긋난 항목만 근거를 다시 따져 `reviews`에 최종 판단을 적는다. 일치율이 80% 미만이면(`review-agreement`) 판단 기준을 context로 다시 읽고 어긋난 항목부터 다시 본다.
 5. 심각도 3~4(`review-severity`, 착수 불가)는 기획서를 고쳐 없앤다. 사용자가 그대로 가기로 하면 `decisions`에 사유를 남기고 판단의 `accepted`에 그 결정 ID를 적는다. 심각도 1~2는 고칠 수 있으면 고치고, 아니면 판단에 남겨 둔다.
