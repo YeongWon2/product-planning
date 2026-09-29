@@ -1,0 +1,48 @@
+{
+  "ready": false,
+  "score": {
+    "checked": 172,
+    "passed": 170,
+    "ratio": 0.988,
+    "assumptionRatio": 0.125,
+    "blockingQuestions": 1,
+    "blockIssues": 1,
+    "warnIssues": 1
+  },
+  "reasons": [
+    "차단 이슈 1건",
+    "착수를 막는 정할 것 1건"
+  ],
+  "issues": [
+    {
+      "rule": "permission-gap",
+      "level": "block",
+      "message": "동작 가능표 빈칸: '배정 관리자' × '항목 수정하기' × '완료'",
+      "targets": [
+        {
+          "id": "U1",
+          "name": "배정 관리자"
+        },
+        {
+          "id": "AC5",
+          "name": "항목 수정하기"
+        },
+        {
+          "id": "ST2",
+          "name": "완료"
+        }
+      ]
+    },
+    {
+      "rule": "input-rule",
+      "level": "warn",
+      "message": "'항목 수정하기'의 입력 '메모'에 검증 규칙이 없습니다 (오류 예방)",
+      "targets": [
+        {
+          "id": "AC5",
+          "name": "항목 수정하기"
+        }
+      ]
+    }
+  ]
+}

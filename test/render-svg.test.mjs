@@ -51,3 +51,8 @@ test('긴 이름은 줄이고 전체 이름은 title에 둔다', () => {
   assert.ok(svg.includes('<title>아주 긴 화면 이름이 여기까지 이어진다</title>'));
   assert.ok(svg.includes('…'));
 });
+
+test('앱 이름이 붙은 화면 이름은 흐름도에서 잘리지 않는다', () => {
+  const svg = renderFlowSvg({ apps, screens: [{ id: 'd', name: '항목 상세 · 관리자 웹', app: 'P1', type: 'screen' }], edges: [], entries: ['d'] });
+  assert.ok(svg.includes('>항목 상세 · 관리자 웹</text>'));
+});

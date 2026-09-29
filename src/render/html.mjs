@@ -117,8 +117,10 @@ function permissionsSection({ spec, index, derived }) {
       for (const action of spec.actions.filter((item) => item.entity === entity.id)) {
         const own = cells.filter((cell) => cell.userType === userType.id && cell.action === action.id);
         if (own.length === 0) continue;
+        // 상태와 무관한 칸은 여러 열을 합치므로 첫 열의 값처럼 읽히지 않게 '모든 상태'를 붙인다.
         const cellMarkup = (cell, span = 1) => {
-          const label = cell.value === null ? '정할 것' : LABELS.permission[cell.value];
+          const base = cell.value === null ? '정할 것' : LABELS.permission[cell.value];
+          const label = span > 1 ? `${base} · 모든 상태` : base;
           const className = cell.value === null ? 'gap' : `perm-${cell.value}`;
           return `<td class="${className}"${span > 1 ? ` colspan="${span}"` : ''}>${h(label)}</td>`;
         };

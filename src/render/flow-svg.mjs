@@ -1,13 +1,14 @@
 import { escapeHtml, truncate } from './escape.mjs';
 
-const NODE_WIDTH = 176;
+// 한글 13px 기준 한 글자 약 13px. '항목 상세 · 관리자 웹'처럼 앱 이름이 붙은 이름이 들어가는 폭이다.
+const NODE_WIDTH = 216;
 const NODE_HEIGHT = 44;
 const COLUMN_GAP = 72;
 const ROW_GAP = 20;
 const LANE_PADDING = 24;
 const LANE_LABEL_WIDTH = 120;
 const BACK_EDGE_DEPTH = 36;
-const NAME_MAX = 12;
+const NAME_MAX = 15;
 const LABEL_MAX = 10;
 
 // 진입점에서 몇 번 이동해야 닿는지로 열을 정한다. 닿지 않는 화면은 첫 열에 둔다.

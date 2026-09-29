@@ -41,6 +41,7 @@ test('동작 가능표의 빈칸은 정할 것으로 보인다', () => {
   const table = html.split('data-section="permissions"')[1].split('data-section="flow"')[0];
   assert.match(table, /정할 것/);
   assert.match(table, /숨김/);
+  assert.match(table, /허용 · 모든 상태/);
 });
 
 test('완료 조건은 상황 → 행동 → 결과로 쓰고 초안은 확인 필요로 표시한다', () => {
