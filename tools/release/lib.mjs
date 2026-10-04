@@ -1,11 +1,11 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-export const PLUGIN_NAME = 'product-planning';
+export const PLUGIN_NAME = 'yw-forge';
 
 // 설치한 사람의 Claude Code가 읽는 파일. 스킬이 docs/의 명세·설계서를 직접 읽으므로 docs/도 포함한다.
 // 테스트·예제·README·배포 도구(tools/)만 바뀐 변경은 사용자에게 달라지는 것이 없어 배포하지 않는다.
-export const PLUGIN_PATHS = ['.claude-plugin/', 'skills/', 'src/', 'scripts/', 'docs/'];
+export const PLUGIN_PATHS = ['.claude-plugin/', 'skills/', 'agents/', 'hooks/', 'rules/', 'templates/', 'src/', 'scripts/', 'docs/'];
 
 const CONVENTIONAL = /^(\w+)(?:\(([^)]*)\))?(!)?:\s*(.+)$/;
 const SEMVER = /^(\d+)\.(\d+)\.(\d+)$/;

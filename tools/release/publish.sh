@@ -8,11 +8,11 @@ set -euo pipefail
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 git add .claude-plugin/plugin.json CHANGELOG.md
-git commit -m "chore(release): product-planning v${VERSION}"
-git tag -a "$TAG" -m "product-planning v${VERSION}"
+git commit -m "chore(release): yw-forge v${VERSION}"
+git tag -a "$TAG" -m "yw-forge v${VERSION}"
 # --atomic: 그사이 main이 앞서가 거절되면 태그도 함께 올리지 않는다. 태그만 남으면 다음 배포가 같은 태그로 계속 실패한다.
 git push --atomic origin HEAD:main "$TAG"
 
 notes_file="$(mktemp)"
 printf '%s\n' "$NOTES" > "$notes_file"
-gh release create "$TAG" --title "product-planning v${VERSION}" --notes-file "$notes_file"
+gh release create "$TAG" --title "yw-forge v${VERSION}" --notes-file "$notes_file"

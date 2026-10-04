@@ -46,7 +46,7 @@ function setup() {
   mkdirSync(bin);
   writeFileSync(join(bin, 'gh'), FAKE_GH);
   chmodSync(join(bin, 'gh'), 0o755);
-  commitFile(work, '.claude-plugin/plugin.json', `${JSON.stringify({ name: 'product-planning', version: '0.1.0' }, null, 2)}\n`, 'feat: 처음');
+  commitFile(work, '.claude-plugin/plugin.json', `${JSON.stringify({ name: 'yw-forge', version: '0.1.0' }, null, 2)}\n`, 'feat: 처음');
   git(work, 'push', '-q', '-u', 'origin', 'main');
   return { base, remote, work, bin, ghLog: join(base, 'gh.log') };
 }
@@ -112,14 +112,14 @@ test('main push 한 번이 버전 커밋·태그·릴리스까지 끝낸다', ()
   const { outputs } = runWorkflow(env);
 
   assert.deepEqual({ releasable: outputs.releasable, version: outputs.version, tag: outputs.tag },
-    { releasable: 'true', version: '0.2.0', tag: 'product-planning--v0.2.0' });
-  assert.equal(remoteGit(env, 'log', '-1', '--format=%s', 'main'), 'chore(release): product-planning v0.2.0');
-  assert.equal(remoteGit(env, 'rev-list', '-n', '1', 'product-planning--v0.2.0'), remoteGit(env, 'rev-parse', 'main'), '태그가 배포 커밋을 가리킨다');
+    { releasable: 'true', version: '0.2.0', tag: 'yw-forge--v0.2.0' });
+  assert.equal(remoteGit(env, 'log', '-1', '--format=%s', 'main'), 'chore(release): yw-forge v0.2.0');
+  assert.equal(remoteGit(env, 'rev-list', '-n', '1', 'yw-forge--v0.2.0'), remoteGit(env, 'rev-parse', 'main'), '태그가 배포 커밋을 가리킨다');
   assert.equal(JSON.parse(remoteGit(env, 'show', 'main:.claude-plugin/plugin.json')).version, '0.2.0');
   assert.match(remoteGit(env, 'show', 'main:CHANGELOG.md'), /^# 변경 기록\n\n## 0\.2\.0 — /);
 
   const ghArgs = readFileSync(env.ghLog, 'utf8').trim().split('\n');
-  assert.deepEqual(ghArgs.slice(0, 6), ['release', 'create', 'product-planning--v0.2.0', '--title', 'product-planning v0.2.0', '--notes-file']);
+  assert.deepEqual(ghArgs.slice(0, 6), ['release', 'create', 'yw-forge--v0.2.0', '--title', 'yw-forge v0.2.0', '--notes-file']);
   const notes = readFileSync(`${env.ghLog}.notes`, 'utf8');
   assert.match(notes, /### 새 기능\n- 처음 \([0-9a-f]{7}\)/);
 });
@@ -130,13 +130,13 @@ test('배포 직후 다시 돌리면 아무것도 하지 않고, 다음 fix는 p
 
   const again = runWorkflow(env);
   assert.equal(again.outputs.releasable, 'false', '배포 커밋은 다시 배포를 부르지 않는다');
-  assert.deepEqual(remoteTags(env), ['product-planning--v0.2.0']);
+  assert.deepEqual(remoteTags(env), ['yw-forge--v0.2.0']);
 
   commitFile(env.work, 'src/a.mjs', '1', 'fix: 빈 입력을 막는다');
   commitFile(env.work, 'test/a.test.mjs', '1', 'test: 테스트만 추가한다');
   git(env.work, 'push', '-q', 'origin', 'main');
   const next = runWorkflow(env);
-  assert.equal(next.outputs.tag, 'product-planning--v0.2.1');
+  assert.equal(next.outputs.tag, 'yw-forge--v0.2.1');
   const changelog = remoteGit(env, 'show', 'main:CHANGELOG.md');
   assert.ok(changelog.indexOf('## 0.2.1') < changelog.indexOf('## 0.2.0'), '새 버전이 위에 온다');
   const section = changelog.slice(changelog.indexOf('## 0.2.1'), changelog.indexOf('## 0.2.0'));

@@ -34,7 +34,7 @@ test('커밋 종류로 올릴 자리를 정한다', () => {
   // 1.0.0 전에는 호환이 깨져도 minor 로 올린다.
   assert.equal(bumpFor([commit('feat!: 깨는 변경')], '0.4.0'), 'minor');
   assert.equal(bumpFor([commit('test: 테스트만', ['test/a.test.mjs'])], '0.2.0'), null);
-  assert.equal(bumpFor([commit('chore(release): product-planning v0.2.0', ['.claude-plugin/plugin.json'])], '0.2.0'), null);
+  assert.equal(bumpFor([commit('chore(release): yw-forge v0.2.0', ['.claude-plugin/plugin.json'])], '0.2.0'), null);
 });
 
 test('다음 버전을 계산한다', () => {
@@ -69,13 +69,13 @@ test('배포 계획은 대상 커밋이 없으면 배포하지 않는다', () =>
   const none = planRelease({ version: '0.2.0', date: '2026-09-29', commits: [commit('test: 테스트', ['test/a.test.mjs'])] });
   assert.equal(none.releasable, false);
   const some = planRelease({ version: '0.2.0', date: '2026-09-29', commits: [commit('feat: 기능')] });
-  assert.deepEqual({ releasable: some.releasable, next: some.next, tag: some.tag }, { releasable: true, next: '0.3.0', tag: 'product-planning--v0.3.0' });
+  assert.deepEqual({ releasable: some.releasable, next: some.next, tag: some.tag }, { releasable: true, next: '0.3.0', tag: 'yw-forge--v0.3.0' });
 });
 
 test('배포 적용은 plugin.json 버전과 CHANGELOG.md만 바꾼다', () => {
   const root = mkdtempSync(join(tmpdir(), 'release-'));
   mkdirSync(join(root, '.claude-plugin'));
-  writeFileSync(join(root, '.claude-plugin', 'plugin.json'), `${JSON.stringify({ name: 'product-planning', version: '0.1.0' }, null, 2)}\n`);
+  writeFileSync(join(root, '.claude-plugin', 'plugin.json'), `${JSON.stringify({ name: 'yw-forge', version: '0.1.0' }, null, 2)}\n`);
   const plan = planRelease({ version: '0.1.0', date: '2026-09-29', commits: [commit('feat: 기능')] });
   applyRelease(root, plan);
   applyRelease(root, planRelease({ version: '0.2.0', date: '2026-09-30', commits: [commit('fix: 고침')] }));
@@ -100,11 +100,11 @@ test('CLI는 git 이력에서 마지막 배포 태그 이후 커밋으로 계획
   git('config', 'user.name', 'test');
   mkdirSync(join(root, '.claude-plugin'));
   mkdirSync(join(root, 'src'));
-  writeFileSync(join(root, '.claude-plugin', 'plugin.json'), `${JSON.stringify({ name: 'product-planning', version: '0.2.0' }, null, 2)}\n`);
+  writeFileSync(join(root, '.claude-plugin', 'plugin.json'), `${JSON.stringify({ name: 'yw-forge', version: '0.2.0' }, null, 2)}\n`);
   writeFileSync(join(root, 'src', 'a.mjs'), '1');
   git('add', '.');
   git('commit', '-q', '-m', 'feat: 처음');
-  git('tag', 'product-planning--v0.2.0');
+  git('tag', 'yw-forge--v0.2.0');
   writeFileSync(join(root, 'src', 'a.mjs'), '2');
   git('commit', '-q', '-am', 'fix: 고친다');
   mkdirSync(join(root, 'docs'));
