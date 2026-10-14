@@ -114,21 +114,28 @@ test('문서는 200줄 이하다', () => {
   }
 });
 
-test('export: 완료일 때만 한 파일로 내보내고 작업 흔적은 빼고 작업 폴더를 지운다', async () => {
+test('export: 완료일 때만 기획 PRD와 SDD 두 파일로 내보내고 작업 흔적은 빼고 작업 폴더를 지운다', async () => {
   const { existsSync } = await import('node:fs');
-  const dir = copyExample();
-  const target = join(mkdtempSync(join(tmpdir(), 'pp-out-')), 'post-edit.md');
-  assert.equal(spawnSync('node', [CLI, 'export', dir, target]).status, 0);
-  const result = readFileSync(target, 'utf8');
-  assert.match(result, /^# 게시글 수정\n\n## 기획\n/);
-  assert.match(result, /## SDD 스펙\n/);
-  assert.match(result, /### 피쳐 · 게시글 수정 · R1/);
-  for (const trace of ['상태:', '진행표', '정할 것']) assert.ok(!result.includes(trace), trace);
+  const dir = join(mkdtempSync(join(tmpdir(), 'pp-')), 'post-edit');
+  cpSync(EXAMPLE, dir, { recursive: true });
+  const out = mkdtempSync(join(tmpdir(), 'pp-out-'));
+  assert.equal(spawnSync('node', [CLI, 'export', dir, out]).status, 0);
+  const prd = readFileSync(join(out, 'post-edit-prd.md'), 'utf8');
+  const sdd = readFileSync(join(out, 'post-edit-sdd.md'), 'utf8');
+  assert.match(prd, /^# 게시글 수정 기획\n/);
+  assert.match(prd, /## 요구사항/);
+  assert.ok(!prd.includes('상태표'), '기획 문서에 SDD가 섞이지 않는다');
+  assert.match(sdd, /^# 게시글 수정 SDD 스펙\n\n> 기획: \[post-edit-prd\.md\]/);
+  assert.match(sdd, /## 피쳐 · 게시글 수정 · R1/);
+  assert.ok(!sdd.includes('## 페르소나'), 'SDD 문서에 기획이 섞이지 않는다');
+  for (const trace of ['상태:', '진행표', '정할 것']) assert.ok(!prd.includes(trace) && !sdd.includes(trace), trace);
   assert.equal(existsSync(dir), false);
-  assert.equal(spawnSync('node', [CLI, 'export', copyExample(), target]).status, 2, '이미 있으면 덮어쓰지 않는다');
+  const again = join(mkdtempSync(join(tmpdir(), 'pp-')), 'post-edit');
+  cpSync(EXAMPLE, again, { recursive: true });
+  assert.equal(spawnSync('node', [CLI, 'export', again, out]).status, 2, '이미 있으면 덮어쓰지 않는다');
 
   const unfinished = copyExample({ 'trace.json': () => '{}' });
-  assert.equal(spawnSync('node', [CLI, 'export', unfinished, `${target}.2`]).status, 2);
+  assert.equal(spawnSync('node', [CLI, 'export', unfinished, join(out, 'x')]).status, 2);
   assert.equal(existsSync(unfinished), true);
 });
 

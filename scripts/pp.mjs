@@ -12,8 +12,8 @@ const USAGE = `사용법:
   node scripts/pp.mjs init  <폴더> <기능 이름>   없는 파일만 빈 틀로 만든다
   node scripts/pp.mjs check <폴더> [--json]      지금 단계와 추가돼야 완성인 것을 보여 준다
   node scripts/pp.mjs sheet <폴더>               요구사항 대조 검토지를 JSON으로 낸다
-  node scripts/pp.mjs export <폴더> <결과 파일> [--force] [--keep]
-                                                 완료된 기획+SDD를 한 파일로 내보내고 작업 폴더를 지운다
+  node scripts/pp.mjs export <폴더> <결과 폴더> [--force] [--keep]
+                                                 완료된 기획 PRD와 SDD 스펙을 두 파일로 내보내고 작업 폴더를 지운다
   node scripts/pp.mjs discard <폴더>             내보내지 않고 작업 폴더를 지운다`;
 
 const planTemplate = (name) => `# ${name} 기획\n\n상태: 작성중\n\n## 배경\n\n## 페르소나\n\n## 요구사항\n\n## 정할 것\n`;
@@ -49,9 +49,9 @@ function run([command, folder, ...rest]) {
   }
   if (command === 'export') {
     const target = rest.find((arg) => !arg.startsWith('--'));
-    if (!target) throw new InputError('결과 파일 경로가 필요하다.');
+    if (!target) throw new InputError('결과 폴더 경로가 필요하다.');
     const result = exportResult(folder, target, { force: rest.includes('--force'), keep: rest.includes('--keep') });
-    console.log(`내보냈다: ${result.target}${result.removed ? `\n지웠다: ${folder}` : ''}`);
+    console.log(`내보냈다: ${result.paths.join(', ')}${result.removed ? `\n지웠다: ${folder}` : ''}`);
     return 0;
   }
   if (command === 'discard') {
