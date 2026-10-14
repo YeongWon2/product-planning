@@ -122,3 +122,14 @@ test('CLI는 git 이력에서 마지막 배포 태그 이후 커밋으로 계획
   assert.equal(plan.next, '0.2.1');
   assert.deepEqual(plan.commits.map((item) => item.description), ['고친다', '한글 파일명 문서를 고친다']);
 });
+
+test('Release-As 꼬리말로 다음 버전을 직접 정한다', () => {
+  const forced = commit('chore: 1.0.0으로 올린다', ['tools/release/lib.mjs'], 'Release-As: 1.0.0');
+  assert.equal(forced.releaseAs, '1.0.0');
+  const plan = planRelease({ version: '0.10.0', date: '2026-10-14', commits: [forced, commit('fix: 고친다')] });
+  assert.equal(plan.releasable, true);
+  assert.equal(plan.next, '1.0.0');
+  assert.equal(plan.tag, 'product-planning--v1.0.0');
+  assert.equal(plan.commits.length, 2, '플러그인 파일을 안 건드린 Release-As 커밋도 기록에 남긴다');
+  assert.throws(() => planRelease({ version: '1.0.0', date: '2026-10-14', commits: [forced] }), /크지 않습니다/);
+});
