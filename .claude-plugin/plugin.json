@@ -1,7 +1,7 @@
 {
   "name": "product-planning",
   "description": "사람과 대화하며 기획(페르소나·요구사항·완성 기준)과 SDD 스펙(상태·조건 분기 트리)을 단계별로 같이 쓰고, 하네스가 매 답마다 빠진 것을 알려 주는 플러그인",
-  "version": "0.10.0",
+  "version": "1.0.0",
   "author": {
     "name": "YeongWon2"
   },
