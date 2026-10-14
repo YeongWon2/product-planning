@@ -9,6 +9,8 @@ export const PLUGIN_PATHS = ['.claude-plugin/', 'skills/', 'src/', 'scripts/', '
 
 const CONVENTIONAL = /^(\w+)(?:\(([^)]*)\))?(!)?:\s*(.+)$/;
 const SEMVER = /^(\d+)\.(\d+)\.(\d+)$/;
+// 커밋 본문의 'Release-As: 1.0.0' 꼬리말로 다음 버전을 직접 정한다. 0.x에서 1.0.0으로 올릴 때처럼 자동 계산으로 못 가는 경우에 쓴다.
+const RELEASE_AS = /^Release-As:\s*(\d+\.\d+\.\d+)\s*$/m;
 
 export function parseCommit({ sha, subject, body = '', files = [] }) {
   const match = CONVENTIONAL.exec(subject.trim());
@@ -19,6 +21,7 @@ export function parseCommit({ sha, subject, body = '', files = [] }) {
     type: match ? match[1] : null,
     scope: match?.[2] ?? null,
     breaking,
+    releaseAs: RELEASE_AS.exec(body)?.[1] ?? null,
     description: match ? match[4] : subject.trim(),
     files,
   };
@@ -67,11 +70,25 @@ export function renderChangelogSection({ version, date, commits }) {
   return lines.join('\n');
 }
 
+const compareVersions = (a, b) => {
+  const [x, y] = [a, b].map((v) => SEMVER.exec(v).slice(1).map(Number));
+  return x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
+};
+
+function forcedVersion(commits, version) {
+  const wanted = commits.filter((commit) => !isReleaseCommit(commit) && commit.releaseAs).map((commit) => commit.releaseAs);
+  if (wanted.length === 0) return null;
+  const highest = wanted.sort(compareVersions).at(-1);
+  if (compareVersions(highest, version) <= 0) throw new Error(`Release-As ${highest}가 지금 버전 ${version}보다 크지 않습니다.`);
+  return highest;
+}
+
 export function planRelease({ version, date, commits }) {
-  const relevant = releasableCommits(commits);
-  const bump = bumpFor(commits, version);
+  const forced = forcedVersion(commits, version);
+  const relevant = forced ? commits.filter((commit) => !isReleaseCommit(commit) && (commit.releaseAs || touchesPlugin(commit.files))) : releasableCommits(commits);
+  const bump = forced ? 'release-as' : bumpFor(commits, version);
   if (bump === null) return { releasable: false, current: version, next: null, tag: null, bump: null, commits: [], notes: '' };
-  const next = nextVersion(version, bump);
+  const next = forced ?? nextVersion(version, bump);
   return {
     releasable: true,
     current: version,
