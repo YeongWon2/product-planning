@@ -1,6 +1,6 @@
 {
   "name": "product-planning",
-  "description": "어떤 입력으로 시작해도 같은 구조·같은 품질의 기획서(PRD·시나리오·화면 흐름·완료 조건)를 HTML 한 파일로 만드는 기획 파이프라인",
+  "description": "사람과 대화하며 기획(페르소나·요구사항·완성 기준)과 SDD 스펙(상태·조건 분기 트리)을 단계별로 같이 쓰고, 하네스가 매 답마다 빠진 것을 알려 주는 플러그인",
   "version": "0.9.0",
   "author": {
     "name": "YeongWon2"
@@ -9,9 +9,9 @@
   "repository": "https://github.com/YeongWon2/product-planning",
   "keywords": [
     "planning",
-    "prd",
-    "spec",
-    "user-flow",
-    "ux-review"
+    "persona",
+    "requirements",
+    "sdd",
+    "user-flow"
   ]
 }
