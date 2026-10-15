@@ -7,6 +7,8 @@
 ![version](https://img.shields.io/github/v/tag/YeongWon2/product-planning?label=version&sort=semver)
 ![deps](https://img.shields.io/badge/dependencies-0-success)
 ![lang](https://img.shields.io/badge/docs-한국어-green)
+![node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=nodedotjs&logoColor=white)
+![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-D97757?logo=anthropic&logoColor=white)
 
 [설계서](docs/design.md) · [기획 작성법](docs/planning-guide.md) · [SDD 스펙 작성법](docs/sdd-guide.md) · [하네스](docs/harness.md)
 
@@ -34,6 +36,17 @@
 
 세 파일은 작업 중에만 프로젝트 밖 `~/.product-planning/work/{feature}/`에 있다.
 완료되면 기획 PRD(`{feature}-prd.md`)와 SDD 스펙(`{feature}-sdd.md`) 두 파일만 고른 폴더에 남기고 작업 폴더는 지운다.
+
+## 설치
+
+Claude Code에서 마켓플레이스를 추가하고 플러그인을 설치한다.
+
+```text
+/plugin marketplace add YeongWon2/product-planning
+/plugin install product-planning@product-planning
+```
+
+설치하면 `/yw-plan`, `/yw-sdd` 두 명령이 생긴다. 하네스는 Node 20 이상이 필요하다.
 
 ## 어떻게 쓰나
 
@@ -110,4 +123,6 @@ node scripts/pp.mjs check examples/post-edit
 npm test
 ```
 
-의존성이 없고 Node 20 이상에서 돈다.
+의존성이 없고 Node 20 이상에서 돈다. 바뀐 내용은 [CHANGELOG](CHANGELOG.md)에 있다.
+
+문제나 제안은 [이슈](https://github.com/YeongWon2/product-planning/issues)로 남긴다.
