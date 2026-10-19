@@ -23,7 +23,7 @@ export function sheet(plan, sdd) {
 export function checkTrace(plan, sdd, trace) {
   const issues = [];
   const met = new Set();
-  const add = (kind, message) => issues.push({ step: 10, kind, message });
+  const add = (kind, message) => issues.push({ step: 12, kind, message });
   const paths = new Set(linePaths(sdd).map(({ path }) => path));
   for (const criterion of criteriaOf(plan)) {
     if (criterion.excluded) continue;
