@@ -1,6 +1,6 @@
 // 결과물 내보내기와 작업 폴더 지우기 (docs/harness.md 6장).
 // PRD가 확정되면 <문서 폴더>/{feature}/prd.md를, SDD까지 끝나면 sdd.md도 쓴다. 문서 폴더는 보통 <프로젝트>/docs다.
-// 작업 흔적(상태 줄, 진행표, 정할 것, trace.json, lock.json)과 `없음`인 선택 구역은 넣지 않는다.
+// 작업 흔적(상태 줄, 진행표, 정할 것, trace.json, lock.json, sheet.json)과 `없음`인 선택 구역은 넣지 않는다.
 import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
 import { EXCEPTION, LIST_SECTIONS, NONE, OPTIONAL_SECTIONS, TERM, isNone, parsePlan } from './plan.mjs';

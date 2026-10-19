@@ -1,11 +1,11 @@
 // 작업 폴더 하나를 검사해 지금 단계와 추가돼야 완성인 것을 낸다 (docs/harness.md 4·5장).
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PLAN_STEPS, checkPlan, parsePlan } from './plan.mjs';
+import { PLAN_STEPS, checkPlan, designWarnings, parsePlan } from './plan.mjs';
 import { SDD_STEPS, checkSdd, parseSdd } from './sdd.mjs';
 import { checkTrace, progressOf } from './trace.mjs';
 
-export const FILES = { plan: 'plan.md', sdd: 'sdd.md', trace: 'trace.json', lock: 'lock.json' };
+export const FILES = { plan: 'plan.md', sdd: 'sdd.md', trace: 'trace.json', lock: 'lock.json', sheet: 'sheet.json' };
 const STEPS = { ...PLAN_STEPS, ...SDD_STEPS };
 const NEXT = {
   1: '누가 쓰는지, 무엇을 원하는지, 평소 어떻게 행동하는지 묻는다.',
@@ -54,13 +54,15 @@ export function evaluate(folder) {
       const tracePath = join(folder, FILES.trace);
       const trace = existsSync(tracePath) ? readJson(tracePath) : null;
       const traced = checkTrace(plan, sdd, trace);
-      progress = progressOf(plan, traced.met);
+      // 상태표가 비었으면 SDD를 아직 시작하지 않은 것이므로 완성도를 내지 않는다.
+      if (sdd.states.length) progress = progressOf(plan, traced.met);
       // 트리가 다 맞기 전에는 대조가 계속 흔들리므로 대조 결과는 트리 검사가 끝난 뒤에만 보인다.
       if (!issues.some((issue) => issue.step <= 11)) issues.push(...traced.issues);
     }
   }
   const step = issues.length ? Math.min(...issues.map((issue) => issue.step)) : null;
   const current = issues.filter((issue) => issue.step === step);
+  const later = issues.filter((issue) => issue.step !== step);
   const sddMissing = current.some((issue) => issue.kind === 'SDD 없음');
   const relock = current.some((issue) => issue.kind === '잠근 뒤 바뀜');
   return {
@@ -68,7 +70,9 @@ export function evaluate(folder) {
     step,
     prdDone,
     issues: current,
-    rest: issues.length - current.length,
+    rest: later.length,
+    later,
+    warnings: designWarnings(plan).map((warning) => ({ ...warning, file: FILES.plan })),
     progress,
     next: step === null ? 'export로 PRD와 SDD를 프로젝트 docs에 쓰고, 사람에게 모두 완성됐다고 알린다.' : sddMissing ? PRD_DONE : relock ? RELOCK : NEXT[step],
   };
@@ -86,7 +90,16 @@ export function formatReport(report) {
     lines.push('추가되어야 완성');
     report.issues.forEach((issue, index) => lines.push(`${index + 1}. [${issue.kind}] ${issue.message}${issue.line ? ` (${issue.file} ${issue.line}줄)` : ''}`));
   }
-  if (report.rest) lines.push(`그 밖에 ${report.rest}건`);
+  if (report.rest) {
+    const counts = new Map();
+    for (const issue of report.later) counts.set(issue.step, (counts.get(issue.step) ?? 0) + 1);
+    const per = [...counts].sort(([a], [b]) => a - b).map(([step, count]) => `${STEPS[step]} ${count}`).join(' · ');
+    lines.push(`그 밖에 ${report.rest}건 (${per})`);
+  }
+  if (report.warnings.length) {
+    lines.push('살펴볼 것 (막지 않는다)');
+    report.warnings.forEach((warning) => lines.push(`- [${warning.kind}] ${warning.message} (${warning.file} ${warning.line}줄)`));
+  }
   lines.push(`다음  ${report.next}`);
   return lines.join('\n');
 }

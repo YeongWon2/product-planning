@@ -2,7 +2,7 @@
 // 1~4는 사람이 요구사항을 세우고 잠그는 단계, 5~7은 잠긴 요구사항 위에 PRD를 인터뷰로 채우는 단계다.
 import { createHash } from 'node:crypto';
 import { readField, readStatus, sections } from './md.mjs';
-import { sentenceIssues } from './text.mjs';
+import { designWords, sentenceIssues } from './text.mjs';
 
 export const PLAN_STEPS = {
   1: '요구사항 › 1. 페르소나', 2: '요구사항 › 2. 요구사항', 3: '요구사항 › 3. 완성 기준', 4: '요구사항 › 4. 범위와 잠금',
@@ -211,6 +211,19 @@ export function checkPlan(plan, { lock = null } = {}) {
     add(7, '확정 전', hint);
   }
   return issues;
+}
+
+// 요구사항·완성 기준·정책·예외의 디자인 표현. 단계를 막지 않는 경고다. 잠근 요구사항을 다시 열지 않고 사람이 판단한다 (docs/design.md 8장).
+export function designWarnings(plan) {
+  const warnings = [];
+  for (const requirement of plan.requirements) {
+    const items = [{ text: requirement.name, line: requirement.line }, ...requirement.criteria, ...requirement.policies, ...requirement.exceptions];
+    for (const { text, line } of items) {
+      const words = designWords(text);
+      if (words.length) warnings.push({ kind: '디자인 표현', message: `"${text}"에서 ${words.join(', ')}는 화면 디자인일 수 있다. 무엇을 할 수 있고 무엇이 되는지로 쓸지 사람에게 묻는다.`, line });
+    }
+  }
+  return warnings;
 }
 
 function duplicates(items, report) {
