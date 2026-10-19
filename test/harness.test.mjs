@@ -43,9 +43,26 @@ test('페르소나가 요구사항에 안 쓰이면 묻는다', () => {
 
 test('정할 것이 남거나 확정 전이면 SDD로 넘어가지 않는다', () => {
   const report = evaluate(copyExample({ 'plan.md': (s) => s.replace('상태: 확정', '상태: 작성중').replace('## 정할 것', '## 정할 것\n\n- 관리자도 남의 글을 고칠 수 있는가?') }));
-  assert.equal(report.stage, '기획 › 5. 확정');
+  assert.equal(report.stage, '기획 › 5. 범위와 확정');
   assert.deepEqual(kinds(report.issues), ['정할 것 남음', '확정 전']);
   assert.equal(report.progress, null);
+});
+
+test('요약과 목표: 요약이 없거나 목표에 확인 방법이 없으면 1단계에서 막는다', () => {
+  const report = evaluate(copyExample({ 'plan.md': (s) => s.replace(/## 한 줄 요약\n\n(.+\n)+/, '## 한 줄 요약\n\n').replace('확인: 관련 문의가 한 달 30건에서 0건이 된다.\n', '') }));
+  assert.equal(report.stage, '기획 › 1. 요약과 목표');
+  assert.deepEqual(kinds(report.issues), ['요약 없음', '확인 방법 없음']);
+});
+
+test('요구사항마다 우선순위는 꼭 또는 나중에다', () => {
+  assert.deepEqual(kinds(checkPlan(parsePlan(read('plan.md').replace('우선순위: 꼭\n', '')))), ['우선순위 없음']);
+  assert.deepEqual(kinds(checkPlan(parsePlan(read('plan.md').replace('우선순위: 꼭', '우선순위: P0')))), ['모르는 우선순위']);
+});
+
+test('범위 밖, 선택 구역, 작성자가 비면 확정 단계에서 막는다', () => {
+  const report = evaluate(copyExample({ 'plan.md': (s) => s.replace('작성자: 영원', '작성자:').replace('- 관리자가 남의 글을 고치는 일은 이번에 하지 않는다.\n', '').replace('## 참고 문서\n\n없음\n', '## 참고 문서\n') }));
+  assert.equal(report.stage, '기획 › 5. 범위와 확정');
+  assert.deepEqual(kinds(report.issues), ['범위 밖 없음', '안 물은 구역', '작성자 없음']);
 });
 
 test('기획 문장 규칙: 두 문장, 개발 용어, 모호한 말, 긴 문장', () => {
@@ -101,7 +118,7 @@ test('CLI: 종료 코드와 init', () => {
   assert.match(execFileSync('node', [CLI, 'init', dir, '새 기능'], { encoding: 'utf8' }), /sdd.md는 기획이 확정된 뒤에/);
   const fresh = spawnSync('node', [CLI, 'check', dir], { encoding: 'utf8' });
   assert.equal(fresh.status, 1);
-  assert.match(fresh.stdout, /단계 {2}기획 › 1\. 배경/);
+  assert.match(fresh.stdout, /단계 {2}기획 › 1\. 요약과 목표/);
   const sheet = JSON.parse(execFileSync('node', [CLI, 'sheet', EXAMPLE], { encoding: 'utf8' }));
   assert.equal(sheet.criteria.length, 3);
   assert.ok(sheet.lines.every((line) => line.includes(' › ')));
@@ -114,21 +131,28 @@ test('문서는 200줄 이하다', () => {
   }
 });
 
-test('export: 완료일 때만 기획 PRD와 SDD 두 파일로 내보내고 작업 흔적은 빼고 작업 폴더를 지운다', async () => {
+test('export: 완료일 때만 PRD·요구사항 정의서·SDD 세 파일로 내보내고 작업 흔적은 빼고 작업 폴더를 지운다', async () => {
   const { existsSync } = await import('node:fs');
   const dir = join(mkdtempSync(join(tmpdir(), 'pp-')), 'post-edit');
   cpSync(EXAMPLE, dir, { recursive: true });
   const out = mkdtempSync(join(tmpdir(), 'pp-out-'));
   assert.equal(spawnSync('node', [CLI, 'export', dir, out]).status, 0);
   const prd = readFileSync(join(out, 'post-edit-prd.md'), 'utf8');
+  const req = readFileSync(join(out, 'post-edit-requirements.md'), 'utf8');
   const sdd = readFileSync(join(out, 'post-edit-sdd.md'), 'utf8');
-  assert.match(prd, /^# 게시글 수정 기획\n/);
-  assert.match(prd, /## 요구사항/);
-  assert.ok(!prd.includes('상태표'), '기획 문서에 SDD가 섞이지 않는다');
-  assert.match(sdd, /^# 게시글 수정 SDD 스펙\n\n> 기획: \[post-edit-prd\.md\]/);
+  assert.match(prd, /^# 게시글 수정 PRD\n\n> 요구사항 정의서: \[post-edit-requirements\.md\]/);
+  assert.match(prd, /\| 작성자 \| 영원 \|\n\| 작성일 \| \d{4}-\d{2}-\d{2} \|/);
+  for (const head of ['한 줄 요약', '배경', '목표', '페르소나', '요구사항', '범위 밖', '지켜야 할 조건']) assert.match(prd, new RegExp(`## ${head}\n`), head);
+  assert.match(prd, /- R1 작성자는 올린 글을 고칠 수 있다 \(꼭\)/);
+  for (const dropped of ['## 일정과 리스크', '## 참고 문서', 'R1-1']) assert.ok(!prd.includes(dropped), `PRD에 ${dropped}가 없다`);
+  assert.match(req, /^# 게시글 수정 요구사항 정의서\n\n> PRD: \[post-edit-prd\.md\]/);
+  assert.match(req, /\| R1 \| 작성자는 올린 글을 고칠 수 있다 \| P1 글을 자주 올리는 작성자 \| 꼭 \| /);
+  assert.match(req, /\| R1-4 \| 고친 기록을 다른 사람이 볼 수 있다\. \| 제외: 다음 분기에 한다 \|/);
+  assert.ok(!prd.includes('상태표') && !req.includes('상태표'), '기획 문서에 SDD가 섞이지 않는다');
+  assert.match(sdd, /^# 게시글 수정 SDD 스펙\n\n> 기획: \[post-edit-prd\.md\]\(post-edit-prd\.md\) · \[post-edit-requirements\.md\]/);
   assert.match(sdd, /## 피쳐 · 게시글 수정 · R1/);
   assert.ok(!sdd.includes('## 페르소나'), 'SDD 문서에 기획이 섞이지 않는다');
-  for (const trace of ['상태:', '진행표', '정할 것']) assert.ok(!prd.includes(trace) && !sdd.includes(trace), trace);
+  for (const trace of ['상태:', '진행표', '정할 것']) assert.ok(![prd, req, sdd].some((doc) => doc.includes(trace)), trace);
   assert.equal(existsSync(dir), false);
   const again = join(mkdtempSync(join(tmpdir(), 'pp-')), 'post-edit');
   cpSync(EXAMPLE, again, { recursive: true });

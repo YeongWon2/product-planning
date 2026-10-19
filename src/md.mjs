@@ -1,13 +1,16 @@
 // plan.md·sdd.md가 공통으로 쓰는 md 읽기. 머리(##)로 구역을 나누고 표와 중첩 목록을 읽는다.
 
-export function readStatus(lines) {
+// 첫 ## 앞의 `이름: 값` 줄을 읽는다. 값이 비었으면 null이다.
+export function readField(lines, name) {
   for (const line of lines) {
     if (line.startsWith('## ')) break;
-    const match = line.match(/^상태:\s*(.+)$/);
-    if (match) return match[1].trim();
+    const match = line.match(new RegExp(`^${name}:\\s*(.*)$`));
+    if (match) return match[1].trim() || null;
   }
   return null;
 }
+
+export const readStatus = (lines) => readField(lines, '상태');
 
 // [{ title, line, body: [{ text, line }] }]. 첫 ## 앞의 줄은 버린다.
 export function sections(lines) {

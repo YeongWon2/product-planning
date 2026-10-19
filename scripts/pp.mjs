@@ -13,10 +13,11 @@ const USAGE = `사용법:
   node scripts/pp.mjs check <폴더> [--json]      지금 단계와 추가돼야 완성인 것을 보여 준다
   node scripts/pp.mjs sheet <폴더>               요구사항 대조 검토지를 JSON으로 낸다
   node scripts/pp.mjs export <폴더> <결과 폴더> [--force] [--keep]
-                                                 완료된 기획 PRD와 SDD 스펙을 두 파일로 내보내고 작업 폴더를 지운다
+                                                 완료된 PRD·요구사항 정의서·SDD 스펙을 세 파일로 내보내고 작업 폴더를 지운다
   node scripts/pp.mjs discard <폴더>             내보내지 않고 작업 폴더를 지운다`;
 
-const planTemplate = (name) => `# ${name} 기획\n\n상태: 작성중\n\n## 배경\n\n## 페르소나\n\n## 요구사항\n\n## 정할 것\n`;
+const PLAN_SECTIONS = ['한 줄 요약', '배경', '목표', '페르소나', '요구사항', '범위 밖', '지켜야 할 조건', '일정과 리스크', '참고 문서', '정할 것'];
+const planTemplate = (name) => `# ${name} 기획\n\n상태: 작성중\n작성자:\n\n${PLAN_SECTIONS.map((title) => `## ${title}\n`).join('\n')}`;
 const sddTemplate = (name) => `# ${name} SDD 스펙\n\n상태: 작성중\n\n## 상태표\n\n| 대상 | 상태 | 뜻 |\n|---|---|---|\n\n## 조건표\n\n| 조건 | 갈래 | 정해지는 곳 |\n|---|---|---|\n\n## 진행표\n\n| 단위 | 종류 | 요구사항 | 진행 |\n|---|---|---|---|\n`;
 
 function init(folder, name) {
