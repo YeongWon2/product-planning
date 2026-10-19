@@ -1,14 +1,21 @@
-// plan.md 읽기와 기획 단계 검사 (docs/planning-guide.md, docs/harness.md 5장 1~5).
+// plan.md 읽기와 요구사항·PRD 단계 검사 (docs/planning-guide.md, docs/harness.md 5장 1~7).
+// 1~4는 사람이 요구사항을 세우고 잠그는 단계, 5~7은 잠긴 요구사항 위에 PRD를 인터뷰로 채우는 단계다.
+import { createHash } from 'node:crypto';
 import { readField, readStatus, sections } from './md.mjs';
 import { sentenceIssues } from './text.mjs';
 
-export const PLAN_STEPS = { 1: '기획 › 1. 요약과 목표', 2: '기획 › 2. 페르소나', 3: '기획 › 3. 요구사항', 4: '기획 › 4. 완성 기준', 5: '기획 › 5. 범위와 확정' };
+export const PLAN_STEPS = {
+  1: '요구사항 › 1. 페르소나', 2: '요구사항 › 2. 요구사항', 3: '요구사항 › 3. 완성 기준', 4: '요구사항 › 4. 범위와 잠금',
+  5: 'PRD › 5. 요약과 목표', 6: 'PRD › 6. 정책', 7: 'PRD › 7. 확정',
+};
+export const PRD_LAST_STEP = 7;
 export const PRIORITIES = ['꼭', '나중에'];
 export const NONE = '없음';
-const SUMMARY_MAX = 3;
+const LIMITS = { summary: 3, background: 5, policies: 7 };
 const PERSONA_LABELS = { '원하는 것': 'needs', '행동 패턴': 'patterns', 불편: 'pains' };
+const REQUIREMENT_LABELS = { 정책: 'policies', 예외: 'exceptions', '완성 기준': 'criteria' };
 // 줄만 모아 두는 구역. 선택 구역은 비어 있으면 아직 안 물은 것이고, `없음`이면 물었는데 없는 것이다.
-export const LIST_SECTIONS = { '한 줄 요약': 'summary', 배경: 'background', '범위 밖': 'outOfScope', '지켜야 할 조건': 'constraints', '일정과 리스크': 'schedule', '참고 문서': 'references' };
+export const LIST_SECTIONS = { 요약: 'summary', 배경: 'background', '범위 밖': 'outOfScope', '지켜야 할 조건': 'constraints', '일정과 리스크': 'schedule', '참고 문서': 'references' };
 export const OPTIONAL_SECTIONS = ['지켜야 할 조건', '일정과 리스크', '참고 문서'];
 
 export function parsePlan(source) {
@@ -24,11 +31,11 @@ export function parsePlan(source) {
         .filter(({ text }) => text.trim() !== '')
         .map(({ text, line }) => ({ text: text.trim().replace(/^- /, ''), line }));
     } else if (section.title === '목표') {
-      readEntities(section.body, /^### (G\d+) (.+)$/, plan.goals, plan.stray, readGoalLine, 1);
+      readEntities(section.body, /^### (G\d+) (.+)$/, plan.goals, plan.stray, readGoalLine, 5);
     } else if (section.title === '페르소나') {
-      readEntities(section.body, /^### (P\d+) (.+)$/, plan.personas, plan.stray, readPersonaLine, 2);
+      readEntities(section.body, /^### (P\d+) (.+)$/, plan.personas, plan.stray, readPersonaLine, 1);
     } else if (section.title === '요구사항') {
-      readEntities(section.body, /^### (R\d+) (.+)$/, plan.requirements, plan.stray, readRequirementLine, 3);
+      readEntities(section.body, /^### (R\d+) (.+)$/, plan.requirements, plan.stray, readRequirementLine, 2);
     } else if (section.title === '정할 것') {
       for (const { text, line } of section.body) if (text.startsWith('- ')) plan.questions.push({ text: text.slice(2).trim(), line });
     }
@@ -41,7 +48,11 @@ function readEntities(body, heading, into, stray, readLine, step) {
   for (const { text, line } of body) {
     const match = text.match(heading);
     if (match) {
-      current = { id: match[1], name: match[2].trim(), line, label: null, needs: [], patterns: [], pains: [], description: [], who: null, why: null, priority: null, check: null, criteria: [] };
+      current = {
+        id: match[1], name: match[2].trim(), line, label: null,
+        needs: [], patterns: [], pains: [], description: [],
+        who: null, why: null, priority: null, check: null, criteria: [], policies: [], exceptions: [],
+      };
       into.push(current);
     } else if (text.trim() !== '') {
       if (!current || !readLine(current, text.trim(), line)) stray.push({ text: text.trim(), line, step });
@@ -74,85 +85,115 @@ function readRequirementLine(requirement, text, line) {
   if (why) return (requirement.why = { text: why[1].trim(), line });
   const priority = text.match(/^우선순위:\s*(.*)$/);
   if (priority) return (requirement.priority = { text: priority[1].trim(), line });
-  if (text === '완성 기준') return (requirement.label = 'criteria');
-  if (requirement.label === 'criteria' && text.startsWith('- ')) {
-    const match = text.slice(2).match(/^(R\d+-\d+)\s+(?:\[제외:\s*([^\]]+)\]\s*)?(.+)$/);
-    if (!match) return false;
-    requirement.criteria.push({ id: match[1], excluded: match[2]?.trim() ?? null, text: match[3].trim(), line });
+  if (REQUIREMENT_LABELS[text]) return (requirement.label = REQUIREMENT_LABELS[text]);
+  if (!text.startsWith('- ') || !requirement.label) return false;
+  if (requirement.label !== 'criteria') {
+    requirement[requirement.label].push({ text: text.slice(2).trim(), line });
     return true;
   }
-  return false;
+  const match = text.slice(2).match(/^(R\d+-\d+)\s+(?:\[제외:\s*([^\]]+)\]\s*)?(.+)$/);
+  if (!match) return false;
+  requirement.criteria.push({ id: match[1], excluded: match[2]?.trim() ?? null, text: match[3].trim(), line });
+  return true;
 }
 
-export function checkPlan(plan) {
+// 잠금 지문: 사람이 세운 요구사항(페르소나, 요구사항, 완성 기준, 범위 밖)만 담는다. PRD 단계에서 채우는 정책·예외는 넣지 않는다.
+export function lockFingerprint(plan) {
+  const texts = (items) => items.map((item) => item.text);
+  const locked = {
+    personas: plan.personas.map((p) => [p.id, p.name, texts(p.description), texts(p.needs), texts(p.patterns), texts(p.pains)]),
+    requirements: plan.requirements.map((r) => [r.id, r.name, r.who?.ids ?? [], r.why?.text ?? '', r.priority?.text ?? '', r.criteria.map((c) => [c.id, c.excluded, c.text])]),
+    outOfScope: texts(plan.outOfScope),
+  };
+  return createHash('sha1').update(JSON.stringify(locked)).digest('hex').slice(0, 12);
+}
+
+// lock: lock.json 내용({ fingerprint }) 또는 null(아직 안 잠금).
+export function checkPlan(plan, { lock = null } = {}) {
   const issues = [];
   const add = (step, kind, message, line) => issues.push({ step, kind, message, line });
   const proseRules = (step, items) => {
     for (const { text, line } of items) for (const issue of sentenceIssues(text)) add(step, issue.kind, issue.message, line);
   };
+  const tooLong = (step, items, max, title) => {
+    if (items.length > max) add(step, '긴 구역', `${title}을 ${max}줄 안으로 줄인다.`, items[max].line);
+  };
 
-  if (plan.summary.length === 0) add(1, '요약 없음', '무엇을, 누구에게, 왜 하는지 한 줄 요약이 있어야 완성이다.');
-  if (plan.summary.length > SUMMARY_MAX) add(1, '긴 요약', `한 줄 요약을 ${SUMMARY_MAX}줄 안으로 줄인다.`, plan.summary[SUMMARY_MAX].line);
-  proseRules(1, plan.summary);
-  if (plan.background.length === 0) add(1, '배경 없음', '왜 이 기능이 필요한지 배경 문장이 있어야 완성이다.');
-  proseRules(1, plan.background);
-  if (plan.goals.length === 0) add(1, '목표 없음', '이 기능으로 이루려는 목표가 하나 이상 있어야 완성이다.');
-  duplicates(plan.goals, (id, line) => add(1, '번호 겹침', `목표 번호 ${id}가 두 번 나온다.`, line));
-  for (const goal of plan.goals) {
-    if (!goal.check?.text) add(1, '확인 방법 없음', `${goal.id} ${goal.name}을 이뤘는지 무엇으로 확인하는지 있어야 완성이다. 숫자가 없으면 무엇을 보고 알지 쓴다.`, goal.line);
-    proseRules(1, [{ text: goal.name, line: goal.line }, ...(goal.check?.text ? [goal.check] : [])]);
-  }
-
-  if (plan.personas.length === 0) add(2, '페르소나 없음', '누가 쓰는지 페르소나가 하나 이상 있어야 완성이다.');
-  duplicates(plan.personas, (id, line) => add(2, '번호 겹침', `페르소나 번호 ${id}가 두 번 나온다.`, line));
+  if (plan.personas.length === 0) add(1, '페르소나 없음', '누가 쓰는지 페르소나가 하나 이상 있어야 완성이다.');
+  duplicates(plan.personas, (id, line) => add(1, '번호 겹침', `페르소나 번호 ${id}가 두 번 나온다.`, line));
   for (const persona of plan.personas) {
-    if (persona.needs.length === 0) add(2, '원하는 것 없음', `${persona.id} ${persona.name}이 무엇을 원하는지 있어야 완성이다.`, persona.line);
-    if (persona.patterns.length === 0) add(2, '행동 패턴 없음', `${persona.id} ${persona.name}이 평소 어떻게 행동하는지 있어야 완성이다.`, persona.line);
-    proseRules(2, [{ text: persona.name, line: persona.line }, ...persona.description, ...persona.needs, ...persona.patterns, ...persona.pains]);
+    if (persona.needs.length === 0) add(1, '원하는 것 없음', `${persona.id} ${persona.name}이 무엇을 원하는지 있어야 완성이다.`, persona.line);
+    if (persona.patterns.length === 0) add(1, '행동 패턴 없음', `${persona.id} ${persona.name}이 평소 어떻게 행동하는지 있어야 완성이다.`, persona.line);
+    proseRules(1, [{ text: persona.name, line: persona.line }, ...persona.description, ...persona.needs, ...persona.patterns, ...persona.pains]);
   }
   for (const { text, line, step } of plan.stray) add(step, '모르는 줄', `"${text}"가 어느 칸인지 알 수 없다. 작성법의 머리 이름으로 옮긴다.`, line);
 
   const personaIds = new Set(plan.personas.map((persona) => persona.id));
-  if (plan.requirements.length === 0) add(3, '요구사항 없음', '페르소나의 필요에서 나온 요구사항이 하나 이상 있어야 완성이다.');
-  duplicates(plan.requirements, (id, line) => add(3, '번호 겹침', `요구사항 번호 ${id}가 두 번 나온다.`, line));
+  if (plan.requirements.length === 0) add(2, '요구사항 없음', '페르소나의 필요에서 나온 요구사항이 하나 이상 있어야 완성이다.');
+  duplicates(plan.requirements, (id, line) => add(2, '번호 겹침', `요구사항 번호 ${id}가 두 번 나온다.`, line));
   for (const requirement of plan.requirements) {
     const label = `${requirement.id} ${requirement.name}`;
-    if (!requirement.who || requirement.who.ids.length === 0) add(3, '누구 없음', `${label}이 어느 페르소나를 위한 것인지 있어야 완성이다.`, requirement.line);
-    for (const id of requirement.who?.ids ?? []) if (!personaIds.has(id)) add(3, '없는 페르소나', `${label}의 누구 ${id}가 페르소나에 없다.`, requirement.who.line);
-    if (!requirement.why?.text) add(3, '왜 없음', `${label}이 페르소나의 어떤 필요를 푸는지 있어야 완성이다.`, requirement.line);
-    if (!requirement.priority?.text) add(3, '우선순위 없음', `${label}이 이번에 꼭 할 것인지 나중에 해도 되는지 있어야 완성이다.`, requirement.line);
-    else if (!PRIORITIES.includes(requirement.priority.text)) add(3, '모르는 우선순위', `${label}의 우선순위 "${requirement.priority.text}"는 ${PRIORITIES.join(' 또는 ')}여야 한다.`, requirement.priority.line);
-    proseRules(3, [{ text: requirement.name, line: requirement.line }, ...(requirement.why?.text ? [requirement.why] : [])]);
+    if (!requirement.who || requirement.who.ids.length === 0) add(2, '누구 없음', `${label}이 어느 페르소나를 위한 것인지 있어야 완성이다.`, requirement.line);
+    for (const id of requirement.who?.ids ?? []) if (!personaIds.has(id)) add(2, '없는 페르소나', `${label}의 누구 ${id}가 페르소나에 없다.`, requirement.who.line);
+    if (!requirement.why?.text) add(2, '왜 없음', `${label}이 페르소나의 어떤 필요를 푸는지 있어야 완성이다.`, requirement.line);
+    if (!requirement.priority?.text) add(2, '우선순위 없음', `${label}이 이번에 꼭 할 것인지 나중에 해도 되는지 있어야 완성이다.`, requirement.line);
+    else if (!PRIORITIES.includes(requirement.priority.text)) add(2, '모르는 우선순위', `${label}의 우선순위 "${requirement.priority.text}"는 ${PRIORITIES.join(' 또는 ')}여야 한다.`, requirement.priority.line);
+    proseRules(2, [{ text: requirement.name, line: requirement.line }, ...(requirement.why?.text ? [requirement.why] : [])]);
   }
   const used = new Set(plan.requirements.flatMap((requirement) => requirement.who?.ids ?? []));
   for (const persona of plan.personas) {
-    if (plan.requirements.length && !used.has(persona.id)) add(3, '안 쓰인 페르소나', `${persona.id} ${persona.name}을 위한 요구사항이 없다. 빠졌는지 범위 밖인지 정해야 완성이다.`, persona.line);
+    if (plan.requirements.length && !used.has(persona.id)) add(2, '안 쓰인 페르소나', `${persona.id} ${persona.name}을 위한 요구사항이 없다. 빠졌는지 범위 밖인지 정해야 완성이다.`, persona.line);
   }
 
   const seen = new Map();
   for (const requirement of plan.requirements) {
-    if (requirement.criteria.length === 0) add(4, '완성 기준 없음', `${requirement.id} ${requirement.name}에 "이게 되면 완성"인 기준이 있어야 완성이다.`, requirement.line);
+    if (requirement.criteria.length === 0) add(3, '완성 기준 없음', `${requirement.id} ${requirement.name}에 "이게 되면 완성"인 기준이 있어야 완성이다.`, requirement.line);
     for (const criterion of requirement.criteria) {
-      if (!criterion.id.startsWith(`${requirement.id}-`)) add(4, '번호 어긋남', `${criterion.id}가 ${requirement.id} 아래에 있다.`, criterion.line);
-      if (seen.has(criterion.id)) add(4, '번호 겹침', `완성 기준 번호 ${criterion.id}가 두 번 나온다.`, criterion.line);
+      if (!criterion.id.startsWith(`${requirement.id}-`)) add(3, '번호 어긋남', `${criterion.id}가 ${requirement.id} 아래에 있다.`, criterion.line);
+      if (seen.has(criterion.id)) add(3, '번호 겹침', `완성 기준 번호 ${criterion.id}가 두 번 나온다.`, criterion.line);
       seen.set(criterion.id, criterion);
     }
-    proseRules(4, requirement.criteria);
+    proseRules(3, requirement.criteria);
   }
 
-  if (plan.outOfScope.length === 0) add(5, '범위 밖 없음', `이번에 하지 않는 것이 있어야 완성이다. 정말 없으면 "${NONE}"이라고 쓴다.`);
-  proseRules(5, plan.outOfScope);
+  if (plan.outOfScope.length === 0) add(4, '범위 밖 없음', `이번에 하지 않는 것이 있어야 완성이다. 정말 없으면 "${NONE}"이라고 쓴다.`);
+  proseRules(4, plan.outOfScope);
+  // 잠금은 요구사항이 다 갖춰진 뒤에만 본다. 잠근 뒤 바뀌었으면 사람이 다시 확인해야 한다.
+  if (!issues.some((issue) => issue.step <= 4)) {
+    if (!lock) add(4, '잠금 전', '사람이 요구사항을 읽고 맞다고 하면 lock으로 잠근다. 잠근 뒤에는 PRD 인터뷰로 넘어간다.');
+    else if (lock.fingerprint !== lockFingerprint(plan)) add(4, '잠근 뒤 바뀜', '잠근 요구사항이 바뀌었다. 사람이 바꾼 게 맞으면 unlock 뒤 다시 lock한다.');
+  }
+
+  if (plan.summary.length === 0) add(5, '요약 없음', '무엇을, 누구에게, 왜 하는지 요약이 있어야 완성이다.');
+  tooLong(5, plan.summary, LIMITS.summary, '요약');
+  proseRules(5, plan.summary);
+  if (plan.background.length === 0) add(5, '배경 없음', '왜 이 기능이 필요한지 배경 문장이 있어야 완성이다.');
+  tooLong(5, plan.background, LIMITS.background, '배경');
+  proseRules(5, plan.background);
+  if (plan.goals.length === 0) add(5, '목표 없음', '이 기능으로 이루려는 목표가 하나 이상 있어야 완성이다.');
+  duplicates(plan.goals, (id, line) => add(5, '번호 겹침', `목표 번호 ${id}가 두 번 나온다.`, line));
+  for (const goal of plan.goals) {
+    if (!goal.check?.text) add(5, '확인 방법 없음', `${goal.id} ${goal.name}을 이뤘는지 무엇으로 확인하는지 있어야 완성이다. 숫자가 없으면 무엇을 보고 알지 쓴다.`, goal.line);
+    proseRules(5, [{ text: goal.name, line: goal.line }, ...(goal.check?.text ? [goal.check] : [])]);
+  }
+
+  for (const requirement of plan.requirements) {
+    if (requirement.policies.length === 0) add(6, '정책 없음', `${requirement.id} ${requirement.name}이 어떤 규칙으로 동작하는지 정책이 있어야 완성이다.`, requirement.line);
+    tooLong(6, requirement.policies, LIMITS.policies, `${requirement.id} 정책`);
+    proseRules(6, [...requirement.policies, ...requirement.exceptions]);
+  }
+
   for (const title of OPTIONAL_SECTIONS) {
     const key = LIST_SECTIONS[title];
-    if (plan[key].length === 0) add(5, '안 물은 구역', `${title}을 한 번 묻는다. 없으면 "${NONE}"이라고 쓰고, 내보낼 때 빠진다.`);
+    if (plan[key].length === 0) add(7, '안 물은 구역', `${title}을 한 번 묻는다. 없으면 "${NONE}"이라고 쓰고, 내보낼 때 빠진다.`);
   }
-  proseRules(5, [...plan.constraints, ...plan.schedule]);
-  if (!plan.author) add(5, '작성자 없음', '작성자: 줄에 기획을 쓴 사람 이름이 있어야 완성이다.');
-  for (const question of plan.questions) add(5, '정할 것 남음', question.text, question.line);
-  proseRules(5, plan.questions);
+  proseRules(7, [...plan.constraints, ...plan.schedule]);
+  if (!plan.author) add(7, '작성자 없음', '작성자: 줄에 기획을 쓴 사람 이름이 있어야 완성이다.');
+  for (const question of plan.questions) add(7, '정할 것 남음', question.text, question.line);
+  proseRules(7, plan.questions);
   if (plan.status !== '확정') {
-    const hint = plan.status && plan.status !== '작성중' ? `상태 "${plan.status}"는 작성중이나 확정이어야 한다.` : '사람이 기획을 읽고 확정하면 상태: 확정으로 바꾼다.';
-    add(5, '확정 전', hint);
+    const hint = plan.status && plan.status !== '작성중' ? `상태 "${plan.status}"는 작성중이나 확정이어야 한다.` : '사람이 PRD를 읽고 확정하면 상태: 확정으로 바꾼다.';
+    add(7, '확정 전', hint);
   }
   return issues;
 }
