@@ -15,15 +15,18 @@ const LIMITS = { summary: 3, background: 5, policies: 7 };
 const PERSONA_LABELS = { '원하는 것': 'needs', '행동 패턴': 'patterns', 불편: 'pains' };
 const REQUIREMENT_LABELS = { 정책: 'policies', 예외: 'exceptions', '완성 기준': 'criteria' };
 // 줄만 모아 두는 구역. 선택 구역은 비어 있으면 아직 안 물은 것이고, `없음`이면 물었는데 없는 것이다.
-export const LIST_SECTIONS = { 요약: 'summary', 배경: 'background', '범위 밖': 'outOfScope', '지켜야 할 조건': 'constraints', '일정과 리스크': 'schedule', '참고 문서': 'references' };
-export const OPTIONAL_SECTIONS = ['지켜야 할 조건', '일정과 리스크', '참고 문서'];
+export const LIST_SECTIONS = { 요약: 'summary', 배경: 'background', '범위 밖': 'outOfScope', 용어: 'terms', '지켜야 할 조건': 'constraints', '일정과 리스크': 'schedule', '참고 문서': 'references' };
+export const OPTIONAL_SECTIONS = ['용어', '지켜야 할 조건', '일정과 리스크', '참고 문서'];
+// 내보낼 때 표로 바꾸므로 줄 모양을 정해 둔다. 예외는 `상황 → 처리`, 용어는 `용어: 뜻`이다.
+export const EXCEPTION = /^(.+?)\s*→\s*(.+)$/;
+export const TERM = /^([^:]+?):\s*(.+)$/;
 
 export function parsePlan(source) {
   const lines = source.split(/\r?\n/);
   const plan = {
     status: readStatus(lines), author: readField(lines, '작성자'),
     summary: [], background: [], goals: [], personas: [], requirements: [],
-    outOfScope: [], constraints: [], schedule: [], references: [], questions: [], stray: [],
+    outOfScope: [], terms: [], constraints: [], schedule: [], references: [], questions: [], stray: [],
   };
   for (const section of sections(lines)) {
     if (LIST_SECTIONS[section.title]) {
@@ -180,6 +183,9 @@ export function checkPlan(plan, { lock = null } = {}) {
   for (const requirement of plan.requirements) {
     if (requirement.policies.length === 0) add(6, '정책 없음', `${requirement.id} ${requirement.name}이 어떤 규칙으로 동작하는지 정책이 있어야 완성이다.`, requirement.line);
     tooLong(6, requirement.policies, LIMITS.policies, `${requirement.id} 정책`);
+    for (const exception of requirement.exceptions) {
+      if (!EXCEPTION.test(exception.text)) add(6, '예외 모양', `"${exception.text}"를 "상황 → 처리" 모양으로 쓴다.`, exception.line);
+    }
     proseRules(6, [...requirement.policies, ...requirement.exceptions]);
   }
 
@@ -187,6 +193,7 @@ export function checkPlan(plan, { lock = null } = {}) {
     const key = LIST_SECTIONS[title];
     if (plan[key].length === 0) add(7, '안 물은 구역', `${title}을 한 번 묻는다. 없으면 "${NONE}"이라고 쓰고, 내보낼 때 빠진다.`);
   }
+  if (!isNone(plan.terms)) for (const term of plan.terms) if (!TERM.test(term.text)) add(7, '용어 모양', `"${term.text}"를 "용어: 뜻" 모양으로 쓴다.`, term.line);
   proseRules(7, [...plan.constraints, ...plan.schedule]);
   if (!plan.author) add(7, '작성자 없음', '작성자: 줄에 기획을 쓴 사람 이름이 있어야 완성이다.');
   for (const question of plan.questions) add(7, '정할 것 남음', question.text, question.line);

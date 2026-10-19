@@ -1,18 +1,16 @@
 // 결과물 내보내기와 작업 폴더 지우기 (docs/harness.md 6장).
-// PRD가 확정되면 <프로젝트>/docs/{feature}/prd.md를, SDD까지 끝나면 sdd.md도 쓴다.
+// PRD가 확정되면 <문서 폴더>/{feature}/prd.md를, SDD까지 끝나면 sdd.md도 쓴다. 문서 폴더는 보통 <프로젝트>/docs다.
 // 작업 흔적(상태 줄, 진행표, 정할 것, trace.json, lock.json)과 `없음`인 선택 구역은 넣지 않는다.
 import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { sections } from './md.mjs';
-import { LIST_SECTIONS, OPTIONAL_SECTIONS, isNone, parsePlan } from './plan.mjs';
+import { EXCEPTION, LIST_SECTIONS, OPTIONAL_SECTIONS, TERM, isNone, parsePlan } from './plan.mjs';
 import { FILES, InputError, evaluate } from './report.mjs';
 
 const WORK_FILES = new Set(Object.values(FILES));
 export const OUTPUT = { prd: 'prd.md', sdd: 'sdd.md' };
-// 사람이 3초 안에 훑도록 왜 → 누구 → 무엇 → 어디까지 순서로 놓는다.
-const PRD_ORDER = ['요약', '배경', '목표', '페르소나', '요구사항', '범위 밖', ...OPTIONAL_SECTIONS];
-// 누구·우선순위는 요구사항 표로 올리므로 본문에서 뺀다.
-const TABLE_FIELDS = /^(누구|우선순위):/;
+// 사람이 3초 안에 훑도록 왜 → 누구 → 무엇 → 어디까지 순서로 놓고, 여러 항목은 표로 보여 준다.
+const PRD_ORDER = ['요약', '배경', '목표', '페르소나', '용어', '요구사항', '범위 밖', '지켜야 할 조건', '일정과 리스크', '참고 문서'];
 
 const finish = (lines) => `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()}\n`;
 const cell = (text) => text.replace(/\|/g, '\\|');
@@ -30,22 +28,39 @@ function clean(source, drop) {
   return finish(out);
 }
 
+const table = (head, rows) => [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`, ...rows.map((row) => `| ${row.map(cell).join(' | ')} |`)];
+const stack = (items) => items.map((item) => item.text).join('<br>');
+
+function personaTable(personas) {
+  const pains = personas.some((p) => p.pains.length);
+  const head = ['ID', '페르소나', '원하는 것', '행동 패턴', ...(pains ? ['불편'] : [])];
+  return table(head, personas.map((p) => [p.id, [p.name, ...p.description.map((d) => d.text)].join('<br>'), stack(p.needs), stack(p.patterns), ...(pains ? [stack(p.pains)] : [])]));
+}
+
+function requirementBlock(r) {
+  const out = [`### ${r.id} ${r.name}`, '', `왜: ${r.why.text}`, '', '**완성 기준**', ''];
+  const excluded = r.criteria.some((c) => c.excluded);
+  out.push(...table(['ID', '완성 기준', ...(excluded ? ['비고'] : [])], r.criteria.map((c) => [c.id, c.text, ...(excluded ? [c.excluded ? `제외: ${c.excluded}` : ''] : [])])));
+  out.push('', '**정책**', '', ...r.policies.map((p) => `- ${p.text}`));
+  if (r.exceptions.length) out.push('', '**예외**', '', ...table(['상황', '처리'], r.exceptions.map((e) => e.text.match(EXCEPTION).slice(1))));
+  return out;
+}
+
 function renderPrd(source, plan, date) {
   const lines = source.split(/\r?\n/);
   const raw = new Map(sections(lines).map((section) => [section.title, section.body.map(({ text }) => text)]));
   const title = (lines.find((line) => line.startsWith('# ')) ?? '# 기획').replace(/ 기획$/, ' PRD');
-  const persona = new Map(plan.personas.map((p) => [p.id, p.name]));
   const out = [title, '', `작성자: ${plan.author} · 작성일: ${date}`];
   for (const name of PRD_ORDER) {
     if (OPTIONAL_SECTIONS.includes(name) && isNone(plan[LIST_SECTIONS[name]])) continue;
     out.push('', `## ${name}`, '');
-    if (name !== '요구사항') {
-      out.push(...(raw.get(name) ?? []));
-      continue;
-    }
-    out.push('| ID | 요구사항 | 누구 | 우선순위 |', '|---|---|---|---|');
-    for (const r of plan.requirements) out.push(`| ${r.id} | ${cell(r.name)} | ${cell(r.who.ids.map((id) => persona.get(id) ?? id).join(', '))} | ${r.priority.text} |`);
-    out.push('', ...raw.get(name).filter((line) => !TABLE_FIELDS.test(line)));
+    if (name === '목표') out.push(...table(['ID', '목표', '확인 방법'], plan.goals.map((g) => [g.id, g.name, g.check.text])));
+    else if (name === '페르소나') out.push(...personaTable(plan.personas));
+    else if (name === '용어') out.push(...table(['용어', '뜻'], plan.terms.map((t) => t.text.match(TERM).slice(1))));
+    else if (name === '요구사항') {
+      out.push(...table(['ID', '요구사항', '누구', '우선순위'], plan.requirements.map((r) => [r.id, r.name, r.who.ids.join(', '), r.priority.text])));
+      for (const r of plan.requirements) out.push('', ...requirementBlock(r));
+    } else out.push(...(raw.get(name) ?? []));
   }
   return finish(out);
 }
@@ -75,9 +90,9 @@ function assertWorkFolder(folder) {
 const sameDoc = (a, b) => a.replace(/ · 작성일: .*$/m, '') === b.replace(/ · 작성일: .*$/m, '');
 
 // 결과: { dir, written, unchanged, complete, removed }
-export function exportResult(folder, projectDir, { force = false, keep = false } = {}) {
+export function exportResult(folder, docsDir, { force = false, keep = false } = {}) {
   const { outputs, complete } = render(folder);
-  const dir = join(projectDir, 'docs', basename(resolve(folder)));
+  const dir = join(docsDir, basename(resolve(folder)));
   const written = [];
   const unchanged = [];
   const conflicts = [];

@@ -14,12 +14,12 @@ const USAGE = `사용법:
   node scripts/pp.mjs lock    <폴더>               사람이 확인한 요구사항을 잠근다
   node scripts/pp.mjs unlock  <폴더>               요구사항 잠금을 푼다
   node scripts/pp.mjs sheet   <폴더>               요구사항 대조 검토지를 JSON으로 낸다
-  node scripts/pp.mjs export  <폴더> <프로젝트 폴더> [--force] [--keep]
-                                                   확정된 PRD(와 SDD)를 <프로젝트 폴더>/docs/{feature}/에 쓴다
+  node scripts/pp.mjs export  <폴더> <문서 폴더> [--force] [--keep]
+                                                   확정된 PRD(와 SDD)를 <문서 폴더>/{feature}/에 쓴다 (보통 <프로젝트>/docs)
   node scripts/pp.mjs discard <폴더>               내보내지 않고 작업 폴더를 지운다`;
 
 // 요구사항 단계 구역을 먼저, PRD 인터뷰 구역을 뒤에 둔다.
-const PLAN_SECTIONS = ['페르소나', '요구사항', '범위 밖', '요약', '배경', '목표', '지켜야 할 조건', '일정과 리스크', '참고 문서', '정할 것'];
+const PLAN_SECTIONS = ['페르소나', '요구사항', '범위 밖', '요약', '배경', '목표', '용어', '지켜야 할 조건', '일정과 리스크', '참고 문서', '정할 것'];
 const planTemplate = (name) => `# ${name} 기획\n\n상태: 작성중\n작성자:\n\n${PLAN_SECTIONS.map((title) => `## ${title}\n`).join('\n')}`;
 const sddTemplate = (name) => `# ${name} SDD 스펙\n\n상태: 작성중\n\n## 상태표\n\n| 대상 | 상태 | 뜻 |\n|---|---|---|\n\n## 조건표\n\n| 조건 | 갈래 | 정해지는 곳 |\n|---|---|---|\n\n## 진행표\n\n| 단위 | 종류 | 요구사항 | 진행 |\n|---|---|---|---|\n`;
 
@@ -71,7 +71,7 @@ function run([command, folder, ...rest]) {
   }
   if (command === 'export') {
     const target = rest.find((arg) => !arg.startsWith('--'));
-    if (!target) throw new InputError('프로젝트 폴더 경로가 필요하다.');
+    if (!target) throw new InputError('문서 폴더 경로가 필요하다. 보통 <프로젝트>/docs다.');
     const result = exportResult(folder, target, { force: rest.includes('--force'), keep: rest.includes('--keep') });
     if (result.written.length) console.log(`썼다: ${result.written.join(', ')}`);
     if (result.unchanged.length) console.log(`그대로다: ${result.unchanged.join(', ')}`);

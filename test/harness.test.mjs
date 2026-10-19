@@ -80,6 +80,13 @@ test('잠금: 잠그기 전이나 잠근 뒤 요구사항이 바뀌면 PRD로 �
   assert.equal(policy.stage, 'PRD › 6. 정책', 'PRD 단계에서 채우는 정책은 잠금에 들지 않는다');
 });
 
+test('PRD: 예외는 "상황 → 처리", 용어는 "용어: 뜻" 모양이어야 표로 낼 수 있다', () => {
+  const exception = evaluate(copyExample({ 'plan.md': (s) => s.replace('- 관리자가 막은 글 → 작성자도 고칠 수 없다.', '- 관리자가 막은 글은 작성자도 고칠 수 없다.') }));
+  assert.deepEqual(kinds(exception.issues), ['예외 모양']);
+  const term = evaluate(copyExample({ 'plan.md': (s) => s.replace('- 막은 글: 신고가', '- 막은 글은 신고가') }));
+  assert.deepEqual(kinds(term.issues), ['용어 모양']);
+});
+
 test('lock: 요구사항이 덜 갖춰지면 잠그지 않는다', () => {
   const dir = copyExample({ 'plan.md': (s) => s.replace('왜: 오타를 발견하면 바로 고치고 싶다.\n', '') });
   rmSync(join(dir, 'lock.json'));
@@ -173,22 +180,26 @@ test('문서는 200줄 이하다', () => {
   }
 });
 
-test('export: PRD가 확정되면 docs/{feature}/prd.md만 쓰고 작업 폴더를 남긴다', () => {
+test('export: PRD가 확정되면 <문서 폴더>/{feature}/prd.md만 쓰고 작업 폴더를 남긴다', () => {
   const dir = join(mkdtempSync(join(tmpdir(), 'pp-')), 'post-edit');
   cpSync(EXAMPLE, dir, { recursive: true });
   rmSync(join(dir, 'sdd.md'));
   rmSync(join(dir, 'trace.json'));
   const project = mkdtempSync(join(tmpdir(), 'pp-project-'));
   assert.equal(spawnSync('node', [CLI, 'export', dir, project]).status, 0);
-  const prd = readFileSync(join(project, 'docs/post-edit/prd.md'), 'utf8');
+  const prd = readFileSync(join(project, 'post-edit/prd.md'), 'utf8');
   assert.match(prd, /^# 게시글 수정 PRD\n\n작성자: 영원 · 작성일: \d{4}-\d{2}-\d{2}\n\n## 요약\n/);
   const heads = [...prd.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
-  assert.deepEqual(heads, ['요약', '배경', '목표', '페르소나', '요구사항', '범위 밖', '지켜야 할 조건'], '없음인 선택 구역은 빠진다');
-  assert.match(prd, /\| R1 \| 작성자는 올린 글을 고칠 수 있다 \| 글을 자주 올리는 작성자 \| 꼭 \|/);
-  assert.match(prd, /정책\n- 제목과 본문을 고칠 수 있다\./);
-  assert.match(prd, /- R1-4 \[제외: 다음 분기에 한다\]/);
+  assert.deepEqual(heads, ['요약', '배경', '목표', '페르소나', '용어', '요구사항', '범위 밖', '지켜야 할 조건'], '없음인 선택 구역은 빠진다');
+  assert.match(prd, /\| G1 \| 댓글이 사라진다는 문의를 없앤다 \| 관련 문의가 한 달 30건에서 0건이 된다\. \|/);
+  assert.match(prd, /\| P1 \| 글을 자주 올리는 작성자<br>동네 소식을 하루에 두세 번 올리는 사람이다\. \| 오타를 발견하면 바로 고치고 싶다\.<br>고쳐도 댓글은 그대로 남았으면 좋겠다\. \|/);
+  assert.match(prd, /\| 막은 글 \| 신고가 쌓여 관리자가 보이지 않게 한 글 \|/);
+  assert.match(prd, /\*\*예외\*\*\n\n\| 상황 \| 처리 \|\n\|---\|---\|\n\| 관리자가 막은 글 \| 작성자도 고칠 수 없다\. \|/);
+  assert.match(prd, /\| R1 \| 작성자는 올린 글을 고칠 수 있다 \| P1 \| 꼭 \|/);
+  assert.match(prd, /\*\*정책\*\*\n\n- 제목과 본문을 고칠 수 있다\./);
+  assert.match(prd, /\| R1-4 \| 고친 기록을 다른 사람이 볼 수 있다\. \| 제외: 다음 분기에 한다 \|/);
   for (const trace of ['상태:', '누구:', '우선순위:', '정할 것', '상태표']) assert.ok(!prd.includes(trace), trace);
-  assert.equal(existsSync(join(project, 'docs/post-edit/sdd.md')), false);
+  assert.equal(existsSync(join(project, 'post-edit/sdd.md')), false);
   assert.equal(existsSync(dir), true, 'SDD를 이어 쓸 수 있게 남긴다');
 
   const unlocked = copyExample();
@@ -206,7 +217,7 @@ test('export: SDD까지 끝나면 sdd.md를 더하고, 같은 PRD는 그대로 �
   const result = spawnSync('node', [CLI, 'export', first, project], { encoding: 'utf8' });
   assert.equal(result.status, 0);
   assert.match(result.stdout, /그대로다: .*prd\.md/);
-  const sdd = readFileSync(join(project, 'docs/post-edit/sdd.md'), 'utf8');
+  const sdd = readFileSync(join(project, 'post-edit/sdd.md'), 'utf8');
   assert.match(sdd, /^# 게시글 수정 SDD 스펙\n\n> PRD: \[prd\.md\]\(prd\.md\)\n/);
   assert.match(sdd, /## 피쳐 · 게시글 수정 · R1/);
   for (const trace of ['상태:', '진행표', '## 페르소나']) assert.ok(!sdd.includes(trace), trace);
