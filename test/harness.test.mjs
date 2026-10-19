@@ -76,6 +76,7 @@ test('잠금: 잠그기 전이나 잠근 뒤 요구사항이 바뀌면 PRD로 �
   assert.deepEqual(kinds(before.issues), ['잠금 전']);
   const changed = evaluate(copyExample({ 'plan.md': (s) => s.replace('우선순위: 꼭', '우선순위: 나중에') }));
   assert.deepEqual(kinds(changed.issues), ['잠근 뒤 바뀜']);
+  assert.match(changed.next, /unlock 뒤 다시 lock/);
   const policy = evaluate(copyExample({ 'plan.md': (s) => s.replace('- 고친 횟수에는 제한이 없다.\n', '- 고친 횟수에는 제한이 없도록 원활하게 한다.\n') }));
   assert.equal(policy.stage, 'PRD › 6. 정책', 'PRD 단계에서 채우는 정책은 잠금에 들지 않는다');
 });
@@ -85,6 +86,11 @@ test('PRD: 예외는 "상황 → 처리", 용어는 "용어: 뜻" 모양이어�
   assert.deepEqual(kinds(exception.issues), ['예외 모양']);
   const term = evaluate(copyExample({ 'plan.md': (s) => s.replace('- 막은 글: 신고가', '- 막은 글은 신고가') }));
   assert.deepEqual(kinds(term.issues), ['용어 모양']);
+  const meaning = evaluate(copyExample({ 'plan.md': (s) => s.replace('신고가 쌓여 관리자가 보이지 않게 한 글', '관리자에 의해 막힌 글입니다.') }));
+  assert.deepEqual(kinds(meaning.issues), ['번역투', '존댓말'], '용어의 뜻도 문장 규칙을 본다');
+  const none = evaluate(copyExample({ 'plan.md': (s) => s.replace('- 관리자가 막은 글 → 작성자도 고칠 수 없다.', '- 없음') }));
+  assert.match(none.issues[0].message, /예외 칸을 지운다/);
+  assert.equal(evaluate(copyExample({ 'plan.md': (s) => s.replace('- R1-1 작성자는', '- R1-1: 작성자는') })).stage, '완료', 'R1-1: 콜론도 읽는다');
 });
 
 test('lock: 요구사항이 덜 갖춰지면 잠그지 않는다', () => {
@@ -119,6 +125,11 @@ test('AI 말투 규칙: 상투어, 번역투, 꾸밈, 존댓말', () => {
   assert.deepEqual(kinds(sentenceIssues('**바로** 고친다.')), ['꾸밈']);
   assert.deepEqual(kinds(sentenceIssues('작성자는 글을 고칠 수 있습니다.')), ['존댓말']);
   assert.deepEqual(sentenceIssues('알림을 통해 작성자에게 알린다.'), [], '~를 통해는 막지 않는다');
+  assert.deepEqual(sentenceIssues('휴대폰이 손에 있어서 바로 고친다.'), [], '~에 있어서는 막지 않는다');
+  assert.deepEqual(sentenceIssues('글을 올린 직후 다시 읽어 본다. (가정)'), [], '(가정)은 문장 수에 넣지 않는다');
+  assert.deepEqual(sentenceIssues('등산을 간다.'), []);
+  assert.deepEqual(kinds(sentenceIssues('커피 등을 산다.')), ['모호한 말']);
+  assert.deepEqual(kinds(sentenceIssues('취소할 수 있어요.')), ['존댓말']);
 });
 
 test('SDD 트리: 빠진 상태와 갈래, 없는 함수, 끝 없는 가지', () => {
@@ -188,16 +199,17 @@ test('export: PRD가 확정되면 <문서 폴더>/{feature}/prd.md만 쓰고 작
   const project = mkdtempSync(join(tmpdir(), 'pp-project-'));
   assert.equal(spawnSync('node', [CLI, 'export', dir, project]).status, 0);
   const prd = readFileSync(join(project, 'post-edit/prd.md'), 'utf8');
-  assert.match(prd, /^# 게시글 수정 PRD\n\n작성자: 영원 · 작성일: \d{4}-\d{2}-\d{2}\n\n## 요약\n/);
+  assert.match(prd, /^# 게시글 수정 PRD\n\n작성자: 영원 · 작성일: \d{4}-\d{2}-\d{2}\n\n> 번호: G 목표, P 페르소나, R 요구사항, R1-1 R1의 완성 기준\n\n## 요약\n\n- 작성자가 올린 글을 지우지 않고 고칠 수 있게 한다\.\n- 고쳐도/);
   const heads = [...prd.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
   assert.deepEqual(heads, ['요약', '배경', '목표', '페르소나', '용어', '요구사항', '범위 밖', '지켜야 할 조건'], '없음인 선택 구역은 빠진다');
   assert.match(prd, /\| G1 \| 댓글이 사라진다는 문의를 없앤다 \| 관련 문의가 한 달 30건에서 0건이 된다\. \|/);
-  assert.match(prd, /\| P1 \| 글을 자주 올리는 작성자<br>동네 소식을 하루에 두세 번 올리는 사람이다\. \| 오타를 발견하면 바로 고치고 싶다\.<br>고쳐도 댓글은 그대로 남았으면 좋겠다\. \|/);
+  assert.match(prd, /### P1 글을 자주 올리는 작성자\n\n동네 소식을 하루에 두세 번 올리는 사람이다\.\n\n#### 원하는 것\n\n- 오타를 발견하면 바로 고치고 싶다\./);
   assert.match(prd, /\| 막은 글 \| 신고가 쌓여 관리자가 보이지 않게 한 글 \|/);
-  assert.match(prd, /\*\*예외\*\*\n\n\| 상황 \| 처리 \|\n\|---\|---\|\n\| 관리자가 막은 글 \| 작성자도 고칠 수 없다\. \|/);
-  assert.match(prd, /\| R1 \| 작성자는 올린 글을 고칠 수 있다 \| P1 \| 꼭 \|/);
-  assert.match(prd, /\*\*정책\*\*\n\n- 제목과 본문을 고칠 수 있다\./);
-  assert.match(prd, /\| R1-4 \| 고친 기록을 다른 사람이 볼 수 있다\. \| 제외: 다음 분기에 한다 \|/);
+  assert.match(prd, /#### 예외\n\n\| 상황 \| 처리 \|\n\|---\|---\|\n\| 관리자가 막은 글 \| 작성자도 고칠 수 없다\. \|/);
+  assert.match(prd, /\| R1 \| 작성자는 올린 글을 고칠 수 있다 \| P1 글을 자주 올리는 작성자 \| 꼭 \|/);
+  assert.match(prd, /#### 정책\n\n- 제목과 본문을 고칠 수 있다\./);
+  assert.match(prd, /- R1-4 고친 기록을 다른 사람이 볼 수 있다\. \(제외: 다음 분기에 한다\)/);
+  assert.ok(!prd.includes('**'), '굵게 라벨을 쓰지 않는다');
   for (const trace of ['상태:', '누구:', '우선순위:', '정할 것', '상태표']) assert.ok(!prd.includes(trace), trace);
   assert.equal(existsSync(join(project, 'post-edit/sdd.md')), false);
   assert.equal(existsSync(dir), true, 'SDD를 이어 쓸 수 있게 남긴다');
@@ -228,6 +240,21 @@ test('export: SDD까지 끝나면 sdd.md를 더하고, 같은 PRD는 그대로 �
   cpSync(changed, again, { recursive: true });
   assert.equal(spawnSync('node', [CLI, 'export', again, project]).status, 2, '내용이 다르면 --force 없이 덮어쓰지 않는다');
   assert.equal(existsSync(again), true);
+});
+
+test('export: 결과 폴더가 작업 폴더와 겹치면 내보내지 않고, .DS_Store는 무시한다', () => {
+  const project = mkdtempSync(join(tmpdir(), 'pp-project-'));
+  const dir = join(project, 'post-edit');
+  cpSync(EXAMPLE, dir, { recursive: true });
+  assert.equal(spawnSync('node', [CLI, 'export', dir, project]).status, 2, '결과 폴더가 작업 폴더 자신이다');
+  assert.equal(spawnSync('node', [CLI, 'export', dir, join(dir, 'docs')]).status, 2, '결과 폴더가 작업 폴더 안이다');
+  assert.equal(existsSync(join(dir, 'plan.md')), true);
+
+  const work = join(mkdtempSync(join(tmpdir(), 'pp-')), 'post-edit');
+  cpSync(EXAMPLE, work, { recursive: true });
+  writeFileSync(join(work, '.DS_Store'), '');
+  assert.equal(spawnSync('node', [CLI, 'export', work, mkdtempSync(join(tmpdir(), 'pp-docs-'))]).status, 0);
+  assert.equal(existsSync(work), false);
 });
 
 test('discard: 하네스 파일만 든 폴더만 지운다', () => {

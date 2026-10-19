@@ -22,6 +22,7 @@ const NEXT = {
   12: 'sheet로 검토지를 받아 완성 기준마다 근거 줄을 찾고, 빠진 것은 사람에게 묻는다.',
   13: 'SDD 스펙 전체를 보여 주고 확정을 받는다.',
 };
+const RELOCK = '사람에게 무엇이 바뀌었는지 보여 주고, 맞으면 unlock 뒤 다시 lock한다. 아니면 잠근 때로 되돌린다.';
 const PRD_DONE = 'export로 PRD를 프로젝트 docs에 쓰고, 여기서 끝낼지 SDD로 넘어갈지 묻는다.';
 
 export class InputError extends Error {}
@@ -61,6 +62,7 @@ export function evaluate(folder) {
   const step = issues.length ? Math.min(...issues.map((issue) => issue.step)) : null;
   const current = issues.filter((issue) => issue.step === step);
   const sddMissing = current.some((issue) => issue.kind === 'SDD 없음');
+  const relock = current.some((issue) => issue.kind === '잠근 뒤 바뀜');
   return {
     stage: step === null ? '완료' : STEPS[step],
     step,
@@ -68,7 +70,7 @@ export function evaluate(folder) {
     issues: current,
     rest: issues.length - current.length,
     progress,
-    next: step === null ? 'export로 PRD와 SDD를 프로젝트 docs에 쓰고, 사람에게 모두 완성됐다고 알린다.' : sddMissing ? PRD_DONE : NEXT[step],
+    next: step === null ? 'export로 PRD와 SDD를 프로젝트 docs에 쓰고, 사람에게 모두 완성됐다고 알린다.' : sddMissing ? PRD_DONE : relock ? RELOCK : NEXT[step],
   };
 }
 

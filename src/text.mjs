@@ -8,10 +8,15 @@ const AI_WORDS = [
   '다양한', '핵심적', '필수적', '혁신적', '획기적', '전반적', '심층적', '포괄적', '효율적', '원활', '극대화', '시너지', '패러다임',
   '자리매김', '주목할 만한', '도모', '모색', '한층 더', '매우 중요', '다음과 같', '결론적으로', '요컨대', '궁극적으로', '종합하면',
 ];
-// 번역투와 군더더기 (humanizer-ko #23·#26, humanize-korean A-1~A-9). `~를 통해`는 실제 경로일 때가 많아 넣지 않는다.
-const TRANSLATIONESE = [/에 있어(서)?/, /에 의해/, /되어지/, /가지고 있/, /와 관련하여/, /[을를] (진행|수행)하/, /라고 할 수 있/, /하는 것이 가능/];
+// 번역투와 군더더기 (humanizer-ko #23·#26, humanize-korean A-1~A-9).
+// `~를 통해`, `~에 있어서`는 실제 경로·장소일 때가 많아 넣지 않는다 ("손에 있어서 바로 고친다").
+const TRANSLATIONESE = [/에 의해/, /되어지/, /가지고 있/, /와 관련하여/, /[을를] (진행|수행)하/, /라고 할 수 있/, /하는 것이 가능/];
 const DECORATION = [/\*\*/, /—/, /\p{Extended_Pictographic}/u];
-const POLITE = /(습니다|합니다|됩니다|세요)[.!]?$/;
+const POLITE = /(니다|세요|어요|아요|해요|에요|예요|죠)[.!?]?$/;
+// `등` 뒤에 조사가 붙어도 모호한 말로 본다. `등산`처럼 붙은 낱말은 넘긴다.
+const ETC = /(^|\s)등(을|이|의|과|도|에|으로)?([\s.,]|$)/;
+// 작성법이 권하는 끝 표시 `(가정)`은 문장 수에 넣지 않는다.
+const ASSUMPTION = /\s*\(가정\)$/;
 const MAX_ADJECTIVAL = 2;
 export const MAX_LENGTH = 80;
 
@@ -28,11 +33,11 @@ function hasWord(text, word) {
 export function sentenceIssues(text) {
   const issues = [];
   const add = (kind, message) => issues.push({ kind, message });
-  if (sentenceCount(text) > 1) add('한 줄 두 문장', `"${text}"를 한 줄에 한 문장으로 나눈다.`);
+  if (sentenceCount(text.replace(ASSUMPTION, '')) > 1) add('한 줄 두 문장', `"${text}"를 한 줄에 한 문장으로 나눈다.`);
   const jargon = JARGON.filter((word) => hasWord(text, word));
   if (jargon.length) add('개발 용어', `"${text}"에서 ${jargon.join(', ')}를 비개발자 말로 바꾼다.`);
   const vague = VAGUE.filter((word) => text.includes(word));
-  if (/(^|\s)등([\s.,]|$)/.test(text)) vague.push('등');
+  if (ETC.test(text)) vague.push('등');
   if (vague.length) add('모호한 말', `"${text}"에서 ${vague.join(', ')} 대신 끝이 닫힌 말로 쓴다.`);
   if ([...text].length > MAX_LENGTH) add('긴 문장', `"${text.slice(0, 20)}…"를 ${MAX_LENGTH}자 안으로 줄인다.`);
   const ai = AI_WORDS.filter((word) => text.includes(word));

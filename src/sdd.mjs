@@ -73,7 +73,7 @@ export function checkSdd(sdd, plan) {
     if (!featured.has(requirement.id)) add(10, '피쳐 없는 요구사항', `${requirement.id} ${requirement.name}을 다루는 피쳐가 있어야 완성이다.`);
   }
   for (const unit of sdd.units) {
-    for (const id of unit.requirements) if (!requirementIds.has(id)) add(10, '없는 요구사항', `${unit.name}의 ${id}가 기획에 없다.`, unit.line);
+    for (const id of unit.requirements) if (!requirementIds.has(id)) add(10, '없는 요구사항', `${unit.name}의 ${id}가 PRD에 없다.`, unit.line);
     const row = sdd.progress.find((entry) => entry.name === unit.name);
     if (!row) add(10, '진행표 불일치', `${unit.kind} ${unit.name}이 진행표에 없다.`, unit.line);
     else if (row.kind !== unit.kind) add(10, '진행표 불일치', `진행표에서 ${unit.name}의 종류가 ${row.kind}인데 트리는 ${unit.kind}다.`, row.line);

@@ -94,7 +94,7 @@ function readRequirementLine(requirement, text, line) {
     requirement[requirement.label].push({ text: text.slice(2).trim(), line });
     return true;
   }
-  const match = text.slice(2).match(/^(R\d+-\d+)\s+(?:\[제외:\s*([^\]]+)\]\s*)?(.+)$/);
+  const match = text.slice(2).match(/^(R\d+-\d+):?\s+(?:\[제외:\s*([^\]]+)\]\s*)?(.+)$/);
   if (!match) return false;
   requirement.criteria.push({ id: match[1], excluded: match[2]?.trim() ?? null, text: match[3].trim(), line });
   return true;
@@ -184,7 +184,8 @@ export function checkPlan(plan, { lock = null } = {}) {
     if (requirement.policies.length === 0) add(6, '정책 없음', `${requirement.id} ${requirement.name}이 어떤 규칙으로 동작하는지 정책이 있어야 완성이다.`, requirement.line);
     tooLong(6, requirement.policies, LIMITS.policies, `${requirement.id} 정책`);
     for (const exception of requirement.exceptions) {
-      if (!EXCEPTION.test(exception.text)) add(6, '예외 모양', `"${exception.text}"를 "상황 → 처리" 모양으로 쓴다.`, exception.line);
+      if (isNone([exception])) add(6, '예외 모양', `${requirement.id}에 예외가 없으면 예외 칸을 지운다.`, exception.line);
+      else if (!EXCEPTION.test(exception.text)) add(6, '예외 모양', `"${exception.text}"를 "상황 → 처리" 모양으로 쓴다.`, exception.line);
     }
     proseRules(6, [...requirement.policies, ...requirement.exceptions]);
   }
@@ -193,7 +194,14 @@ export function checkPlan(plan, { lock = null } = {}) {
     const key = LIST_SECTIONS[title];
     if (plan[key].length === 0) add(7, '안 물은 구역', `${title}을 한 번 묻는다. 없으면 "${NONE}"이라고 쓰고, 내보낼 때 빠진다.`);
   }
-  if (!isNone(plan.terms)) for (const term of plan.terms) if (!TERM.test(term.text)) add(7, '용어 모양', `"${term.text}"를 "용어: 뜻" 모양으로 쓴다.`, term.line);
+  // 용어 이름은 개발 용어일 수 있으니 뜻만 문장 규칙으로 본다. 참고 문서는 링크라 보지 않는다.
+  if (!isNone(plan.terms)) {
+    for (const term of plan.terms) {
+      const match = term.text.match(TERM);
+      if (!match) add(7, '용어 모양', `"${term.text}"를 "용어: 뜻" 모양으로 쓴다.`, term.line);
+      else proseRules(7, [{ text: match[2], line: term.line }]);
+    }
+  }
   proseRules(7, [...plan.constraints, ...plan.schedule]);
   if (!plan.author) add(7, '작성자 없음', '작성자: 줄에 기획을 쓴 사람 이름이 있어야 완성이다.');
   for (const question of plan.questions) add(7, '정할 것 남음', question.text, question.line);
