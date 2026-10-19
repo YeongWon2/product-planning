@@ -20,6 +20,14 @@ const ASSUMPTION = /\s*\(가정\)$/;
 const MAX_ADJECTIVAL = 2;
 export const MAX_LENGTH = 80;
 
+// 화면 디자인 표현. "팝업 스토어"처럼 업무 뜻일 수 있어 막지 않고 경고만 한다 (docs/design.md 8장).
+// `탭`은 "스탭"에 걸리지 않게 앞이 한글이 아닐 때만 본다.
+const DESIGN = [/단추/, /버튼/, /(^|[^가-힣])탭/, /팝업/, /모달/, /드롭다운/, /체크박스/, /화면\s*(맨\s*)?(오른쪽|왼쪽|위쪽|아래쪽|위|아래|가운데|상단|하단)/];
+
+export function designWords(text) {
+  return DESIGN.map((pattern) => text.match(pattern)?.[0].replace(/^[^가-힣]+/, '')).filter(Boolean);
+}
+
 export function sentenceCount(text) {
   return text.split(/(?<=[.!?])\s+(?=\S)/).filter((part) => part.trim() !== '').length;
 }

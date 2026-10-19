@@ -15,7 +15,7 @@ export function parseSdd(source) {
     if (section.title === '상태표') {
       sdd.states = tableRows(section.body).map(({ cells: [target, state], line }) => ({ target, state, line }));
     } else if (section.title === '조건표') {
-      sdd.conditions = tableRows(section.body).map(({ cells: [name, branches = ''], line }) => ({ name, branches: branches.split(',').map((b) => b.trim()).filter(Boolean), line }));
+      sdd.conditions = tableRows(section.body).map(({ cells: [name, branches = '', source = ''], line }) => ({ name, branches: branches.split(',').map((b) => b.trim()).filter(Boolean), source, line }));
     } else if (section.title === '진행표') {
       sdd.progress = tableRows(section.body).map(({ cells: [name, kind, requirements = '', status], line }) => ({ name, kind, requirements: splitIds(requirements), status, line }));
     } else if (unit) {
@@ -28,6 +28,8 @@ export function parseSdd(source) {
 }
 
 const splitIds = (text) => text.split(',').map((id) => id.trim()).filter(Boolean);
+const sameIds = (a, b) => a.length === b.length && a.every((id) => b.includes(id));
+const stateKey = (target, state) => `${target}${SEP}${state}`;
 
 function classify(node) {
   const branch = node.text.match(/^\*\*(.+)\*\*$/);
@@ -52,9 +54,13 @@ export function linePaths(sdd) {
 export function checkSdd(sdd, plan) {
   const issues = [];
   const add = (step, kind, message, line) => issues.push({ step, kind, message, line });
+  // 같은 이름의 상태가 여러 대상에 있을 수 있으므로 상태는 대상과 묶어 센다.
   const statesOf = new Map();
-  for (const { target, state } of sdd.states) statesOf.set(target, [...(statesOf.get(target) ?? []), state]);
-  const allStates = new Set(sdd.states.map(({ state }) => state));
+  const targetsOf = new Map();
+  for (const { target, state } of sdd.states) {
+    statesOf.set(target, [...(statesOf.get(target) ?? []), state]);
+    targetsOf.set(state, [...(targetsOf.get(state) ?? []), target]);
+  }
   const conditions = new Map(sdd.conditions.map((condition) => [condition.name, condition]));
   const functions = new Set(sdd.units.filter((unit) => unit.kind === '함수').map((unit) => unit.name));
   const used = { states: new Set(), conditions: new Set(), functions: new Set() };
@@ -77,25 +83,27 @@ export function checkSdd(sdd, plan) {
     const row = sdd.progress.find((entry) => entry.name === unit.name);
     if (!row) add(10, '진행표 불일치', `${unit.kind} ${unit.name}이 진행표에 없다.`, unit.line);
     else if (row.kind !== unit.kind) add(10, '진행표 불일치', `진행표에서 ${unit.name}의 종류가 ${row.kind}인데 트리는 ${unit.kind}다.`, row.line);
+    else if (unit.kind === '피쳐' && !sameIds(row.requirements, unit.requirements)) add(10, '진행표 불일치', `진행표에서 ${unit.name}의 요구사항(${row.requirements.join(', ') || '빈 칸'})이 트리 제목(${unit.requirements.join(', ') || '빈 칸'})과 다르다.`, row.line);
   }
   for (const row of sdd.progress) {
+    // 피쳐 줄은 트리 제목과 같은지로 보므로, 제목이 없는 함수 줄만 번호가 PRD에 있는지 본다.
+    if (row.kind !== '피쳐') for (const id of row.requirements) if (!requirementIds.has(id)) add(10, '없는 요구사항', `진행표의 ${row.name}에 적힌 ${id}가 PRD에 없다.`, row.line);
     if (!sdd.units.some((unit) => unit.name === row.name)) add(10, '진행표 불일치', `진행표의 ${row.name} 트리가 없다.`, row.line);
     if (!PROGRESS.includes(row.status)) add(10, '진행표 불일치', `${row.name}의 진행은 ${PROGRESS.join(', ')} 중 하나여야 한다.`, row.line);
   }
 
-  const walk = (node, unit, depth, parent, isLast) => {
+  // target: 가장 가까운 ◆ 분기의 대상. 상태 전이 ⇒에는 대상이 없으므로 이것으로 정한다.
+  const walk = (node, unit, depth, parent, isLast, target) => {
     const where = `${unit.name}${SEP}${node.text}`;
+    const scope = node.kind === 'state' ? node.label.replace(/\s*상태$/, '') : target;
     if (sentenceCount(node.kind === 'branch' ? node.label : node.text.replace(/^(\?|◆|↪)\s+/, '')) > 1) add(11, '한 줄 두 문장', `${where}를 한 줄에 한 문장으로 나눈다.`, node.line);
     if (node.kind === 'branch' && parent?.kind !== 'condition' && parent?.kind !== 'state') add(11, '갈래 위치', `${where}는 ? 또는 ◆ 바로 아래에만 쓴다.`, node.line);
     // 형제 줄은 위에서 아래로 이어지는 순서이므로, 끝은 마지막 줄에서만 본다.
     if (node.children.length === 0 && isLast && !isTerminal(node)) add(11, '끝 없는 가지', `${where} 다음에 무엇이 되는지(→, ⇒, ↪) 있어야 완성이다.`, node.line);
     const nextDepth = node.kind === 'condition' || node.kind === 'state' ? depth + 1 : depth;
     if (nextDepth > MAX_BRANCH_DEPTH && nextDepth > depth) add(11, '너무 깊은 트리', `${where}에서 분기가 ${MAX_BRANCH_DEPTH}단계를 넘는다. 함수로 잘라낸다.`, node.line);
-    if (node.kind === 'condition') checkBranches(node, conditions.get(node.label)?.branches, `조건표에 "${node.label}"가 없다.`, '빠진 갈래', where, used.conditions, add);
-    if (node.kind === 'state') {
-      const target = node.label.replace(/\s*상태$/, '');
-      checkBranches(node, statesOf.get(target), `상태표에 대상 "${target}"가 없다.`, '빠진 상태', where, used.states, add, true);
-    }
+    if (node.kind === 'condition') checkBranches(node, conditions.get(node.label)?.branches, `조건표에 "${node.label}"가 없다.`, '빠진 갈래', where, add);
+    if (node.kind === 'state') checkBranches(node, statesOf.get(scope), `상태표에 대상 "${scope}"가 없다.`, '빠진 상태', where, add, (branch) => used.states.add(stateKey(scope, branch)));
     if (node.kind === 'condition' && conditions.has(node.label)) used.conditions.add(node.label);
     if (node.kind === 'call') {
       used.functions.add(node.label);
@@ -104,18 +112,20 @@ export function checkSdd(sdd, plan) {
     const transition = node.text.match(/⇒\s*(.+?)\s*→\s*(.+)$/);
     if (transition) {
       for (const state of [transition[1].trim(), transition[2].trim()]) {
-        if (allStates.has(state)) used.states.add(state);
-        else add(11, '없는 재료', `${where}의 상태 "${state}"가 상태표에 없다.`, node.line);
+        const targets = targetsOf.get(state);
+        if (!targets) add(11, '없는 재료', `${where}의 상태 "${state}"가 상태표에 없다.`, node.line);
+        // 위 ◆의 대상에 그 상태가 없으면 그 이름을 가진 모든 대상에 쓰인 것으로 본다.
+        else (targets.includes(scope) ? [scope] : targets).forEach((owner) => used.states.add(stateKey(owner, state)));
       }
     }
-    node.children.forEach((child, index) => walk(child, unit, nextDepth, node, index === node.children.length - 1));
+    node.children.forEach((child, index) => walk(child, unit, nextDepth, node, index === node.children.length - 1, scope));
   };
   for (const unit of sdd.units) {
     if (unit.nodes.length === 0) add(11, '빈 트리', `${unit.kind} ${unit.name}에 줄이 있어야 완성이다.`, unit.line);
-    unit.nodes.forEach((node, index) => walk(node, unit, 0, null, index === unit.nodes.length - 1));
+    unit.nodes.forEach((node, index) => walk(node, unit, 0, null, index === unit.nodes.length - 1, null));
   }
   if (sdd.units.length) {
-    for (const state of allStates) if (!used.states.has(state)) add(11, '안 쓰인 재료', `상태 "${state}"가 어느 트리에도 없다. 빠졌는지 표에서 뺄지 정해야 완성이다.`);
+    for (const { target, state, line } of sdd.states) if (!used.states.has(stateKey(target, state))) add(11, '안 쓰인 재료', `${target}의 상태 "${state}"가 어느 트리에도 없다. 빠졌는지 표에서 뺄지 정해야 완성이다.`, line);
     for (const { name, line } of sdd.conditions) if (!used.conditions.has(name)) add(11, '안 쓰인 재료', `조건 "${name}"가 어느 트리에도 없다. 빠졌는지 표에서 뺄지 정해야 완성이다.`, line);
     for (const name of functions) if (!used.functions.has(name)) add(11, '안 쓰인 함수', `함수 ${name}을 부르는 곳이 없다.`);
   }
@@ -124,11 +134,12 @@ export function checkSdd(sdd, plan) {
   return issues;
 }
 
-function checkBranches(node, expected, unknownMessage, missingKind, where, used, add, markEach = false) {
+// mark: 표에 있는 갈래를 쓰인 것으로 셀 때만 준다.
+function checkBranches(node, expected, unknownMessage, missingKind, where, add, mark = null) {
   const branches = node.children.filter((child) => child.kind === 'branch').map((child) => child.label);
   for (const child of node.children) if (child.kind !== 'branch') add(11, '갈래 위치', `${where} 바로 아래는 **갈래**만 쓴다.`, child.line);
   if (!expected) return add(11, '없는 재료', `${where}: ${unknownMessage}`, node.line);
   for (const branch of expected) if (!branches.includes(branch)) add(11, missingKind, `${where} 아래 '${branch}' 갈래가 없다.`, node.line);
   for (const branch of branches) if (!expected.includes(branch)) add(11, '없는 재료', `${where} 아래 '${branch}'는 표에 없는 갈래다.`, node.line);
-  if (markEach) branches.filter((branch) => expected.includes(branch)).forEach((branch) => used.add(branch));
+  if (mark) branches.filter((branch) => expected.includes(branch)).forEach(mark);
 }

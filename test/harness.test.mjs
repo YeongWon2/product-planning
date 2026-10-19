@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { checkPlan, parsePlan } from '../src/plan.mjs';
 import { checkSdd, parseSdd } from '../src/sdd.mjs';
 import { evaluate } from '../src/report.mjs';
-import { sentenceIssues } from '../src/text.mjs';
+import { designWords, sentenceIssues } from '../src/text.mjs';
 
 const EXAMPLE = new URL('../examples/post-edit/', import.meta.url).pathname;
 const CLI = new URL('../scripts/pp.mjs', import.meta.url).pathname;
@@ -153,7 +153,7 @@ test('SDD 트리: 표에 없는 재료와 너무 깊은 분기', () => {
 test('요구사항이 피쳐에 없거나 진행표가 트리와 다르면 단위 나누기에서 막는다', () => {
   const report = evaluate(copyExample({ 'sdd.md': (s) => s.replace('## 피쳐 · 게시글 수정 · R1', '## 피쳐 · 게시글 수정').replace('| 수정 중 닫기 | 함수 | R1 | 완료 |', '| 수정 중 닫기 | 함수 | R1 | 끝 |') }));
   assert.equal(report.stage, 'SDD › 3. 단위 나누기');
-  assert.deepEqual(kinds(report.issues), ['피쳐 없는 요구사항', '진행표 불일치']);
+  assert.deepEqual(kinds(report.issues), ['피쳐 없는 요구사항', '진행표 불일치', '진행표 불일치'], '제목에서 뺀 R1이 진행표에 남은 것도 잡는다');
 });
 
 test('대조: 빠진 것은 그대로 보여 주고, 바뀐 기준과 근거 줄은 낡은 것으로 본다', () => {
@@ -182,6 +182,59 @@ test('CLI: 종료 코드와 init', () => {
   const sheet = JSON.parse(execFileSync('node', [CLI, 'sheet', EXAMPLE], { encoding: 'utf8' }));
   assert.equal(sheet.criteria.length, 3);
   assert.ok(sheet.lines.every((line) => line.includes(' › ')));
+});
+
+test('check: 뒤 단계에 남은 것은 --json에 싣고, 사람용에는 단계별 건수만 붙인다', () => {
+  const dir = copyExample({ 'plan.md': (s) => s.replace('행동 패턴\n- 글을 올린 직후 휴대폰으로 다시 읽어 본다.\n', '').replace('상태: 확정', '상태: 작성중') });
+  const json = JSON.parse(spawnSync('node', [CLI, 'check', dir, '--json'], { encoding: 'utf8' }).stdout);
+  assert.equal(json.later.length, json.rest);
+  assert.ok(json.later.some((issue) => issue.step === 7 && issue.kind === '확정 전' && issue.message), '단계·종류·메시지를 싣는다');
+  const text = spawnSync('node', [CLI, 'check', dir], { encoding: 'utf8' }).stdout;
+  assert.match(text, new RegExp(`그 밖에 ${json.rest}건 \\(.*PRD › 7\\. 확정 1.*\\)`));
+  assert.ok(!text.includes('확정하면 상태'), '뒤 단계 메시지는 사람용에 내지 않는다');
+});
+
+test('sheet --save: 작업 폴더의 sheet.json에 쓰고, 작업 파일로 본다', () => {
+  const dir = copyExample();
+  assert.equal(spawnSync('node', [CLI, 'sheet', dir, '--save']).status, 0);
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 'sheet.json'), 'utf8')), JSON.parse(execFileSync('node', [CLI, 'sheet', dir], { encoding: 'utf8' })));
+  assert.equal(spawnSync('node', [CLI, 'discard', dir]).status, 0, 'sheet.json이 있어도 하네스 폴더로 지운다');
+  assert.equal(existsSync(dir), false);
+});
+
+test('디자인 표현: 요구사항·정책의 화면 표현은 막지 않고 살펴볼 것으로 알린다', () => {
+  const dir = copyExample({ 'plan.md': (s) => s.replace('- 고친 횟수에는 제한이 없다.', '- [수정] 버튼은 화면 오른쪽 위에 둔다.') });
+  const report = evaluate(dir);
+  assert.equal(report.stage, '완료', '잠근 요구사항과 단계를 깨지 않는다');
+  assert.deepEqual(kinds(report.warnings), ['디자인 표현']);
+  assert.match(report.warnings[0].message, /버튼, 화면 오른쪽/);
+  assert.match(spawnSync('node', [CLI, 'check', dir], { encoding: 'utf8' }).stdout, /살펴볼 것 \(막지 않는다\)\n- \[디자인 표현\]/);
+  assert.deepEqual(evaluate(EXAMPLE).warnings, []);
+  assert.deepEqual(designWords('설정 탭에서 알림 팝업을 끈다.'), ['탭', '팝업']);
+  assert.deepEqual(designWords('스탭이 화면을 보고 확인한다.'), [], '스탭, 위치 없는 화면은 넘긴다');
+});
+
+test('SDD: 같은 이름 다른 대상의 안 쓰인 상태, 진행표 요구사항 칸', () => {
+  const states = checkSdd(parseSdd(read('sdd.md').replace('| 게시글 | 잠김 |', '| 댓글 | 잠김 | 신고된 댓글이다 |\n| 게시글 | 잠김 |')), plan);
+  assert.deepEqual(states.map((issue) => issue.message), ['댓글의 상태 "잠김"가 어느 트리에도 없다. 빠졌는지 표에서 뺄지 정해야 완성이다.'], '게시글 잠김과 따로 센다');
+  const issues = checkSdd(parseSdd(read('sdd.md').replace('| 게시글 수정 | 피쳐 | R1 |', '| 게시글 수정 | 피쳐 | R1, R2 |').replace('| 수정 중 닫기 | 함수 | R1 |', '| 수정 중 닫기 | 함수 | R9 |')), plan);
+  assert.deepEqual(kinds(issues), ['진행표 불일치', '없는 요구사항']);
+  assert.match(issues[0].message, /R1, R2.*R1/);
+});
+
+test('SDD: 상태표가 비면 완성도를 내지 않는다', () => {
+  const report = evaluate(copyExample({ 'sdd.md': (s) => s.replace(/\| 게시글 \|.*\n/g, '') }));
+  assert.equal(report.stage, 'SDD › 1. 상태 수립');
+  assert.equal(report.progress, null);
+});
+
+test('대조: 조건표 행도 근거 줄이 된다', () => {
+  const ROW = '조건표 › 수정 권한이 있는가 › 글쓴이 본인이면 예다';
+  assert.ok(JSON.parse(execFileSync('node', [CLI, 'sheet', EXAMPLE], { encoding: 'utf8' })).lines.includes(ROW));
+  const withRow = (s) => { const t = JSON.parse(s); t['R1-1'].evidence = [ROW]; return JSON.stringify(t); };
+  assert.equal(evaluate(copyExample({ 'trace.json': withRow })).stage, '완료');
+  const changed = evaluate(copyExample({ 'trace.json': withRow, 'sdd.md': (s) => s.replace('글쓴이 본인이면 예다', '글쓴이 본인이거나 관리자면 예다') }));
+  assert.deepEqual(kinds(changed.issues), ['대조 낡음'], '표 행이 바뀌면 다시 대조한다');
 });
 
 test('문서는 200줄 이하다', () => {

@@ -13,7 +13,7 @@ const USAGE = `사용법:
   node scripts/pp.mjs check   <폴더> [--json]      지금 단계와 추가돼야 완성인 것을 보여 준다
   node scripts/pp.mjs lock    <폴더>               사람이 확인한 요구사항을 잠근다
   node scripts/pp.mjs unlock  <폴더>               요구사항 잠금을 푼다
-  node scripts/pp.mjs sheet   <폴더>               요구사항 대조 검토지를 JSON으로 낸다
+  node scripts/pp.mjs sheet   <폴더> [--save]      요구사항 대조 검토지를 JSON으로 낸다 (--save면 <폴더>/sheet.json에 쓴다)
   node scripts/pp.mjs export  <폴더> <문서 폴더> [--force] [--keep]
                                                    확정된 PRD(와 SDD)를 <문서 폴더>/{feature}/에 쓴다 (보통 <프로젝트>/docs)
   node scripts/pp.mjs discard <폴더>               내보내지 않고 작업 폴더를 지운다`;
@@ -87,7 +87,13 @@ function run([command, folder, ...rest]) {
   if (command === 'sheet') {
     const read = (file) => readFileSync(join(folder, file), 'utf8');
     if (!existsSync(join(folder, FILES.sdd))) throw new InputError('sdd.md가 없다. PRD를 확정하고 init으로 만든다.');
-    console.log(JSON.stringify(sheet(parsePlan(read(FILES.plan)), parseSdd(read(FILES.sdd))), null, 2));
+    const json = JSON.stringify(sheet(parsePlan(read(FILES.plan)), parseSdd(read(FILES.sdd))), null, 2);
+    if (!rest.includes('--save')) {
+      console.log(json);
+      return 0;
+    }
+    writeFileSync(join(folder, FILES.sheet), `${json}\n`);
+    console.log(`썼다: ${join(folder, FILES.sheet)}`);
     return 0;
   }
   const report = evaluate(folder);
