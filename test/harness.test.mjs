@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { checkPlan, parsePlan } from '../src/plan.mjs';
 import { checkSdd, parseSdd } from '../src/sdd.mjs';
+import { readableLine } from '../src/readable.mjs';
 import { evaluate } from '../src/report.mjs';
 import { designWords, sentenceIssues } from '../src/text.mjs';
 
@@ -284,7 +285,13 @@ test('export: SDD까지 끝나면 sdd.md를 더하고, 같은 PRD는 그대로 �
   assert.match(result.stdout, /그대로다: .*prd\.md/);
   const sdd = readFileSync(join(project, 'post-edit/sdd.md'), 'utf8');
   assert.match(sdd, /^# 게시글 수정 SDD 스펙\n\n> PRD: \[prd\.md\]\(prd\.md\)\n/);
-  assert.match(sdd, /## 피쳐 · 게시글 수정 · R1/);
+  assert.match(sdd, /## 게시글 수정\n> 요구사항 R1\n/);
+  assert.match(sdd, /- \*\*수정 권한이 있는가\?\*\* 에 따라\n  - 아니오일 때\n    - \*\*수정\*\* 단추가 보이지 않는다/);
+  assert.match(sdd, /- \*\*게시글 상태\*\* 에 따라/);
+  assert.match(sdd, /- \*\*수정\*\*을 누르면 수정 모달이 열린다/);
+  assert.match(sdd, /- 공통 단계 따르기: \*\*수정 중 닫기\*\*/);
+  assert.match(sdd, /## 공통 단계 · 수정 중 닫기\n\n- \*\*닫기\*\*를 누른다/);
+  for (const mark of ['? ', '◆', '→', '⇒', '↪', '[', '피쳐 ·', '함수 ·']) assert.ok(!sdd.split('## 상태표')[1].includes(mark), `기호 ${mark}가 남지 않는다`);
   for (const trace of ['상태:', '진행표', '## 페르소나']) assert.ok(!sdd.includes(trace), trace);
   assert.equal(existsSync(first), false);
 
@@ -318,4 +325,29 @@ test('discard: 하네스 파일만 든 폴더만 지운다', () => {
   const dir = copyExample();
   assert.equal(spawnSync('node', [CLI, 'discard', dir]).status, 0);
   assert.equal(existsSync(dir), false);
+});
+
+test('읽기용 SDD: 행동과 상태 전이를 문장으로 푼다', () => {
+  assert.equal(readableLine('[게시글 상세] 진입'), '**게시글 상세**에 들어간다');
+  assert.equal(readableLine('[저장] 누름 ⇒ 잠김 → 보관됨'), '**저장**을 누르면 상태가 **잠김**에서 **보관됨**으로 바뀐다');
+  assert.equal(readableLine('⇒ 확정 전 → 확정'), '상태가 **확정 전**에서 **확정**으로 바뀐다');
+  assert.equal(readableLine('⇒ 게시됨 → 검토 중'), '상태가 **게시됨**에서 **검토 중**으로 바뀐다');
+  assert.equal(readableLine('⇒ 게시됨 → 보류'), '상태가 **게시됨**에서 **보류**로 바뀐다');
+  assert.equal(readableLine('[“업데이트해줘”] 말함 → 바뀐 것만 대조한다'), '**“업데이트해줘”**를 말하면 바뀐 것만 대조한다');
+  assert.equal(readableLine('[파일] 닫음'), '**파일**을 닫는다');
+  assert.equal(readableLine('처리 순서는 넣기, 기록이다'), '처리 순서는 넣기, 기록이다');
+});
+
+test('PRD 배경: 묶음 이름 아래 목록으로 끊어 낸다', () => {
+  const grouped = '## 배경\n\n문제\n- 지식이 여러 도구에 흩어져 있다.\n\n방향\n- 원본을 근거로 위키를 만든다.\n- 위키에는 결론만 둔다.\n';
+  const dir = copyExample({ 'plan.md': (s) => s.replace(/## 배경\n[\s\S]*?(?=\n## )/, grouped) });
+  const plan = parsePlan(readFileSync(join(dir, 'plan.md'), 'utf8'));
+  assert.deepEqual(plan.background.map((item) => Boolean(item.label)), [true, false, true, false, false]);
+  const report = evaluate(dir);
+  assert.ok(!report.issues.some((issue) => issue.step === 5), '묶음 이름은 문장 규칙과 줄 수에 들지 않는다');
+  const project = mkdtempSync(join(tmpdir(), 'pp-project-'));
+  rmSync(join(dir, 'sdd.md'));
+  assert.equal(spawnSync('node', [CLI, 'export', dir, project]).status, 0);
+  const prd = readFileSync(join(project, `${basename(dir)}/prd.md`), 'utf8');
+  assert.match(prd, /## 배경\n\n문제\n\n- 지식이 여러 도구에 흩어져 있다\.\n\n방향\n\n- 원본을 근거로 위키를 만든다\.\n- 위키에는 결론만 둔다\.\n/);
 });

@@ -30,9 +30,12 @@ export function parsePlan(source) {
   };
   for (const section of sections(lines)) {
     if (LIST_SECTIONS[section.title]) {
-      plan[LIST_SECTIONS[section.title]] = section.body
-        .filter(({ text }) => text.trim() !== '')
-        .map(({ text, line }) => ({ text: text.trim().replace(/^- /, ''), line }));
+      const filled = section.body.filter(({ text }) => text.trim() !== '');
+      // `- `가 없고 문장으로 끝나지 않는 줄 바로 아래에 `- ` 줄이 오면 그 줄은 묶음 이름(`문제`, `방향`)이다. 문장 규칙과 줄 수에서 뺀다.
+      plan[LIST_SECTIONS[section.title]] = filled.map(({ text, line }, i) => {
+        const label = !text.trim().startsWith('- ') && !/[.!?다]$/.test(text.trim()) && Boolean(filled[i + 1]?.text.trim().startsWith('- '));
+        return { text: text.trim().replace(/^- /, ''), line, ...(label && { label }) };
+      });
     } else if (section.title === '목표') {
       readEntities(section.body, /^### (G\d+) (.+)$/, plan.goals, plan.stray, readGoalLine, 5);
     } else if (section.title === '페르소나') {
@@ -111,6 +114,9 @@ export function lockFingerprint(plan) {
   return createHash('sha1').update(JSON.stringify(locked)).digest('hex').slice(0, 12);
 }
 
+// 묶음 이름을 뺀 문장 줄.
+export const sentences = (items) => items.filter((item) => !item.label);
+
 // lock: lock.json 내용({ fingerprint }) 또는 null(아직 안 잠금).
 export function checkPlan(plan, { lock = null } = {}) {
   const issues = [];
@@ -160,19 +166,21 @@ export function checkPlan(plan, { lock = null } = {}) {
   }
 
   if (plan.outOfScope.length === 0) add(4, '범위 밖 없음', `이번에 하지 않는 것이 있어야 완성이다. 정말 없으면 "${NONE}"이라고 쓴다.`);
-  proseRules(4, plan.outOfScope);
+  proseRules(4, sentences(plan.outOfScope));
   // 잠금은 요구사항이 다 갖춰진 뒤에만 본다. 잠근 뒤 바뀌었으면 사람이 다시 확인해야 한다.
   if (!issues.some((issue) => issue.step <= 4)) {
     if (!lock) add(4, '잠금 전', '사람이 요구사항을 읽고 맞다고 하면 lock으로 잠근다. 잠근 뒤에는 PRD 인터뷰로 넘어간다.');
     else if (lock.fingerprint !== lockFingerprint(plan)) add(4, '잠근 뒤 바뀜', '잠근 요구사항이 바뀌었다. 사람이 바꾼 게 맞으면 unlock 뒤 다시 lock한다.');
   }
 
-  if (plan.summary.length === 0) add(5, '요약 없음', '무엇을, 누구에게, 왜 하는지 요약이 있어야 완성이다.');
-  tooLong(5, plan.summary, LIMITS.summary, '요약');
-  proseRules(5, plan.summary);
-  if (plan.background.length === 0) add(5, '배경 없음', '왜 이 기능이 필요한지 배경 문장이 있어야 완성이다.');
-  tooLong(5, plan.background, LIMITS.background, '배경');
-  proseRules(5, plan.background);
+  const summary = sentences(plan.summary);
+  const background = sentences(plan.background);
+  if (summary.length === 0) add(5, '요약 없음', '무엇을, 누구에게, 왜 하는지 요약이 있어야 완성이다.');
+  tooLong(5, summary, LIMITS.summary, '요약');
+  proseRules(5, summary);
+  if (background.length === 0) add(5, '배경 없음', '왜 이 기능이 필요한지 배경 문장이 있어야 완성이다.');
+  tooLong(5, background, LIMITS.background, '배경');
+  proseRules(5, background);
   if (plan.goals.length === 0) add(5, '목표 없음', '이 기능으로 이루려는 목표가 하나 이상 있어야 완성이다.');
   duplicates(plan.goals, (id, line) => add(5, '번호 겹침', `목표 번호 ${id}가 두 번 나온다.`, line));
   for (const goal of plan.goals) {
@@ -202,7 +210,7 @@ export function checkPlan(plan, { lock = null } = {}) {
       else proseRules(7, [{ text: match[2], line: term.line }]);
     }
   }
-  proseRules(7, [...plan.constraints, ...plan.schedule]);
+  proseRules(7, sentences([...plan.constraints, ...plan.schedule]));
   if (!plan.author) add(7, '작성자 없음', '작성자: 줄에 기획을 쓴 사람 이름이 있어야 완성이다.');
   for (const question of plan.questions) add(7, '정할 것 남음', question.text, question.line);
   proseRules(7, plan.questions);
