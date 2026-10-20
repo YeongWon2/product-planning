@@ -53,7 +53,7 @@ flowchart LR
 ```text
 <프로젝트>/docs/post-edit/
 ├─ prd.md   비개발자도 읽는 PRD
-└─ sdd.md   개발자가 보는 SDD 스펙 (맨 위에 PRD 링크)
+└─ sdd.md   개발자가 보는 SDD 스펙 (맨 위에 PRD 링크, 기호 없이 문장으로)
 ```
 
 ## 왜 이렇게 하나

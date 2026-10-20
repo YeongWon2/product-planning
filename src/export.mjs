@@ -5,6 +5,7 @@ import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync
 import { basename, join, relative, resolve } from 'node:path';
 import { EXCEPTION, LIST_SECTIONS, NONE, OPTIONAL_SECTIONS, TERM, isNone, parsePlan } from './plan.mjs';
 import { FILES, InputError, evaluate } from './report.mjs';
+import { readableSdd } from './readable.mjs';
 
 const WORK_FILES = new Set(Object.values(FILES));
 // 운영체제가 몰래 만드는 파일은 작업 폴더 검사에서 무시한다.
@@ -34,7 +35,8 @@ function clean(source, drop) {
 const table = (head, rows) => [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`, ...rows.map((row) => `| ${row.map(cell).join(' | ')} |`)];
 const list = (items) => items.map((item) => `- ${item.text}`);
 // 줄 구역은 한 줄씩 목록으로 낸다. 줄바꿈만 있으면 md에서 한 문단으로 합쳐지기 때문이다.
-const lines = (items) => (isNone(items) ? [NONE] : list(items));
+// 묶음 이름(`문제`, `방향`)은 목록 밖에 한 줄로 두고 앞뒤를 띄워, 묶음마다 끊어 읽히게 한다.
+const lines = (items) => (isNone(items) ? [NONE] : items.flatMap((item, i) => (item.label ? [...(i ? [''] : []), item.text, ''] : [`- ${item.text}`])));
 const labeled = (label, items) => (items.length ? ['', `#### ${label}`, '', ...list(items)] : []);
 
 function personaBlock(p) {
@@ -74,7 +76,7 @@ export function render(folder, { date = today() } = {}) {
   const outputs = { [OUTPUT.prd]: renderPrd(source, parsePlan(source), date) };
   if (report.step === null) {
     // SDD 맨 위에 짝이 되는 PRD를 알린다. 두 파일은 같은 폴더에 놓인다.
-    const sdd = clean(readFileSync(join(folder, FILES.sdd), 'utf8'), ['진행표']);
+    const sdd = readableSdd(clean(readFileSync(join(folder, FILES.sdd), 'utf8'), ['진행표']));
     outputs[OUTPUT.sdd] = sdd.replace(/^(# .+\n)/, `$1\n> PRD: [${OUTPUT.prd}](${OUTPUT.prd})\n`);
   }
   return { outputs, complete: report.step === null };
