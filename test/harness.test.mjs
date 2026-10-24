@@ -28,6 +28,12 @@ function copyExample(edit = {}) {
   return dir;
 }
 const stageOf = (edit) => evaluate(copyExample(edit));
+// 요구사항을 고친 뒤 사람이 확인해 다시 잠근 상태를 만든다.
+function relocked(edit) {
+  const dir = copyExample({ ...edit, 'lock.json': null });
+  assert.equal(spawnSync('node', [CLI, 'lock', dir]).status, 0);
+  return evaluate(dir);
+}
 
 test('예시는 네 문서 끝까지 통과한다', () => {
   const report = evaluate(EXAMPLE);
@@ -60,16 +66,35 @@ test('기획: 근거 BR과 우선순위가 있어야 하고, BR마다 요구사�
   assert.ok(kinds(orphan).includes('요구사항 없는 BR'));
 });
 
+test('잠금: 요구사항이 다 서면 잠가야 하고, 잠근 뒤 바뀌면 다시 확인한다', () => {
+  const unlocked = stageOf({ 'lock.json': null });
+  assert.equal(unlocked.stage, '기획 › 2-4. 완성 기준과 잠금');
+  assert.deepEqual(kinds(unlocked.issues), ['잠금 전']);
+  const changed = stageOf({ 'plan.md': (s) => s.replace('고친 뒤에도 댓글이 그대로 남는다.', '고친 뒤에도 댓글과 좋아요가 그대로 남는다.') });
+  assert.deepEqual(kinds(changed.issues), ['잠근 뒤 바뀜']);
+  assert.match(changed.next, /unlock 뒤 다시 lock/);
+  const dir = copyExample({ 'lock.json': null, 'plan.md': (s) => s.replace('우선순위: P1\n', '') });
+  assert.equal(spawnSync('node', [CLI, 'lock', dir]).status, 2, '요구사항이 덜 서면 잠그지 않는다');
+  const ready = copyExample({ 'lock.json': null });
+  assert.equal(spawnSync('node', [CLI, 'lock', ready]).status, 0);
+  assert.equal(evaluate(ready).stage, '완료');
+  assert.equal(spawnSync('node', [CLI, 'unlock', ready]).status, 0);
+  assert.equal(existsSync(join(ready, 'lock.json')), false);
+});
+
 test('페르소나가 요구사항에 안 쓰이면 묻는다', () => {
   const extra = parsePlan(read('plan.md').replace('## 요구사항', '### P2 관리자\n\n원하는 것\n- 신고된 글을 막고 싶다.\n\n행동 패턴\n- 아침마다 신고 목록을 본다.\n\n## 요구사항'));
   assert.ok(kinds(checkPlan(extra, brief)).includes('안 쓰인 페르소나'));
 });
 
-test('기획 문장 규칙: 두 문장, 개발 용어, 모호한 말, 긴 문장', () => {
+test('기획 문장 규칙: 두 문장, 개발 용어, 모호한 말, 긴 문장, AI 말투, 번역투, 존댓말', () => {
   assert.deepEqual(kinds(sentenceIssues('고친다. 저장한다.')), ['한 줄 두 문장']);
   assert.deepEqual(kinds(sentenceIssues('API로 저장한다.')), ['개발 용어']);
   assert.deepEqual(kinds(sentenceIssues('필요 시 알림 등을 보낸다.')), ['모호한 말']);
   assert.deepEqual(kinds(sentenceIssues('가'.repeat(81))), ['긴 문장']);
+  assert.deepEqual(kinds(sentenceIssues('다양한 기능을 원활하게 쓴다.')), ['AI 말투']);
+  assert.deepEqual(kinds(sentenceIssues('글이 관리자에 의해 잠긴다.')), ['번역투']);
+  assert.deepEqual(kinds(sentenceIssues('글을 고칠 수 있어요.')), ['존댓말']);
   assert.deepEqual(sentenceIssues('오타를 발견하면 바로 고치고 싶다.'), []);
 });
 
@@ -103,7 +128,7 @@ test('대조: 빠진 것은 그대로 보여 주고, 바뀐 기준과 근거 줄
   assert.deepEqual(missing.issues.map((i) => i.message), ['R1-2 저장한 뒤 댓글이 어떻게 되는지 줄이 있어야 완성이다.']);
   assert.equal(missing.progress.percent, 67);
 
-  const stale = stageOf({
+  const stale = relocked({
     'plan.md': (s) => s.replace('고친 뒤에도 댓글이 그대로 남는다.', '고친 뒤에도 댓글과 좋아요가 그대로 남는다.'),
     'spec.md': (s) => s.replace('수정 모달이 열린다', '수정 화면이 열린다'),
   });
@@ -121,7 +146,7 @@ test('개발 스펙: 출처가 없거나 기획 원문과 다르면 막는다', 
   const noSource = stageOf({ 'dev.md': (s) => s.replace('출처: PRD › 범위 밖 › 고친 기록을 남이 보는 기능은 이번에 하지 않는다.\n', '') });
   assert.equal(noSource.stage, '개발 › 5-1. 결정');
   assert.deepEqual(kinds(noSource.issues), ['출처 없음']);
-  const stale = stageOf({ 'brief.md': (s) => s.replace('- 고친 기록을 남이 보는 기능은 이번에 하지 않는다.', '- 고친 기록 보기는 이번에 하지 않는다.') });
+  const stale = relocked({ 'brief.md': (s) => s.replace('- 고친 기록을 남이 보는 기능은 이번에 하지 않는다.', '- 고친 기록 보기는 이번에 하지 않는다.') });
   assert.equal(stale.stage, '개발 › 5-1. 결정');
   assert.deepEqual(kinds(stale.issues), ['출처 낡음']);
 });

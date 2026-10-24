@@ -12,6 +12,8 @@
 |---|---|
 | `node scripts/pp.mjs init <폴더> [기능 이름]` | 지금 단계에 필요한 파일 가운데 없는 것만 빈 틀로 만든다 (처음엔 `brief.md`만) |
 | `node scripts/pp.mjs check <폴더> [--json]` | 지금 단계와 완성도, 추가돼야 완성인 것, 다음 할 일을 보여 준다 |
+| `node scripts/pp.mjs lock <폴더>` | 2-4단계까지 잠금 말고 남은 것이 없을 때 요구사항 지문을 `lock.json`에 남긴다 |
+| `node scripts/pp.mjs unlock <폴더>` | 잠금을 푼다. 요구사항을 고친 뒤 사람이 확인하면 다시 `lock`한다 |
 | `node scripts/pp.mjs sheet <폴더>` | 요구사항 대조에 쓸 검토지를 JSON으로 낸다 (3장) |
 | `node scripts/pp.mjs quotes <폴더>` | 개발 스펙이 인용할 수 있는 원문과 번호를 JSON으로 낸다 |
 | `node scripts/pp.mjs export <폴더> <프로젝트 폴더> [--force] [--keep]` | 결과물을 `<프로젝트>/docs/product/{기능}/`에 내보낸다 (6장) |
@@ -30,6 +32,7 @@
 ~/.product-planning/work/{feature}/
 ├─ brief.md    비즈니스 요구사항 (brief-guide.md)
 ├─ plan.md     기획 요구사항 (planning-guide.md)
+├─ lock.json   사람이 잠근 요구사항 지문
 ├─ spec.md     기획 상세 스펙 (spec-guide.md)
 ├─ trace.json  모델이 쓴 요구사항 대조 (3장)
 ├─ dev.md      개발 스펙 (dev-guide.md)
@@ -101,6 +104,7 @@
 | 18~28 | 개발 › 5-1 결정 ~ 5-11 확정 | `dev.md`, `diagram.md` | [개발 스펙](dev-guide.md) 2·5장, [다이어그램](diagram-guide.md) 4장 |
 
 - 문장 규칙(한 줄 한 문장, 개발 용어, 모호한 말, 80자)은 `brief.md`와 `plan.md`에 걸린다. `원문:` 줄은 빼고 본다.
+- 잠금(10)은 요구사항 검사가 끝난 뒤에만 본다. 지문에는 BR, 범위 밖, 페르소나, 요구사항, 완성 기준이 들어간다.
 - 대조(16)는 트리 검사(12~15)가 끝난 뒤에만 보인다.
 - 시퀀스 검사는 22단계, 다이어그램 확정은 28단계에서 보인다.
 
@@ -124,5 +128,5 @@
 - 개발을 쓰는 중이면(파일은 있는데 완료가 아님) 내보내지 않는다.
 - 네 문서를 냈을 때만 작업 폴더를 지운다. `--keep`이면 남긴다. 하네스 파일이 아닌 것이 든 폴더는 지우지 않는다.
 - 결과 파일이 이미 있으면 `--force` 없이는 덮어쓰지 않는다. `import`로 읽어 와 고친 뒤에는 `--force`로 낸다.
-- `import`는 링크와 앵커, 쓰는 곳 줄을 떼고 PRD를 `brief.md`와 `plan.md`로 나눈다. 상태는 `확정`, 진행표는 트리에서 다시 만든다.
+- `import`는 링크와 앵커, 쓰는 곳 줄을 떼고 PRD를 `brief.md`와 `plan.md`로 나눈다. 상태는 `확정`, 요구사항은 잠근 채로, 진행표는 트리에서 다시 만든다.
 - `trace.json`은 결과물에 없으므로 `import` 뒤에는 요구사항 대조를 다시 한다.

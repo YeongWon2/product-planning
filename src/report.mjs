@@ -10,7 +10,7 @@ import { checkDiagram, parseDiagram } from './diagram.mjs';
 import { citable } from './cite.mjs';
 import { checkTrace, progressOf } from './trace.mjs';
 
-export const FILES = { brief: 'brief.md', plan: 'plan.md', spec: 'spec.md', trace: 'trace.json', dev: 'dev.md', diagram: 'diagram.md' };
+export const FILES = { brief: 'brief.md', plan: 'plan.md', lock: 'lock.json', spec: 'spec.md', trace: 'trace.json', dev: 'dev.md', diagram: 'diagram.md' };
 const STEPS = { ...BRIEF_STEPS, ...PLAN_STEPS, ...SPEC_STEPS, ...DEV_STEPS };
 const QUOTE = '원문을 인용해';
 const NEXT = {
@@ -23,7 +23,7 @@ const NEXT = {
   7: `BR을 ${QUOTE} 누가 쓰는지, 무엇을 원하는지, 평소 어떻게 행동하는지 묻는다.`,
   8: `BR과 페르소나의 원하는 것을 ${QUOTE} 무엇을 해 줘야 하는지 묻는다.`,
   9: '요구사항마다 "이것만 먼저 나가도 쓸 만한가요?"로 우선순위를 묻는다.',
-  10: `요구사항을 ${QUOTE} "이게 되면 완성"인 기준을 묻는다.`,
+  10: `요구사항을 ${QUOTE} "이게 되면 완성"인 기준을 묻고, 다 되면 요구사항 전체를 보여 준 뒤 잠가도 되는지 묻는다.`,
   11: '정할 것을 묻고, 남은 게 없으면 PRD 미리 보기를 보여 주고 확정을 받는다.',
   12: `요구사항을 ${QUOTE} 대상마다 어떤 상태를 거치는지 묻는다.`,
   13: '흐름을 가르는 조건과 갈래를 묻는다.',
@@ -44,6 +44,8 @@ const NEXT = {
   28: '남은 것을 묻고, 없으면 개발 스펙과 시퀀스 다이어그램을 보여 주고 확정을 받는다.',
 };
 
+const RELOCK = '사람에게 무엇이 바뀌었는지 보여 주고, 맞으면 unlock 뒤 다시 lock한다. 아니면 잠근 때로 되돌린다.';
+
 export class InputError extends Error {}
 
 function readJson(path) {
@@ -58,8 +60,8 @@ function readJson(path) {
 export function load(folder) {
   const read = (name, parse) => (existsSync(join(folder, FILES[name])) ? parse(readFileSync(join(folder, FILES[name]), 'utf8')) : null);
   if (!existsSync(join(folder, FILES.brief))) throw new InputError(`${join(folder, FILES.brief)}가 없다. init으로 틀을 먼저 만든다.`);
-  const trace = existsSync(join(folder, FILES.trace)) ? readJson(join(folder, FILES.trace)) : null;
-  return { brief: read('brief', parseBrief), plan: read('plan', parsePlan), spec: read('spec', parseSpec), dev: read('dev', parseDev), diagram: read('diagram', parseDiagram), trace };
+  const json = (name) => (existsSync(join(folder, FILES[name])) ? readJson(join(folder, FILES[name])) : null);
+  return { brief: read('brief', parseBrief), plan: read('plan', parsePlan), spec: read('spec', parseSpec), dev: read('dev', parseDev), diagram: read('diagram', parseDiagram), trace: json('trace'), lock: json('lock') };
 }
 
 const tag = (file) => (issue) => ({ ...issue, file });
@@ -67,13 +69,13 @@ const missing = (step, kind, message) => [{ step, kind, message }];
 
 export function evaluate(folder) {
   const docs = load(folder);
-  const { brief, plan, spec, dev, diagram, trace } = docs;
+  const { brief, plan, spec, dev, diagram, trace, lock } = docs;
   const issues = checkBrief(brief).map(tag(FILES.brief));
   let progress = null;
   let planDone = false;
   if (issues.length === 0) {
     if (!plan) issues.push(...missing(7, '기획 없음', '비즈니스 요구사항이 확정됐으니 init을 다시 돌려 plan.md 틀을 만든다.'));
-    else issues.push(...checkPlan(plan, brief).map(tag(FILES.plan)));
+    else issues.push(...checkPlan(plan, brief, { lock }).map(tag(FILES.plan)));
   }
   if (issues.length === 0) {
     if (!spec) issues.push(...missing(12, '기획 상세 스펙 없음', 'PRD가 확정됐으니 init을 다시 돌려 spec.md 틀을 만든다.'));
@@ -96,6 +98,7 @@ export function evaluate(folder) {
   }
   const step = issues.length ? Math.min(...issues.map((issue) => issue.step)) : null;
   const current = issues.filter((issue) => issue.step === step);
+  const relock = current.some((issue) => issue.kind === '잠근 뒤 바뀜');
   const devDone = planDone && step === null;
   return {
     stage: step === null ? '완료' : planDone && current[0]?.kind === '개발 스펙 없음' ? '기획 완료' : STEPS[step],
@@ -104,7 +107,7 @@ export function evaluate(folder) {
     rest: issues.length - current.length,
     progress,
     done: { plan: planDone, dev: devDone },
-    next: step === null ? '네 문서가 모두 완성됐다고 알리고 export로 프로젝트에 내보낸다.' : planDone && current[0]?.kind === '개발 스펙 없음' ? '기획이 끝났다고 알리고, 개발 스펙으로 넘어갈지 묻는다. 그만두면 export로 기획만 내보낸다.' : NEXT[step],
+    next: step === null ? '네 문서가 모두 완성됐다고 알리고 export로 프로젝트에 내보낸다.' : planDone && current[0]?.kind === '개발 스펙 없음' ? '기획이 끝났다고 알리고, 개발 스펙으로 넘어갈지 묻는다. 그만두면 export로 기획만 내보낸다.' : relock ? RELOCK : NEXT[step],
   };
 }
 

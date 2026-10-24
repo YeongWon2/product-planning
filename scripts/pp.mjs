@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // 하네스 CLI (docs/harness.md 1장). 문서 내용을 쓰지 않는다. init은 빈 틀을, export·import는 결과물을 옮긴다.
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve as resolvePath } from 'node:path';
 import { FEATURE } from '../src/brief.mjs';
+import { checkPlan, lockFingerprint } from '../src/plan.mjs';
 import { FILES, InputError, evaluate, formatReport, load } from '../src/report.mjs';
 import { citable } from '../src/cite.mjs';
 import { sheet } from '../src/trace.mjs';
@@ -11,6 +12,8 @@ import { discard, exportResult, importResult } from '../src/export.mjs';
 const USAGE = `사용법:
   node scripts/pp.mjs init    <폴더> [기능 이름]       지금 단계에 필요한 파일 가운데 없는 것만 빈 틀로 만든다
   node scripts/pp.mjs check   <폴더> [--json]          지금 단계와 추가돼야 완성인 것을 보여 준다
+  node scripts/pp.mjs lock    <폴더>                   사람이 확인한 요구사항을 잠근다
+  node scripts/pp.mjs unlock  <폴더>                   요구사항 잠금을 푼다
   node scripts/pp.mjs sheet   <폴더>                   요구사항 대조 검토지를 JSON으로 낸다
   node scripts/pp.mjs quotes  <폴더>                   개발 스펙이 인용할 수 있는 원문 목록을 JSON으로 낸다
   node scripts/pp.mjs export  <폴더> <프로젝트 폴더> [--force] [--keep]
@@ -49,6 +52,17 @@ function init(folder, givenName) {
   console.log(`단계  ${evaluate(folder).stage}`);
 }
 
+// 기획 2-4단계까지 잠금 말고 남은 것이 없을 때만 잠근다.
+function lock(folder) {
+  const { brief, plan } = load(folder);
+  if (!plan) throw new InputError('plan.md가 없다. 요구사항을 먼저 세운다.');
+  const fingerprint = lockFingerprint(plan, brief);
+  const left = checkPlan(plan, brief, { lock: { fingerprint } }).filter((issue) => issue.step <= 10);
+  if (left.length) throw new InputError(`요구사항이 아직 다 갖춰지지 않았다: ${[...new Set(left.map((issue) => issue.kind))].join(', ')}. check로 먼저 끝낸다.`);
+  writeFileSync(join(folder, FILES.lock), `${JSON.stringify({ fingerprint }, null, 2)}\n`);
+  console.log(`잠갔다: 요구사항 ${plan.requirements.length}개, 완성 기준 ${plan.requirements.reduce((n, r) => n + r.criteria.length, 0)}개`);
+}
+
 function quotes(folder) {
   const { brief, plan, spec } = load(folder);
   if (!spec) throw new InputError('spec.md가 없다. 기획 상세 스펙을 먼저 쓴다.');
@@ -65,7 +79,7 @@ function quotes(folder) {
 }
 
 function run([command, first, ...rest]) {
-  const commands = ['init', 'check', 'sheet', 'quotes', 'export', 'import', 'discard'];
+  const commands = ['init', 'check', 'lock', 'unlock', 'sheet', 'quotes', 'export', 'import', 'discard'];
   if (!command || !first || !commands.includes(command)) {
     console.error(USAGE);
     return 2;
@@ -74,6 +88,15 @@ function run([command, first, ...rest]) {
   const args = rest.filter((arg) => !arg.startsWith('--'));
   if (command === 'init') {
     init(first, args.join(' ').trim());
+    return 0;
+  }
+  if (command === 'lock') {
+    lock(first);
+    return 0;
+  }
+  if (command === 'unlock') {
+    rmSync(join(first, FILES.lock), { force: true });
+    console.log('잠금을 풀었다. 요구사항을 고친 뒤 사람이 확인하면 다시 lock한다.');
     return 0;
   }
   if (command === 'export') {

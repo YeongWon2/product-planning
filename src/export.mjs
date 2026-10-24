@@ -5,7 +5,8 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { basename, join, resolve } from 'node:path';
 import { FILES, InputError, evaluate, load } from './report.mjs';
 import { parseSpec } from './spec.mjs';
-import { criteriaOf } from './plan.mjs';
+import { criteriaOf, lockFingerprint, parsePlan } from './plan.mjs';
+import { parseBrief } from './brief.mjs';
 import { linkify, unlink } from './link.mjs';
 
 export const OUTPUTS = { prd: 'prd.md', spec: 'spec.md', dev: 'dev.md', diagram: 'diagram.md' };
@@ -133,6 +134,8 @@ export function importResult(project, folder) {
     files[FILES.dev] = join2([...withStatus(dev), '## 기획에 돌려보낼 것', '## 정할 것']);
     files[FILES.diagram] = join2(withStatus(diagram));
   }
+  // 확정된 결과물이므로 요구사항도 잠근 채로 읽어 온다.
+  files[FILES.lock] = `${JSON.stringify({ fingerprint: lockFingerprint(parsePlan(files[FILES.plan]), parseBrief(files[FILES.brief])) }, null, 2)}\n`;
   mkdirSync(folder, { recursive: true });
   for (const [name, content] of Object.entries(files)) writeFileSync(join(folder, name), content);
   return { paths: Object.keys(files).map((name) => join(folder, name)) };

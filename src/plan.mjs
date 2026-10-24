@@ -1,9 +1,10 @@
 // plan.md 읽기와 기획 2·3단계 검사 (docs/planning-guide.md, docs/harness.md 5장 7~11).
+import { createHash } from 'node:crypto';
 import { readStatus, sections, splitIds } from './md.mjs';
 import { sentenceIssues } from './text.mjs';
 import { duplicates } from './brief.mjs';
 
-export const PLAN_STEPS = { 7: '기획 › 2-1. 페르소나', 8: '기획 › 2-2. 요구사항', 9: '기획 › 2-3. 우선순위', 10: '기획 › 2-4. 완성 기준', 11: '기획 › 3. PRD 확정' };
+export const PLAN_STEPS = { 7: '기획 › 2-1. 페르소나', 8: '기획 › 2-2. 요구사항', 9: '기획 › 2-3. 우선순위', 10: '기획 › 2-4. 완성 기준과 잠금', 11: '기획 › 3. PRD 확정' };
 export const PRIORITIES = ['P1', 'P2', 'P3'];
 const PERSONA_LABELS = { '원하는 것': 'needs', '행동 패턴': 'patterns', 불편: 'pains' };
 
@@ -69,8 +70,21 @@ function readRequirementLine(requirement, text, line) {
   return false;
 }
 
+// 잠금 지문: 사람이 세운 요구사항(BR, 범위 밖, 페르소나, 요구사항, 완성 기준)만 담는다. 정할 것과 상태는 넣지 않는다.
+export function lockFingerprint(plan, brief) {
+  const texts = (list) => list.map((item) => item.text);
+  const locked = {
+    business: brief.requirements.map((r) => [r.id, r.title, r.goals]),
+    outOfScope: texts(brief.outOfScope),
+    personas: plan.personas.map((p) => [p.id, p.name, texts(p.description), texts(p.needs), texts(p.patterns), texts(p.pains)]),
+    requirements: plan.requirements.map((r) => [r.id, r.name, r.who?.ids ?? [], r.basis?.ids ?? [], r.priority?.text ?? '', r.why?.text ?? '', r.criteria.map((c) => [c.id, c.excluded, c.text])]),
+  };
+  return createHash('sha1').update(JSON.stringify(locked)).digest('hex').slice(0, 12);
+}
+
 // brief는 확정된 비즈니스 요구사항이다. BR 근거와 범위 밖을 대조한다.
-export function checkPlan(plan, brief) {
+// lock: lock.json 내용({ fingerprint }) 또는 null(아직 안 잠금).
+export function checkPlan(plan, brief, { lock = null } = {}) {
   const issues = [];
   const add = (step, kind, message, line) => issues.push({ step, kind, message, line });
   const proseRules = (step, list) => {
@@ -119,6 +133,11 @@ export function checkPlan(plan, brief) {
       seen.add(criterion.id);
     }
     proseRules(10, requirement.criteria);
+  }
+  // 잠금은 요구사항이 다 갖춰진 뒤에만 본다. 잠근 뒤 바뀌었으면 사람이 다시 확인해야 한다.
+  if (!issues.some((issue) => issue.step <= 10)) {
+    if (!lock) add(10, '잠금 전', '사람이 요구사항 전체를 읽고 맞다고 하면 lock으로 잠근다. 잠근 뒤에는 AI가 요구사항을 바꾸지 못한다.');
+    else if (lock.fingerprint !== lockFingerprint(plan, brief)) add(10, '잠근 뒤 바뀜', '잠근 요구사항(BR, 범위 밖, 페르소나, 요구사항, 완성 기준)이 바뀌었다. 사람이 바꾼 게 맞으면 unlock 뒤 다시 lock한다.');
   }
 
   const based = new Set(plan.requirements.flatMap((requirement) => requirement.basis?.ids ?? []));

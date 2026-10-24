@@ -23,6 +23,7 @@
 | 기획과 개발 스펙이 한 문서에 섞여 있다 | 비개발자도 개발자도 읽기 어렵다 |
 | AI가 흐름과 설계를 자동으로 만든다 | 사람이 원한 것과 다른 내용이 그럴듯하게 채워진다 |
 | 요구사항이 어느 사업 목표에서 나왔는지 없다 | 우선순위를 정할 근거가 없다 |
+| 정한 요구사항을 AI가 슬쩍 바꾼다 | 사람이 잠근 요구사항이 바뀌면 하네스가 막는다 |
 | 상태·권한·수정 여부에 따른 분기가 빠진다 | "잠긴 글이면 이 단추는요?"를 개발 중에 묻는다 |
 | 개발 결정이 코드에만 남는다 | 왜 이렇게 나눴는지, 무엇을 버렸는지 아무도 모른다 |
 
@@ -97,7 +98,7 @@ node scripts/pp.mjs check examples/post-edit
 |---|---|
 | `skills/yw-plan/` | 기획 1~4단계를 이끄는 스킬 |
 | `skills/yw-dev/` | 개발 스펙과 시퀀스 다이어그램을 이끄는 스킬 |
-| `scripts/pp.mjs` | 하네스 CLI (`init`, `check`, `sheet`, `quotes`, `export`, `import`, `discard`) |
+| `scripts/pp.mjs` | 하네스 CLI (`init`, `check`, `lock`, `unlock`, `sheet`, `quotes`, `export`, `import`, `discard`) |
 | `src/` | 문서 읽기, 규칙, 대조, 출처, 링크, 보고, 내보내기 |
 | `examples/post-edit/` | 네 문서 끝까지 통과한 예시 |
 | `docs/` | 설계서와 작성법. 레포 문서는 200줄 이하 |
