@@ -8,6 +8,7 @@ import { FILES, InputError, evaluate, formatReport, load } from '../src/report.m
 import { citable } from '../src/cite.mjs';
 import { sheet } from '../src/trace.mjs';
 import { discard, exportResult, importResult, keepPrivate } from '../src/export.mjs';
+import { userFlow } from '../src/flow.mjs';
 
 const USAGE = `사용법:
   node scripts/pp.mjs init    <폴더> [기능 이름]       지금 단계에 필요한 파일 가운데 없는 것만 빈 틀로 만든다
@@ -16,6 +17,7 @@ const USAGE = `사용법:
   node scripts/pp.mjs unlock  <폴더>                   요구사항 잠금을 푼다
   node scripts/pp.mjs sheet   <폴더>                   요구사항 대조 검토지를 JSON으로 낸다
   node scripts/pp.mjs quotes  <폴더>                   개발 스펙이 인용할 수 있는 원문 목록을 JSON으로 낸다
+  node scripts/pp.mjs flow    <폴더>                   기획 상세 스펙에서 유저 플로우(Mermaid)를 만들어 보여 준다
   node scripts/pp.mjs export  <폴더> [프로젝트 폴더] [--force] [--keep]
                                                        결과물을 <프로젝트>/docs/product/{기능}/에 내보낸다
                                                        (폴더가 <프로젝트>/.product-planning/{기능}/이면 프로젝트는 생략)
@@ -26,11 +28,10 @@ const TEMPLATES = {
   brief: (name, feature) => `# ${name} 비즈니스 요구사항\n\n상태: 작성중\n기능: ${feature}\n\n## 왜 지금\n\n## 목표\n\n## 비즈니스 요구사항\n\n## 범위 밖\n\n## 제약\n\n## 정할 것\n`,
   plan: (name) => `# ${name} 기획\n\n상태: 작성중\n\n## 페르소나\n\n## 요구사항\n\n## 정할 것\n`,
   spec: (name) => `# ${name} 기획 상세 스펙\n\n상태: 작성중\n\n## 상태표\n\n| 대상 | 상태 | 뜻 |\n|---|---|---|\n\n## 조건표\n\n| 조건 | 갈래 | 정해지는 곳 |\n|---|---|---|\n\n## 진행표\n\n| 단위 | 이름 | 요구사항 | 진행 |\n|---|---|---|---|\n`,
-  dev: (name) => `# ${name} 개발 스펙\n\n상태: 작성중\n\n## 결정 기록\n\n## 아키텍처\n\n| 번호 | 구성 요소 | 책임 | 하지 않는 것 | 기대는 곳 |\n|---|---|---|---|---|\n\n## 데이터 모델\n\n## 계약\n\n## 오류·경계\n\n## 비기능 제약\n\n## 작업 계획\n\n## 검증\n\n## 프로젝트 규칙 대조\n\n| 규칙 | 원문 | 결과 |\n|---|---|---|\n\n## 기획에 돌려보낼 것\n\n## 정할 것\n`,
-  diagram: (name) => `# ${name} 시퀀스 다이어그램\n\n상태: 작성중\n`,
+  dev: (name) => `# ${name} 개발 스펙\n\n상태: 작성중\n\n## 결정 기록\n\n## 아키텍처\n\n| 번호 | 구성 요소 | 책임 | 하지 않는 것 | 기대는 곳 |\n|---|---|---|---|---|\n\n## 데이터 모델\n\n## 계약\n\n## 흐름 설계\n\n## 오류·경계\n\n## 비기능 제약\n\n## 작업 계획\n\n## 검증\n\n## 프로젝트 규칙 대조\n\n| 규칙 | 원문 | 결과 |\n|---|---|---|\n\n## 기획에 돌려보낼 것\n\n## 정할 것\n`,
 };
 // 이 단계에서 막히면 다음 파일 틀을 만들 차례다.
-const NEXT_FILES = { '기획 없음': ['plan'], '기획 상세 스펙 없음': ['spec'], '개발 스펙 없음': ['dev', 'diagram'] };
+const NEXT_FILES = { '기획 없음': ['plan'], '기획 상세 스펙 없음': ['spec'], '개발 스펙 없음': ['dev'] };
 
 function init(folder, givenName) {
   mkdirSync(folder, { recursive: true });
@@ -67,7 +68,7 @@ function lock(folder) {
 
 function quotes(folder) {
   const { brief, plan, spec } = load(folder);
-  if (!spec) throw new InputError('spec.md가 없다. 기획 상세 스펙을 먼저 쓴다.');
+  if (!plan || !spec) throw new InputError('plan.md나 spec.md가 없다. 기획과 기획 상세 스펙을 먼저 쓴다.');
   const sources = citable(brief, plan, spec);
   return {
     instructions: [
@@ -81,7 +82,7 @@ function quotes(folder) {
 }
 
 function run([command, first, ...rest]) {
-  const commands = ['init', 'check', 'lock', 'unlock', 'sheet', 'quotes', 'export', 'import', 'discard'];
+  const commands = ['init', 'check', 'lock', 'unlock', 'sheet', 'quotes', 'flow', 'export', 'import', 'discard'];
   if (!command || !first || !commands.includes(command)) {
     console.error(USAGE);
     return 2;
@@ -123,6 +124,12 @@ function run([command, first, ...rest]) {
     console.log(JSON.stringify(sheet(plan, spec), null, 2));
     return 0;
   }
+  if (command === 'flow') {
+    const { spec } = load(first);
+    if (!spec) throw new InputError('spec.md가 없다. PRD를 확정하고 init으로 만든다.');
+    console.log(userFlow(spec));
+    return 0;
+  }
   if (command === 'quotes') {
     console.log(JSON.stringify(quotes(first), null, 2));
     return 0;
@@ -135,7 +142,13 @@ function run([command, first, ...rest]) {
 try {
   process.exitCode = run(process.argv.slice(2));
 } catch (error) {
-  if (!(error instanceof InputError) && error.code !== 'ENOENT') throw error;
-  console.error(error.message);
-  process.exitCode = 2;
+  if (error instanceof InputError || error.code === 'ENOENT') {
+    console.error(error.message);
+    process.exitCode = 2;
+  } else {
+    // 작업 파일이 어떤 모양이어도 스택 트레이스로 끝나지 않게 한다. 하네스 버그이므로 따로 알린다.
+    console.error(`하네스 내부 오류: ${error.message}\n작업 파일은 그대로다. PP_DEBUG=1로 다시 돌리면 자세한 위치가 나온다.`);
+    if (process.env.PP_DEBUG) console.error(error.stack);
+    process.exitCode = 3;
+  }
 }

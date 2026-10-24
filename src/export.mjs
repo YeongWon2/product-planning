@@ -1,5 +1,5 @@
 // 결과물 내보내기·다시 읽어 오기와 작업 폴더 지우기 (docs/harness.md 6장).
-// 결과물은 대상 프로젝트의 docs/product/{feature}/에 prd·spec·dev·diagram 네 파일로 남는다.
+// 결과물은 대상 프로젝트의 docs/product/{feature}/에 prd·spec·flow·dev 네 파일로 남는다. flow는 spec에서 만든다.
 // 작업 흔적(상태 줄, 기능 줄, 진행표, 정할 것, 기획에 돌려보낼 것, trace.json)은 넣지 않는다.
 // 작업 폴더는 같은 프로젝트의 .product-planning/{feature}/에 두는 임시 폴더다. git에 올라가지 않고, 다 내보내면 지운다.
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -9,9 +9,10 @@ import { parseSpec } from './spec.mjs';
 import { criteriaOf, lockFingerprint, parsePlan } from './plan.mjs';
 import { parseBrief } from './brief.mjs';
 import { linkify, unlink } from './link.mjs';
+import { flowDocument } from './flow.mjs';
 
-export const OUTPUTS = { prd: 'prd.md', spec: 'spec.md', dev: 'dev.md', diagram: 'diagram.md' };
-const TITLES = { prd: '기획 PRD', spec: '기획 상세 스펙', dev: '개발 스펙', diagram: '시퀀스 다이어그램' };
+export const OUTPUTS = { prd: 'prd.md', spec: 'spec.md', flow: 'flow.md', dev: 'dev.md' };
+const TITLES = { prd: '기획 PRD', spec: '기획 상세 스펙', flow: '유저 플로우', dev: '개발 스펙' };
 const WORK_FILES = new Set(Object.values(FILES));
 const BRIEF_PART = ['왜 지금', '목표', '비즈니스 요구사항'];
 const BRIEF_TAIL = ['범위 밖', '제약'];
@@ -71,10 +72,13 @@ function clean(source, drop = []) {
 const nameOf = (plan) => plan.title.replace(/\s*기획$/, '');
 const join2 = (parts) => `${parts.filter(Boolean).join('\n\n').replace(/\n{3,}/g, '\n\n').trim()}\n`;
 
-export function render(folder, { withDev }) {
+export function render(folder, options) {
   const docs = load(folder);
+  // 개발 스펙 파일이 없으면 개발까지 끝났다고 해도 기획 문서만 낸다.
+  const withDev = Boolean(options.withDev && docs.dev);
+  if (!docs.plan || !docs.spec) throw new InputError(`${folder}에 plan.md와 spec.md가 있어야 내보낼 수 있다.`);
   const read = (file) => readFileSync(join(folder, file), 'utf8');
-  const keys = withDev ? ['prd', 'spec', 'dev', 'diagram'] : ['prd', 'spec'];
+  const keys = withDev ? ['prd', 'spec', 'flow', 'dev'] : ['prd', 'spec', 'flow'];
   const nav = `> 기준 문서: ${keys.map((key) => `[${TITLES[key]}](${OUTPUTS[key]})`).join(' · ')}`;
   const brief = rawSections(read(FILES.brief));
   const plan = rawSections(read(FILES.plan));
@@ -83,10 +87,8 @@ export function render(folder, { withDev }) {
   };
   const withNav = ([title, ...rest]) => join2([title, nav, ...rest]);
   files[OUTPUTS.spec] = withNav(clean(read(FILES.spec), ['진행표']));
-  if (withDev) {
-    files[OUTPUTS.dev] = withNav(clean(read(FILES.dev), ['기획에 돌려보낼 것', '정할 것']));
-    files[OUTPUTS.diagram] = withNav(clean(read(FILES.diagram)));
-  }
+  files[OUTPUTS.flow] = withNav(flowDocument(docs.spec, nameOf(docs.plan)));
+  if (withDev) files[OUTPUTS.dev] = withNav(clean(read(FILES.dev), ['기획에 돌려보낼 것', '정할 것']));
   return linkify(files, registry(docs, withDev), [OUTPUTS.prd, OUTPUTS.spec]);
 }
 
@@ -102,7 +104,6 @@ function registry(docs, withDev) {
   if (withDev) {
     const { dev } = docs;
     put([...dev.decisions, ...dev.components, ...dev.models, ...dev.contracts, ...dev.errors, ...dev.constraints, ...dev.tasks, ...dev.checks].map((item) => item.id), OUTPUTS.dev);
-    put(docs.diagram.sequences.map((sequence) => sequence.id), OUTPUTS.diagram);
   }
   return map;
 }
@@ -114,14 +115,14 @@ function assertWorkFolder(folder) {
   if (others.length) throw new InputError(`${folder}에 하네스 파일이 아닌 것(${others.join(', ')})이 있어 지우지 않는다.`);
 }
 
-// 기획이 끝났으면 PRD와 기획 상세 스펙을, 개발까지 끝났으면 네 문서를 낸다.
+// 기획이 끝났으면 PRD·기획 상세 스펙·유저 플로우를, 개발까지 끝났으면 개발 스펙까지 네 문서를 낸다.
 // 개발까지 끝나 네 문서를 냈을 때만 작업 폴더를 지운다. 기획만 냈으면 개발을 이어 쓰도록 남긴다.
 export function exportResult(folder, project = projectOf(folder), { force = false, keep = false } = {}) {
   if (!project) throw new InputError('프로젝트 폴더 경로가 필요하다. 작업 폴더가 <프로젝트>/.product-planning/{기능}/이면 생략한다.');
   const report = evaluate(folder);
   if (!report.done.plan) throw new InputError(`아직 기획이 완료가 아니다 (단계: ${report.stage}). check로 남은 것을 먼저 끝낸다.`);
-  const devStarted = existsSync(join(folder, FILES.dev)) || existsSync(join(folder, FILES.diagram));
-  if (devStarted && !report.done.dev) throw new InputError(`개발 스펙을 쓰는 중이다 (단계: ${report.stage}). 끝내고 내보내거나, 기획만 내보내려면 dev.md와 diagram.md를 먼저 치운다.`);
+  const devStarted = existsSync(join(folder, FILES.dev));
+  if (devStarted && !report.done.dev) throw new InputError(`개발 스펙을 쓰는 중이다 (단계: ${report.stage}). 끝내고 내보내거나, 기획만 내보내려면 dev.md를 먼저 치운다.`);
   const feature = load(folder).brief.feature;
   const target = resultDir(project, feature);
   const outputs = render(folder, { withDev: report.done.dev });
@@ -153,12 +154,9 @@ export function importResult(project, folder) {
     [FILES.plan]: confirmed(`${prdTitle} 기획`, [...pick(sections, PLAN_PART), '## 정할 것']),
     [FILES.spec]: withProgress(spec),
   };
+  // 유저 플로우는 기획 상세 스펙에서 다시 만들므로 읽어 오지 않는다.
   const dev = read('dev');
-  const diagram = read('diagram');
-  if (dev && diagram) {
-    files[FILES.dev] = join2([...withStatus(dev), '## 기획에 돌려보낼 것', '## 정할 것']);
-    files[FILES.diagram] = join2(withStatus(diagram));
-  }
+  if (dev) files[FILES.dev] = join2([...withStatus(dev), '## 기획에 돌려보낼 것', '## 정할 것']);
   // 확정된 결과물이므로 요구사항도 잠근 채로 읽어 온다.
   files[FILES.lock] = `${JSON.stringify({ fingerprint: lockFingerprint(parsePlan(files[FILES.plan]), parseBrief(files[FILES.brief])) }, null, 2)}\n`;
   mkdirSync(folder, { recursive: true });

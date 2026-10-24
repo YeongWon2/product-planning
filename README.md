@@ -10,7 +10,7 @@
 ![node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=nodedotjs&logoColor=white)
 ![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-D97757?logo=anthropic&logoColor=white)
 
-[설계서](docs/design.md) · [비즈니스 요구사항](docs/brief-guide.md) · [기획](docs/planning-guide.md) · [기획 상세 스펙](docs/spec-guide.md) · [개발 스펙](docs/dev-guide.md) · [다이어그램](docs/diagram-guide.md) · [하네스](docs/harness.md)
+[설계서](docs/design.md) · [비즈니스 요구사항](docs/brief-guide.md) · [기획](docs/planning-guide.md) · [기획 상세 스펙](docs/spec-guide.md) · [개발 스펙](docs/dev-guide.md) · [하네스](docs/harness.md)
 
 </div>
 
@@ -35,8 +35,8 @@
 |---|---|---|
 | `prd.md` 기획 PRD | 비개발자 | 왜 지금, 목표·지표, 비즈니스 요구사항, 페르소나, 요구사항·완성 기준, 범위 밖 |
 | `spec.md` 기획 상세 스펙 | 기획자·개발자 | 상태표, 조건표, 유스케이스·함수의 기본·대안·예외 흐름 |
-| `dev.md` 개발 스펙 | 개발자 | 결정, 아키텍처, 데이터, 계약, 오류, 제약, 작업, 검증, 프로젝트 규칙 대조 |
-| `diagram.md` 시퀀스 다이어그램 | 개발자 | 계약마다 Mermaid 시퀀스 |
+| `flow.md` 유저 플로우 | 기획자·개발자 | 기획 상세 스펙에서 하네스가 만드는 기능 전체 Mermaid 흐름도 |
+| `dev.md` 개발 스펙 | 개발자 | 결정, 아키텍처, 데이터, 계약, 흐름 설계, 오류, 제약, 작업, 검증, 프로젝트 규칙 대조 |
 
 작업하는 동안은 `<프로젝트>/.product-planning/{기능}/`에 임시 작업 파일을 둔다. 이 폴더는 git에 올라가지 않고, 결과물을 내보내면 지워진다. 프로젝트에 남는 것은 결과물뿐이다.
 GitHub Spec Kit, Kiro, OpenSpec의 생각(빈칸은 묻기, 근거 사슬, 우선순위, 결정 기록, 프로젝트 규칙 대조)을 따랐다.
@@ -60,7 +60,7 @@ flowchart LR
       B[1 비즈니스 요구사항] --> P[2 기획 요구사항] --> R[3 PRD 확정] --> S[4 기획 상세 스펙]
     end
     subgraph 개발 ["/yw-dev"]
-      D[5 개발 스펙 + 시퀀스]
+      D[5 개발 스펙]
     end
     S -->|확정| D
     D --> X[docs/product/기능/]
@@ -97,8 +97,8 @@ node scripts/pp.mjs check examples/post-edit
 | 위치 | 내용 |
 |---|---|
 | `skills/yw-plan/` | 기획 1~4단계를 이끄는 스킬 |
-| `skills/yw-dev/` | 개발 스펙과 시퀀스 다이어그램을 이끄는 스킬 |
-| `scripts/pp.mjs` | 하네스 CLI (`init`, `check`, `lock`, `unlock`, `sheet`, `quotes`, `export`, `import`, `discard`) |
+| `skills/yw-dev/` | 개발 스펙을 이끄는 스킬 |
+| `scripts/pp.mjs` | 하네스 CLI (`init`, `check`, `lock`, `unlock`, `sheet`, `quotes`, `flow`, `export`, `import`, `discard`) |
 | `src/` | 문서 읽기, 규칙, 대조, 출처, 링크, 보고, 내보내기 |
 | `examples/post-edit/` | 네 문서 끝까지 통과한 예시 |
 | `docs/` | 설계서와 작성법. 레포 문서는 200줄 이하 |

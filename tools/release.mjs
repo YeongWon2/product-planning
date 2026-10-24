@@ -13,8 +13,9 @@ const RECORD = '\u001e';
 const FIELD = '\u001f';
 
 // core.quotepath=false: 기본값이면 한글 파일명이 "docs/\354…"처럼 따옴표·8진수로 나와 경로 판정이 틀린다.
+// LC_ALL=C: git 오류 문구가 한국어로 나오면 "태그 없음" 판정이 틀리므로 영어로 받는다.
 function git(root, args) {
-  return execFileSync('git', ['-c', 'core.quotepath=false', ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  return execFileSync('git', ['-c', 'core.quotepath=false', ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, LC_ALL: 'C', LANGUAGE: '' } });
 }
 
 function lastReleaseTag(root) {

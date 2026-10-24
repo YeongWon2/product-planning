@@ -1,16 +1,15 @@
 // 폴더 하나를 검사해 지금 단계와 추가돼야 완성인 것을 낸다 (docs/harness.md 4·5장).
-// 앞 문서가 다 통과해야 뒤 문서를 본다: brief → plan → spec(+trace) → dev + diagram.
+// 앞 문서가 다 통과해야 뒤 문서를 본다: brief → plan → spec(+trace) → dev.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { BRIEF_STEPS, checkBrief, parseBrief } from './brief.mjs';
 import { PLAN_STEPS, checkPlan, parsePlan } from './plan.mjs';
 import { SPEC_STEPS, checkSpec, parseSpec } from './spec.mjs';
-import { DEV_STEPS, checkDev, devIds, parseDev } from './dev.mjs';
-import { checkDiagram, parseDiagram } from './diagram.mjs';
+import { DEV_STEPS, checkDev, parseDev } from './dev.mjs';
 import { citable } from './cite.mjs';
 import { checkTrace, progressOf } from './trace.mjs';
 
-export const FILES = { brief: 'brief.md', plan: 'plan.md', lock: 'lock.json', spec: 'spec.md', trace: 'trace.json', dev: 'dev.md', diagram: 'diagram.md' };
+export const FILES = { brief: 'brief.md', plan: 'plan.md', lock: 'lock.json', spec: 'spec.md', trace: 'trace.json', dev: 'dev.md' };
 const STEPS = { ...BRIEF_STEPS, ...PLAN_STEPS, ...SPEC_STEPS, ...DEV_STEPS };
 const QUOTE = '원문을 인용해';
 const NEXT = {
@@ -35,13 +34,13 @@ const NEXT = {
   19: `흐름의 진입·행동을 ${QUOTE} 어떤 구성 요소가 무엇을 책임지는지 묻는다.`,
   20: `상태표의 대상을 ${QUOTE} 무엇을 저장하고 깨지면 안 되는 규칙이 무엇인지 묻는다.`,
   21: `흐름의 사용자 행동을 ${QUOTE} 무엇을 보내고 성공·실패 때 무엇을 받는지 묻는다.`,
-  22: `계약을 ${QUOTE} 누가 누구를 어떤 순서로 부르는지, 조건 갈래마다 무엇이 오가는지 묻는다.`,
+  22: `흐름의 행동과 갈림을 ${QUOTE} 어느 구성 요소가 받고 어떤 계약을 부르며 무엇이 바뀌고 무엇이 실패하는지 묻는다.`,
   23: `조건의 실패 갈래와 예외 흐름, 실패 시 보장을 ${QUOTE} 실패하면 무엇이 보이고 시스템은 무엇을 하는지, 무엇을 지키는지 묻는다.`,
   24: `PRD 지표와 페르소나 행동 패턴을 ${QUOTE} 숫자로 된 제약을 묻는다.`,
   25: '먼저 깔아야 할 것과 P1부터의 작업 순서를 묻는다.',
   26: `완성 기준을 ${QUOTE} 무엇을 해 보면 완성인지 확인되는지 묻는다.`,
   27: '프로젝트 규칙 파일(CLAUDE.md, 컨벤션 문서)을 읽고 결정과 어긋나는 게 없는지 개발자와 확인한다.',
-  28: '남은 것을 묻고, 없으면 개발 스펙과 시퀀스 다이어그램을 보여 주고 확정을 받는다.',
+  28: '남은 것을 묻고, 없으면 개발 스펙을 보여 주고 확정을 받는다.',
 };
 
 const RELOCK = '사람에게 무엇이 바뀌었는지 보여 주고, 맞으면 unlock 뒤 다시 lock한다. 아니면 잠근 때로 되돌린다.';
@@ -61,7 +60,7 @@ export function load(folder) {
   const read = (name, parse) => (existsSync(join(folder, FILES[name])) ? parse(readFileSync(join(folder, FILES[name]), 'utf8')) : null);
   if (!existsSync(join(folder, FILES.brief))) throw new InputError(`${join(folder, FILES.brief)}가 없다. init으로 틀을 먼저 만든다.`);
   const json = (name) => (existsSync(join(folder, FILES[name])) ? readJson(join(folder, FILES[name])) : null);
-  return { brief: read('brief', parseBrief), plan: read('plan', parsePlan), spec: read('spec', parseSpec), dev: read('dev', parseDev), diagram: read('diagram', parseDiagram), trace: json('trace'), lock: json('lock') };
+  return { brief: read('brief', parseBrief), plan: read('plan', parsePlan), spec: read('spec', parseSpec), dev: read('dev', parseDev), trace: json('trace'), lock: json('lock') };
 }
 
 const tag = (file) => (issue) => ({ ...issue, file });
@@ -69,7 +68,7 @@ const missing = (step, kind, message) => [{ step, kind, message }];
 
 export function evaluate(folder) {
   const docs = load(folder);
-  const { brief, plan, spec, dev, diagram, trace, lock } = docs;
+  const { brief, plan, spec, dev, trace, lock } = docs;
   const issues = checkBrief(brief).map(tag(FILES.brief));
   let progress = null;
   let planDone = false;
@@ -89,11 +88,10 @@ export function evaluate(folder) {
     planDone = issues.length === 0;
   }
   if (planDone) {
-    if (!dev || !diagram) issues.push(...missing(18, '개발 스펙 없음', '기획이 모두 확정됐다. 개발로 넘어가려면 init을 다시 돌려 dev.md와 diagram.md 틀을 만든다.'));
+    if (!dev) issues.push(...missing(18, '개발 스펙 없음', '기획이 모두 확정됐다. 개발로 넘어가려면 init을 다시 돌려 dev.md 틀을 만든다.'));
     else {
       const sources = citable(brief, plan, spec);
-      issues.push(...checkDev(dev, { brief, plan, spec, sources, diagram }).map(tag(FILES.dev)));
-      issues.push(...checkDiagram(diagram, { plan, spec, dev, sources, ids: devIds(dev, diagram) }).map(tag(FILES.diagram)));
+      issues.push(...checkDev(dev, { brief, plan, spec, sources }).map(tag(FILES.dev)));
     }
   }
   const step = issues.length ? Math.min(...issues.map((issue) => issue.step)) : null;
@@ -107,7 +105,7 @@ export function evaluate(folder) {
     rest: issues.length - current.length,
     progress,
     done: { plan: planDone, dev: devDone },
-    next: step === null ? '네 문서가 모두 완성됐다고 알리고 export로 프로젝트에 내보낸다.' : planDone && current[0]?.kind === '개발 스펙 없음' ? '기획이 끝났다고 알리고, 개발 스펙으로 넘어갈지 묻는다. 그만두면 export로 기획만 내보낸다.' : relock ? RELOCK : NEXT[step],
+    next: step === null ? '네 문서(PRD, 기획 상세 스펙, 유저 플로우, 개발 스펙)가 모두 완성됐다고 알리고 export로 프로젝트에 내보낸다.' : planDone && current[0]?.kind === '개발 스펙 없음' ? '기획이 끝났다고 알리고, 개발 스펙으로 넘어갈지 묻는다. 그만두면 export로 기획만 내보낸다.' : relock ? RELOCK : NEXT[step],
   };
 }
 
