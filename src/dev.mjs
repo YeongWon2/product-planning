@@ -1,7 +1,7 @@
 // dev.md 읽기와 개발 스펙 검사 (docs/dev-guide.md, docs/harness.md 5장 18~28).
 import { bullets, items, readStatus, sections, splitIds, tableRows } from './md.mjs';
 import { covers, resolve } from './cite.mjs';
-import { SEP, isAction, linePaths } from './spec.mjs';
+import { SEP, exceptions, guarantees, isAction, linePaths } from './spec.mjs';
 import { criteriaOf } from './plan.mjs';
 import { duplicates } from './brief.mjs';
 
@@ -73,11 +73,15 @@ export function checkDev(dev, { brief, plan, spec, sources, diagram }) {
   const add = (step, kind, message, line) => issues.push({ step, kind, message, line });
   const ids = devIds(dev, diagram);
   const cited = [];
+  const errorCited = [];
   const source = (step, label, field, line) => {
     if (!field?.text) return add(step, '출처 없음', `${label}에 어느 원문에서 나왔는지 \`출처:\`가 있어야 완성이다.`, line);
     const found = resolve(field.text, sources, ids);
     if (!found.ok) add(step, '출처 낡음', `${label}의 출처 "${field.text}"가 지금 기획 문서에 그대로 없다. quotes로 원문을 다시 찾는다.`, field.line);
-    if (found.path) cited.push(found.path);
+    if (found.path) {
+      cited.push(found.path);
+      if (step === 23) errorCited.push(found.path);
+    }
   };
   const missingFields = (step, item, keys) => {
     for (const key of keys) if (!item.fields[key]?.text) add(step, '빈 칸', `${item.id} ${item.title}에 \`${key}:\`가 있어야 완성이다.`, item.line);
@@ -138,6 +142,14 @@ export function checkDev(dev, { brief, plan, spec, sources, diagram }) {
   }
   for (const { name } of spec.conditions) {
     if (!askedAbout((path) => path === `조건표${SEP}${name}` || path.includes(`${name}: `))) add(23, '안 물어봄', `조건 "${name}"를 인용한 계약이나 오류가 없다.`);
+  }
+
+  // 예외 흐름 하나하나가 오류(E) 하나로 이어져야 한다. 그 줄이나 그 아래 줄을 인용하면 된다.
+  for (const { path } of exceptions(spec)) {
+    if (!errorCited.some((cite) => covers(cite, path))) add(23, '안 물어봄', `예외 흐름 "${path}"를 인용한 오류가 없다.`);
+  }
+  for (const { path } of guarantees(spec)) {
+    if (!askedAbout((cite) => cite === path)) add(23, '안 물어봄', `"${path}"를 지키는 방법을 인용한 결정이나 오류가 없다.`);
   }
 
   if (dev.tasks.length === 0) add(25, '작업 없음', '기반 작업과 P1부터의 작업이 작업 계획에 하나 이상 있어야 완성이다.');

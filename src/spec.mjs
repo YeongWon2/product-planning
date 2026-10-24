@@ -109,6 +109,14 @@ export function linePaths(spec) {
   return paths;
 }
 
+// 예외 흐름의 갈림 머리와 실패 시 보장 항목. 개발 스펙 오류와 다이어그램이 이어받는다.
+export function exceptions(spec) {
+  return linePaths(spec).filter(({ path, node, unit }) => node.kind === 'extension' && path === [unit.id, '예외 흐름', node.text].join(SEP));
+}
+export function guarantees(spec) {
+  return linePaths(spec).filter(({ path, node, unit }) => node.kind === 'item' && path.startsWith(`${unit.id}${SEP}실패 시 보장: `));
+}
+
 // 사용자 행동 줄: "사용자가"로 시작하는 단계다.
 export const isAction = (node) => node.kind === 'action';
 

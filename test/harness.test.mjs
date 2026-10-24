@@ -178,7 +178,7 @@ test('개발 스펙: 기획의 행동·조건·제약을 인용한 항목이 없
 
 test('개발 스펙: 거꾸로 의존, 이름 없는 실패, 검증 없는 기준', () => {
   assert.deepEqual(kinds(stageOf({ 'dev.md': (s) => s.replace('| 수정 모달을 열고 닫고 고친 내용을 보낸다 | 권한을 최종 판단하지 않는다 | A2 |', '| 수정 모달을 열고 닫고 고친 내용을 보낸다 | 권한을 최종 판단하지 않는다 | |') }).issues), ['거꾸로 의존']);
-  assert.deepEqual(kinds(stageOf({ 'dev.md': (s) => s.replace('실패: E1', '실패: E1, E2') }).issues), ['이름 없는 실패']);
+  assert.deepEqual(kinds(stageOf({ 'dev.md': (s) => s.replace('실패: E1, E2', '실패: E1, E2, E3') }).issues), ['이름 없는 실패']);
   assert.deepEqual(kinds(stageOf({ 'dev.md': (s) => s.replace(/- V3 .+\n/, '') }).issues), ['검증 없는 기준']);
 });
 
@@ -190,6 +190,18 @@ test('시퀀스: 호출 방향, 빠진 갈래, 없는 참여자, 그림 없는 �
   assert.ok(found((s) => s.replace(/A1->>A2: C1 글 수정 요청/, 'A1->>A2: 글 수정 요청').replace(/C1 (성공|실패)/g, '$1')).includes('그림 없는 계약'));
   assert.deepEqual(found((s) => s.replace('A3-->>A2: 바뀐 글', 'A3 => A2 바뀐 글')), ['그려지지 않음']);
   assert.deepEqual(found((s) => s.replace('A1-->>P1: 고친 글이 보이고 댓글은 그대로 남는다', 'A1-->>P1: 저장됐다')), ['다른 결과 문장']);
+});
+
+test('예외 흐름과 실패 시 보장: 오류와 결정이 인용하고, 시퀀스가 실패 응답으로 그린다', () => {
+  const exception = stageOf({ 'dev.md': (s) => s.replace('출처: F1 › 예외 흐름 › 3b. 저장이 실패한다', '출처: F1 › 대안 흐름 › 1a. 수정 권한이 있는가: 아니오') });
+  assert.equal(exception.stage, '개발 › 5-6. 오류');
+  assert.deepEqual(exception.issues.map((i) => i.message), ['예외 흐름 "F1 › 예외 흐름 › 3b. 저장이 실패한다"를 인용한 오류가 없다.']);
+  const guarantee = stageOf({ 'dev.md': (s) => s.replace('출처: F1 › 실패 시 보장: 저장하지 못하면 원래 글이 그대로 남는다', '출처: D1') });
+  assert.deepEqual(kinds(guarantee.issues), ['안 물어봄']);
+  assert.match(guarantee.issues[0].message, /실패 시 보장/);
+  const found = (change) => kinds(stageOf({ 'diagram.md': change }).issues);
+  assert.deepEqual(found((s) => s.replace(/    break 저장이 실패한다\n[\s\S]*?    end\n/, '')), ['그림 없는 예외']);
+  assert.deepEqual(found((s) => s.replace('break 저장이 실패한다', 'break 연결이 끊긴다')), ['없는 예외']);
 });
 
 test('CLI: 종료 코드, 단계마다 init, quotes', () => {
