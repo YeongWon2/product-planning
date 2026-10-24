@@ -1,8 +1,8 @@
 // diagram.md 읽기와 시퀀스 다이어그램 검사 (docs/diagram-guide.md, docs/harness.md 5장 22·28).
 // Mermaid 전체가 아니라 작성법 3장의 줄 표기만 읽는다. 모르는 줄은 그려지지 않는 것으로 본다.
 import { readStatus, sections, splitIds } from './md.mjs';
-import { resolve } from './cite.mjs';
-import { results } from './spec.mjs';
+import { covers, resolve } from './cite.mjs';
+import { exceptions, results } from './spec.mjs';
 
 export const MAX_BLOCK_DEPTH = 3;
 const OPEN = /^(alt|opt|loop|par|critical|break|rect)\b\s*(.*)$/;
@@ -79,6 +79,13 @@ export function checkDiagram(diagram, { plan, spec, dev, sources, ids }) {
   const plain = (text) => text.replace(/\.$/, '');
   const shown = new Set([...results(spec), ...dev.errors.map((error) => error.fields['보이는 것']?.text).filter(Boolean)].map(plain));
   const drawn = new Set();
+  const drawnErrors = new Set();
+  // 예외 흐름과 그 예외를 인용한 오류. 오류는 그림의 실패 응답으로, 예외 머리는 break 묶음 이름으로 나와야 한다.
+  const exceptionPaths = exceptions(spec);
+  const exceptionLabels = new Set(exceptionPaths.map(({ node }) => node.label));
+  const exceptionErrors = dev.errors.map((error) => ({ error, path: error.fields['출처'] && resolve(error.fields['출처'].text, sources, ids).path }))
+    .map(({ error, path }) => ({ error, exception: path && exceptionPaths.find((item) => covers(path, item.path)) }))
+    .filter(({ exception }) => exception);
 
   for (const { title, line } of diagram.unknown) add(22, '모르는 머리', `"## ${title}"는 작성법에 없는 머리다. S번호 · 이름으로 쓴다.`, line);
   const seen = new Set();
@@ -113,6 +120,7 @@ export function checkDiagram(diagram, { plan, spec, dev, sources, ids }) {
           const [from, to] = message.reply ? [contract.to, contract.from] : [contract.from, contract.to];
           if (message.from !== from || message.to !== to) add(22, '다른 호출 방향', `${where}가 계약의 호출 ${contract.from} → ${contract.to}와 다르다.`, message.line);
           const failure = message.text.match(/실패\s*·\s*(E\d+)/)?.[1];
+          if (failure) drawnErrors.add(failure);
           if (failure && !contract.failures.includes(failure)) add(22, '없는 실패', `${where}의 ${failure}가 ${id}의 실패에 없다.`, message.line);
         }
       } else if (!message.reply && components.has(message.from) && components.has(message.to) && !components.get(message.from).deps.includes(message.to)) {
@@ -121,12 +129,19 @@ export function checkDiagram(diagram, { plan, spec, dev, sources, ids }) {
       if (parsed.participants.get(message.to)?.kind === 'actor' && !shown.has(plain(message.text))) add(22, '다른 결과 문장', `${where}가 흐름의 화면 결과 문장이나 오류의 보이는 것과 다르다.`, message.line);
     }
     for (const block of parsed.blocks.filter((item) => item.kind === 'alt')) checkAlt(block, conditions, label, add);
+    for (const block of parsed.blocks.filter((item) => item.kind === 'break')) {
+      const name = block.labels[0].text;
+      if (!exceptionLabels.has(name)) add(22, '없는 예외', `${label}의 "break ${name}"가 기획 상세 스펙 예외 흐름의 머리와 다르다.`, block.labels[0].line);
+    }
 
     if (!sequence.basis) add(22, '근거 줄 없음', `${label} 그림 아래에 \`계약: … · 흐름: …\` 줄이 있어야 완성이다.`, sequence.line);
     else {
       for (const id of sequence.basis.contracts) if (!contracts.has(id)) add(22, '없는 계약', `${label} 근거 줄의 ${id}가 개발 스펙 계약에 없다.`, sequence.basis.line);
       if (!resolve(sequence.basis.tree, sources, ids).ok) add(22, '근거 줄 없음', `${label} 근거 줄의 흐름 "${sequence.basis.tree}"가 기획 상세 스펙에 없다.`, sequence.basis.line);
     }
+  }
+  for (const { error, exception } of exceptionErrors) {
+    if (!drawnErrors.has(error.id)) add(22, '그림 없는 예외', `예외 흐름 "${exception.path}"의 ${error.id} ${error.title}이 어느 시퀀스에도 "C번호 실패 · ${error.id}"로 그려지지 않았다.`, error.line);
   }
   for (const contract of dev.contracts) if (!drawn.has(contract.id)) add(22, '그림 없는 계약', `${contract.id} ${contract.title}이 어느 시퀀스에도 나오지 않는다.`, contract.line);
 
