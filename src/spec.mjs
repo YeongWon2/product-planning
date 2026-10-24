@@ -8,7 +8,10 @@ export const MAX_BRANCH_DEPTH = 3;
 export const SEP = ' › ';
 export const FLOWS = ['기본 흐름', '대안 흐름', '예외 흐름'];
 const PROGRESS = ['대기', '작성중', '완료'];
-const KIND = { F: '피쳐', FN: '함수' };
+const KIND = { F: '유스케이스', FN: '함수' };
+// 유스케이스 항목. 우선순위·이해관계자는 PRD에 있어 두지 않는다.
+export const ITEMS = ['목적', '행위자', '시작', '사전 조건', '기본 흐름 조건', '성공 결과', '실패 시 보장'];
+const REQUIRED_ITEMS = ['목적', '행위자', '시작', '성공 결과', '실패 시 보장'];
 // 예전 표기의 기호와 이모지. 어느 환경에서도 읽히게 낱말로 바꾸게 한다.
 export const SYMBOLS = /[◆⇒↪→]|\*\*|\p{Extended_Pictographic}/u;
 const STEP = /^(\d+(?:[a-z]\d+)*)\.\s+(.+)$/;
@@ -34,34 +37,36 @@ export function parseSpec(source) {
   return spec;
 }
 
-// 머리 줄(시작:, 전제:)과 ### 흐름 구역을 읽는다.
+// 유스케이스 항목 표와 ### 흐름 구역을 읽는다. 항목은 Cockburn·RUP 유스케이스 명세에서 PRD와 겹치지 않는 것만 둔다.
 function readUnit(body) {
-  const unit = { start: null, premises: [], flows: {}, noException: null, strayFlows: [] };
+  const unit = { items: [], premises: [], flows: {}, noException: null, strayFlows: [] };
   let flow = null;
   let chunk = [];
+  const head = [];
   const close = () => {
     if (flow) unit.flows[flow.name] = { line: flow.line, nodes: listTree(chunk).map(classify) };
     chunk = [];
   };
   for (const { text, line } of body) {
-    const head = text.match(/^###\s+(.+)$/);
-    if (head) {
+    const title = text.match(/^###\s+(.+)$/);
+    if (title) {
       close();
-      flow = { name: head[1].trim(), line };
+      flow = { name: title[1].trim(), line };
       if (!FLOWS.includes(flow.name)) unit.strayFlows.push(flow);
       continue;
     }
-    if (flow) {
-      const none = text.match(/^-\s+없음:\s*(.*)$/);
-      if (none && flow.name === '예외 흐름') unit.noException = { text: none[1].trim(), line };
-      else chunk.push({ text, line });
+    if (!flow) {
+      head.push({ text, line });
       continue;
     }
-    const field = text.match(/^(시작|전제):\s*(.+)$/);
-    if (field?.[1] === '시작') unit.start = { text: field[2].trim(), line };
-    else if (field) unit.premises.push({ text: field[2].trim(), line, ...material(field[2].trim()) });
+    const none = text.match(/^-\s+없음:\s*(.*)$/);
+    if (none && flow.name === '예외 흐름') unit.noException = { text: none[1].trim(), line };
+    else chunk.push({ text, line });
   }
   close();
+  unit.items = tableRows(head).map(({ cells: [name, value = ''], line }) => ({ name, value, line }));
+  const premise = unit.items.find((item) => item.name === '기본 흐름 조건');
+  if (premise && premise.value !== '없음') unit.premises = splitIds(premise.value).map((text) => ({ text, line: premise.line, ...material(text) }));
   return unit;
 }
 
@@ -93,7 +98,7 @@ const walkNodes = (nodes, visit, parents = []) => nodes.forEach((node) => { visi
 export function linePaths(spec) {
   const paths = [];
   for (const unit of spec.units) {
-    for (const premise of unit.premises) paths.push({ path: `${unit.id}${SEP}전제: ${premise.text}`, line: premise.line, node: { kind: 'premise', text: premise.text }, unit });
+    for (const item of unit.items) paths.push({ path: `${unit.id}${SEP}${item.name}: ${item.value}`, line: item.line, node: { kind: 'item', text: item.value }, unit });
     for (const name of FLOWS) {
       if (unit.flows[name]) paths.push({ path: `${unit.id}${SEP}${name}`, line: unit.flows[name].line, node: { kind: 'flow', text: name }, unit });
       walkNodes(unit.flows[name]?.nodes ?? [], (node, parents) => {
@@ -130,10 +135,10 @@ export function checkSpec(spec, plan) {
   for (const { title, line } of spec.unknown) add(14, '모르는 머리', `"## ${title}"는 작성법에 없는 머리다. F번호 · 이름 · R번호 또는 FN번호 · 이름으로 쓴다.`, line);
 
   const requirementIds = new Set(plan.requirements.map((requirement) => requirement.id));
-  const featured = new Set(spec.units.filter((unit) => unit.kind === '피쳐').flatMap((unit) => unit.requirements));
-  if (spec.units.length === 0) add(14, '단위 없음', '요구사항을 피쳐와 함수로 나눈 단위가 있어야 완성이다.');
+  const featured = new Set(spec.units.filter((unit) => unit.kind === '유스케이스').flatMap((unit) => unit.requirements));
+  if (spec.units.length === 0) add(14, '단위 없음', '요구사항을 유스케이스와 함수로 나눈 단위가 있어야 완성이다.');
   for (const requirement of plan.requirements) {
-    if (!featured.has(requirement.id)) add(14, '피쳐 없는 요구사항', `${requirement.id} ${requirement.name}을 다루는 피쳐가 있어야 완성이다.`);
+    if (!featured.has(requirement.id)) add(14, '유스케이스 없는 요구사항', `${requirement.id} ${requirement.name}을 다루는 유스케이스가 있어야 완성이다.`);
   }
   const ids = new Set();
   for (const unit of spec.units) {
@@ -166,17 +171,26 @@ export function checkSpec(spec, plan) {
     const label = `${unit.id} ${unit.name}`;
     const seen = new Map();
     for (const { line } of unit.strayFlows) add(15, '모르는 머리', `${label}의 ### 머리는 ${FLOWS.join(', ')} 중 하나로 쓴다.`, line);
-    if (unit.kind === '피쳐' && !unit.start) add(15, '시작 없음', `${label}에 사용자가 어디서 시작하는지 \`시작:\` 줄이 있어야 완성이다.`, unit.line);
+    for (const item of unit.items) {
+      if (!ITEMS.includes(item.name)) add(15, '모르는 항목', `${label}의 항목 "${item.name}"는 ${ITEMS.join(', ')} 중 하나로 쓴다.`, item.line);
+      if (SYMBOLS.test(item.value)) add(15, '기호', `${label}의 ${item.name}에서 기호를 빼고 낱말로 쓴다.`, item.line);
+      if (item.name !== '기본 흐름 조건' && sentenceCount(item.value) > 1) add(15, '한 줄 두 문장', `${label}의 ${item.name}을 한 문장으로 쓴다.`, item.line);
+    }
+    if (unit.kind === '유스케이스') {
+      for (const name of REQUIRED_ITEMS) if (!unit.items.find((item) => item.name === name)?.value) add(15, '빠진 항목', `${label}의 항목 표에 ${name}이 있어야 완성이다.`, unit.line);
+    }
+    const actors = unit.items.find((item) => item.name === '행위자');
+    for (const id of splitIds(actors?.value)) if (!plan.personas.some((persona) => persona.id === id)) add(15, '없는 행위자', `${label}의 행위자 ${id}가 기획의 페르소나에 없다.`, actors.line);
     const main = unit.flows['기본 흐름']?.nodes ?? [];
     if (main.length === 0) add(15, '빈 흐름', `${label}에 ### 기본 흐름 단계가 있어야 완성이다.`, unit.line);
-    if (unit.kind === '피쳐' && !unit.noException && !(unit.flows['예외 흐름']?.nodes.length)) add(15, '예외 흐름 없음', `${label}에서 실패하거나 끊기면 어떻게 되는지 ### 예외 흐름이 있어야 완성이다. 없으면 "- 없음: 이유"로 쓴다.`, unit.line);
+    if (unit.kind === '유스케이스' && !unit.noException && !(unit.flows['예외 흐름']?.nodes.length)) add(15, '예외 흐름 없음', `${label}에서 실패하거나 끊기면 어떻게 되는지 ### 예외 흐름이 있어야 완성이다. 없으면 "- 없음: 이유"로 쓴다.`, unit.line);
     main.forEach((node, index) => {
       if (node.kind === 'extension' || node.kind === 'unnumbered') return;
       if (node.id !== String(index + 1)) add(15, '번호 순서', `${label} 기본 흐름의 "${node.text}"는 ${index + 1}번이어야 한다.`, node.line);
     });
     for (const premise of unit.premises) {
-      if (!premise.subject) add(15, '없는 재료', `${label}의 전제 "${premise.text}"는 "조건: 갈래" 모양으로 쓴다.`, premise.line);
-      else useMaterial(premise.subject, premise.branch, `${label}의 전제 "${premise.text}"`, premise.line, seen);
+      if (!premise.subject) add(15, '없는 재료', `${label}의 기본 흐름 조건 "${premise.text}"는 "조건: 갈래" 모양으로 쓴다.`, premise.line);
+      else useMaterial(premise.subject, premise.branch, `${label}의 기본 흐름 조건 "${premise.text}"`, premise.line, seen);
     }
 
     const stepIds = new Set();
@@ -216,7 +230,7 @@ export function checkSpec(spec, plan) {
       });
     }
     for (const [key, { expected, isState, line, found }] of seen) {
-      for (const branch of expected) if (!found.has(branch)) add(15, isState ? '빠진 상태' : '빠진 갈래', `${label}에 "${key}: ${branch}"일 때의 흐름이 없다. 전제나 대안 흐름에 있어야 완성이다.`, line);
+      for (const branch of expected) if (!found.has(branch)) add(15, isState ? '빠진 상태' : '빠진 갈래', `${label}에 "${key}: ${branch}"일 때의 흐름이 없다. 기본 흐름 조건이나 대안 흐름에 있어야 완성이다.`, line);
     }
   }
   if (spec.units.length) {
