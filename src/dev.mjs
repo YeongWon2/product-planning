@@ -5,12 +5,12 @@ import { SEP, exceptions, guarantees, isAction, linePaths } from './spec.mjs';
 import { criteriaOf } from './plan.mjs';
 import { duplicates } from './brief.mjs';
 
-export const DEV_STEPS = { 18: '개발 › 5-1. 결정', 19: '개발 › 5-2. 아키텍처', 20: '개발 › 5-3. 데이터', 21: '개발 › 5-4. 계약', 22: '개발 › 5-5. 시퀀스', 23: '개발 › 5-6. 오류', 24: '개발 › 5-7. 제약', 25: '개발 › 5-8. 작업', 26: '개발 › 5-9. 검증', 27: '개발 › 5-10. 규칙 대조', 28: '개발 › 5-11. 확정' };
-const SECTION_STEP = { '결정 기록': 18, 아키텍처: 19, '데이터 모델': 20, 계약: 21, '오류·경계': 23, '비기능 제약': 24, '작업 계획': 25, 검증: 26, '프로젝트 규칙 대조': 27, '기획에 돌려보낼 것': 28, '정할 것': 28 };
+export const DEV_STEPS = { 18: '개발 › 5-1. 결정', 19: '개발 › 5-2. 아키텍처', 20: '개발 › 5-3. 데이터', 21: '개발 › 5-4. 계약', 22: '개발 › 5-5. 흐름 설계', 23: '개발 › 5-6. 오류', 24: '개발 › 5-7. 제약', 25: '개발 › 5-8. 작업', 26: '개발 › 5-9. 검증', 27: '개발 › 5-10. 규칙 대조', 28: '개발 › 5-11. 확정' };
+const SECTION_STEP = { '결정 기록': 18, 아키텍처: 19, '데이터 모델': 20, 계약: 21, '흐름 설계': 22, '오류·경계': 23, '비기능 제약': 24, '작업 계획': 25, 검증: 26, '프로젝트 규칙 대조': 27, '기획에 돌려보낼 것': 28, '정할 것': 28 };
 
 export function parseDev(source) {
   const lines = source.split(/\r?\n/);
-  const dev = { status: readStatus(lines), title: lines.find((line) => line.startsWith('# '))?.slice(2).trim() ?? '', decisions: [], components: [], architectureSources: [], models: [], contracts: [], errors: [], constraints: [], phases: [], tasks: [], checks: [], rules: [], returns: [], questions: [], stray: [] };
+  const dev = { status: readStatus(lines), title: lines.find((line) => line.startsWith('# '))?.slice(2).trim() ?? '', decisions: [], components: [], architectureSources: [], models: [], contracts: [], errors: [], constraints: [], designs: [], phases: [], tasks: [], checks: [], rules: [], returns: [], questions: [], stray: [] };
   for (const section of sections(lines)) {
     const step = SECTION_STEP[section.title];
     const read = (pattern, keys) => {
@@ -27,6 +27,7 @@ export function parseDev(source) {
       }
     } else if (section.title === '데이터 모델') dev.models = read(/^### (M\d+) (.+)$/, ['출처']);
     else if (section.title === '계약') dev.contracts = read(/^### (C\d+) (.+)$/, ['호출', '입력', '성공', '실패', '출처']).map(readCall);
+    else if (section.title === '흐름 설계') dev.designs = readDesigns(section.body, dev);
     else if (section.title === '오류·경계') dev.errors = read(/^### (E\d+) (.+)$/, ['상황', '보이는 것', '시스템 처리', '출처']);
     else if (section.title === '비기능 제약') dev.constraints = bullets(section.body).map(readConstraint);
     else if (section.title === '작업 계획') readTasks(section.body, dev);
@@ -43,6 +44,22 @@ function readCall(contract) {
   const call = contract.fields['호출']?.text.match(/^(A\d+)\s*→\s*(A\d+)$/);
   const failure = contract.fields['실패']?.text ?? '';
   return { ...contract, from: call?.[1] ?? null, to: call?.[2] ?? null, failures: failure === '없음' ? [] : splitIds(failure) };
+}
+
+// ### 단위 번호 아래 표: | 흐름 단계 | 받는 곳 | 계약 | 데이터 | 실패 |
+function readDesigns(body, dev) {
+  const designs = [];
+  for (const { text, line } of body) {
+    const head = text.match(/^### ((?:FN|F)\d+)\s+(.+)$/);
+    if (head) designs.push({ id: head[1], title: head[2].trim(), line, body: [] });
+    else if (designs.length) designs.at(-1).body.push({ text, line });
+    else if (text.trim()) dev.stray.push({ text: text.trim(), line, step: 22 });
+  }
+  const none = (text) => (text === '없음' ? [] : splitIds(text));
+  return designs.map(({ body: rows, ...design }) => ({
+    ...design,
+    rows: tableRows(rows).map(({ cells: [step = '', receiver = '', contract = '', data = '', failure = ''], line }) => ({ step, receivers: none(receiver), contracts: none(contract), data: none(data), failures: none(failure), line })),
+  }));
 }
 
 function readConstraint({ text, line }) {
@@ -64,14 +81,14 @@ function readTasks(body, dev) {
   }
 }
 
-export const devIds = (dev, diagram) => new Set([
-  ...dev.decisions, ...dev.components, ...dev.models, ...dev.contracts, ...dev.errors, ...dev.constraints, ...dev.tasks, ...dev.checks, ...(diagram?.sequences ?? []),
+export const devIds = (dev) => new Set([
+  ...dev.decisions, ...dev.components, ...dev.models, ...dev.contracts, ...dev.errors, ...dev.constraints, ...dev.tasks, ...dev.checks,
 ].map((item) => item.id).filter(Boolean));
 
-export function checkDev(dev, { brief, plan, spec, sources, diagram }) {
+export function checkDev(dev, { brief, plan, spec, sources }) {
   const issues = [];
   const add = (step, kind, message, line) => issues.push({ step, kind, message, line });
-  const ids = devIds(dev, diagram);
+  const ids = devIds(dev);
   const cited = [];
   const errorCited = [];
   const source = (step, label, field, line) => {
@@ -135,6 +152,7 @@ export function checkDev(dev, { brief, plan, spec, sources, diagram }) {
   }
 
   const errors = new Set(dev.errors.map((error) => error.id));
+  checkDesigns(dev, spec, components, errors, add);
   duplicates(dev.errors, (id, line) => add(23, '번호 겹침', `오류 번호 ${id}가 두 번 나온다.`, line));
   for (const error of dev.errors) missingFields(23, error, ['상황', '보이는 것', '시스템 처리']);
   for (const contract of dev.contracts) {
@@ -181,6 +199,47 @@ export function checkDev(dev, { brief, plan, spec, sources, diagram }) {
   for (const item of dev.questions) add(28, '정할 것 남음', item.text, item.line);
   if (dev.status !== '확정') add(28, '확정 전', '개발자가 개발 스펙을 읽고 확정하면 상태: 확정으로 바꾼다.');
   return issues;
+}
+
+// 흐름 설계: 유스케이스의 행동과 갈림마다 받는 구성 요소, 부르는 계약, 바뀌는 데이터, 실패를 잇는다.
+function checkDesigns(dev, spec, components, errors, add) {
+  const contracts = new Map(dev.contracts.map((contract) => [contract.id, contract]));
+  const models = new Set(dev.models.map((model) => model.id));
+  const designs = new Map(dev.designs.map((design) => [design.id, design]));
+  const used = new Set();
+  for (const design of dev.designs) if (!spec.units.some((unit) => unit.id === design.id)) add(22, '없는 유스케이스', `흐름 설계 ${design.id}가 기획 상세 스펙에 없다.`, design.line);
+  for (const unit of spec.units) {
+    const label = `${unit.id} ${unit.name}`;
+    const design = designs.get(unit.id);
+    const paths = linePaths(spec).filter((entry) => entry.unit === unit).map((entry) => ({ ...entry, step: entry.path.slice(unit.id.length + SEP.length) }));
+    if (!design) {
+      add(22, '설계 없는 유스케이스', `${label}의 흐름 설계가 없다. 행동과 갈림마다 받는 곳·계약·데이터·실패를 표로 써야 완성이다.`);
+      continue;
+    }
+    const steps = new Set(paths.map((entry) => entry.step));
+    for (const row of design.rows) {
+      const where = `${unit.id}의 "${row.step}"`;
+      if (!steps.has(row.step)) add(22, '없는 흐름 단계', `흐름 설계 ${where}가 기획 상세 스펙에 없다.`, row.line);
+      if (row.receivers.length === 0) add(22, '빈 칸', `흐름 설계 ${where}에 받는 구성 요소가 있어야 완성이다.`, row.line);
+      for (const id of row.receivers) if (!components.has(id)) add(22, '없는 구성 요소', `흐름 설계 ${where}의 ${id}가 아키텍처 표에 없다.`, row.line);
+      for (const id of row.contracts) {
+        used.add(id);
+        const contract = contracts.get(id);
+        if (!contract) add(22, '없는 계약', `흐름 설계 ${where}의 ${id}가 계약에 없다.`, row.line);
+        else if (contract.from && !row.receivers.includes(contract.from)) add(22, '다른 받는 곳', `흐름 설계 ${where}는 ${id}를 부르는데, ${id}를 부르는 ${contract.from}이 받는 곳에 없다.`, row.line);
+      }
+      for (const id of row.data) if (!models.has(id)) add(22, '없는 데이터', `흐름 설계 ${where}의 ${id}가 데이터 모델에 없다.`, row.line);
+      for (const id of row.failures) if (!errors.has(id)) add(22, '없는 오류', `흐름 설계 ${where}의 ${id}가 오류·경계에 없다.`, row.line);
+    }
+    const rows = new Map(design.rows.map((row) => [row.step, row]));
+    for (const { step, node } of paths) {
+      if (node.kind !== 'action' && node.kind !== 'extension') continue;
+      const row = rows.get(step);
+      if (!row) add(22, '설계 없는 단계', `${unit.id}의 "${step}"를 흐름 설계 표에 써야 완성이다.`, design.line);
+      else if (step.startsWith('예외 흐름') && row.failures.length === 0) add(22, '실패 없는 예외', `${unit.id}의 "${step}"에 어떤 오류(E)가 나는지 써야 완성이다.`, row.line);
+    }
+  }
+  for (const contract of dev.contracts) if (!used.has(contract.id)) add(22, '설계 없는 계약', `${contract.id} ${contract.title}을 부르는 흐름 단계가 흐름 설계에 없다.`, contract.line);
 }
 
 function uniqueTargets(spec) {

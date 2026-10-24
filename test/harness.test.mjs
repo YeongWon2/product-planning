@@ -152,7 +152,7 @@ test('대조: 빠진 것은 그대로 보여 주고, 바뀐 기준과 근거 줄
 });
 
 test('기획이 끝나고 개발 파일이 없으면 기획 완료로 알린다', () => {
-  const report = stageOf({ 'dev.md': null, 'diagram.md': null });
+  const report = stageOf({ 'dev.md': null });
   assert.equal(report.stage, '기획 완료');
   assert.deepEqual(report.done, { plan: true, dev: false });
   assert.match(report.next, /개발 스펙으로 넘어갈지/);
@@ -182,26 +182,33 @@ test('개발 스펙: 거꾸로 의존, 이름 없는 실패, 검증 없는 기�
   assert.deepEqual(kinds(stageOf({ 'dev.md': (s) => s.replace(/- V3 .+\n/, '') }).issues), ['검증 없는 기준']);
 });
 
-test('시퀀스: 호출 방향, 빠진 갈래, 없는 참여자, 그림 없는 계약, 읽지 못한 줄', () => {
-  const found = (change) => kinds(stageOf({ 'diagram.md': change }).issues);
-  assert.deepEqual(found((s) => s.replace('A1->>A2: C1 글 수정 요청', 'A2->>A1: C1 글 수정 요청')), ['다른 호출 방향']);
-  assert.deepEqual(found((s) => s.replace('  else 수정 권한이 있는가: 예\n', '  end\n  opt 계속\n')), ['빠진 갈래']);
-  assert.deepEqual(found((s) => s.replace('participant A3 as 글 저장소', 'participant A3 as 저장소')), ['없는 참여자']);
-  assert.ok(found((s) => s.replace(/A1->>A2: C1 글 수정 요청/, 'A1->>A2: 글 수정 요청').replace(/C1 (성공|실패)/g, '$1')).includes('그림 없는 계약'));
-  assert.deepEqual(found((s) => s.replace('A3-->>A2: 바뀐 글', 'A3 => A2 바뀐 글')), ['그려지지 않음']);
-  assert.deepEqual(found((s) => s.replace('A1-->>P1: 고친 글이 보이고 댓글은 그대로 남는다', 'A1-->>P1: 저장됐다')), ['다른 결과 문장']);
+test('흐름 설계: 빠진 단계, 다른 받는 곳, 없는 계약, 실패 없는 예외, 설계 없는 계약', () => {
+  const found = (change) => kinds(stageOf({ 'dev.md': change }).issues);
+  assert.deepEqual(found((s) => s.replace('| 대안 흐름 › 1b. 게시글 상태: 잠김 | A1 | 없음 | M1 | 없음 |\n', '')), ['설계 없는 단계']);
+  assert.deepEqual(found((s) => s.replace('| 기본 흐름 › 3. 사용자가 글을 고치고 저장을 누른다 | A1, A2 |', '| 기본 흐름 › 3. 사용자가 글을 고치고 저장을 누른다 | A2 |')), ['다른 받는 곳']);
+  assert.deepEqual(found((s) => s.replace('| 예외 흐름 › 3b. 저장이 실패한다 | A1, A2 | C1 | M1 | E2 |', '| 예외 흐름 › 3b. 저장이 실패한다 | A1, A2 | C1 | M1 | 없음 |')), ['실패 없는 예외']);
+  assert.deepEqual(found((s) => s.replace('| A1, A2 | C1 | M1 | E1, E2 |', '| A1, A2 | C9 | M1 | E1, E2 |')), ['없는 계약']);
+  assert.ok(found((s) => s.replace(/\| C1 \|/g, '| 없음 |')).includes('설계 없는 계약'));
+  assert.deepEqual(found((s) => s.replace('### FN1 수정 중 닫기\n', '### FN2 수정 중 닫기\n')), ['없는 유스케이스', '설계 없는 유스케이스']);
 });
 
-test('예외 흐름과 실패 시 보장: 오류와 결정이 인용하고, 시퀀스가 실패 응답으로 그린다', () => {
+test('유저 플로우: 기획 상세 스펙에서 만들고, 갈림은 화살표 이름, 예외는 점선, 함수는 그 흐름으로 간다', () => {
+  const flow = execFileSync('node', [CLI, 'flow', EXAMPLE], { encoding: 'utf8' });
+  assert.match(flow, /^flowchart TD\n  subgraph F1\["F1 게시글 수정"\]/);
+  assert.match(flow, /F1_1 -->\|"1a\. 수정 권한이 있는가: 아니오"\| F1_1a1/);
+  assert.match(flow, /F1_3 -\.->\|"3b\. 저장이 실패한다"\| F1_3b1/);
+  assert.match(flow, /F1_3b1 --> F1_2/, '돌아가는 단계로 잇는다');
+  assert.match(flow, /\| FN1_start/, '함수를 따르면 그 함수 흐름의 시작으로 간다');
+  assert.match(flow, /#quot;저장하지 않고 닫을까요\?#quot;/, '글 안의 따옴표는 바꿔 써서 그림이 깨지지 않는다');
+});
+
+test('예외 흐름과 실패 시 보장: 오류와 결정이 인용한다', () => {
   const exception = stageOf({ 'dev.md': (s) => s.replace('출처: F1 › 예외 흐름 › 3b. 저장이 실패한다', '출처: F1 › 대안 흐름 › 1a. 수정 권한이 있는가: 아니오') });
   assert.equal(exception.stage, '개발 › 5-6. 오류');
   assert.deepEqual(exception.issues.map((i) => i.message), ['예외 흐름 "F1 › 예외 흐름 › 3b. 저장이 실패한다"를 인용한 오류가 없다.']);
   const guarantee = stageOf({ 'dev.md': (s) => s.replace('출처: F1 › 실패 시 보장: 저장하지 못하면 원래 글이 그대로 남는다', '출처: D1') });
   assert.deepEqual(kinds(guarantee.issues), ['안 물어봄']);
   assert.match(guarantee.issues[0].message, /실패 시 보장/);
-  const found = (change) => kinds(stageOf({ 'diagram.md': change }).issues);
-  assert.deepEqual(found((s) => s.replace(/    break 저장이 실패한다\n[\s\S]*?    end\n/, '')), ['그림 없는 예외']);
-  assert.deepEqual(found((s) => s.replace('break 저장이 실패한다', 'break 연결이 끊긴다')), ['없는 예외']);
 });
 
 test('CLI: 종료 코드, 단계마다 init, quotes', () => {
@@ -215,8 +222,8 @@ test('CLI: 종료 코드, 단계마다 init, quotes', () => {
   assert.equal(fresh.status, 1);
   assert.match(fresh.stdout, /단계 {2}기획 › 1-2\. 왜 지금/);
 
-  const done = copyExample({ 'dev.md': null, 'diagram.md': null });
-  assert.match(execFileSync('node', [CLI, 'init', done], { encoding: 'utf8' }), /dev\.md.*diagram\.md/);
+  const done = copyExample({ 'dev.md': null });
+  assert.match(execFileSync('node', [CLI, 'init', done], { encoding: 'utf8' }), /dev\.md/);
   assert.match(spawnSync('node', [CLI, 'check', done], { encoding: 'utf8' }).stdout, /단계 {2}개발 › 5-1\. 결정/);
 
   const sheet = JSON.parse(execFileSync('node', [CLI, 'sheet', EXAMPLE], { encoding: 'utf8' }));
@@ -228,7 +235,7 @@ test('CLI: 종료 코드, 단계마다 init, quotes', () => {
 });
 
 test('레포 문서는 200줄 이하다', () => {
-  for (const file of ['docs/design.md', 'docs/brief-guide.md', 'docs/planning-guide.md', 'docs/spec-guide.md', 'docs/dev-guide.md', 'docs/diagram-guide.md', 'docs/harness.md', 'README.md', 'skills/yw-plan/SKILL.md', 'skills/yw-dev/SKILL.md']) {
+  for (const file of ['docs/design.md', 'docs/brief-guide.md', 'docs/planning-guide.md', 'docs/spec-guide.md', 'docs/dev-guide.md', 'docs/harness.md', 'README.md', 'skills/yw-plan/SKILL.md', 'skills/yw-dev/SKILL.md']) {
     const lines = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8').split('\n').length;
     assert.ok(lines <= 200, `${file} ${lines}줄`);
   }
@@ -239,7 +246,7 @@ test('export: 네 문서를 docs/product/{기능}/에 링크와 함께 내보내
   const project = mkdtempSync(join(tmpdir(), 'pp-project-'));
   assert.equal(spawnSync('node', [CLI, 'export', dir, project]).status, 0);
   const out = (file) => readFileSync(join(project, 'docs/product/post-edit', file), 'utf8');
-  const [prd, spec, dev, diagram] = ['prd.md', 'spec.md', 'dev.md', 'diagram.md'].map(out);
+  const [prd, spec, flow, dev] = ['prd.md', 'spec.md', 'flow.md', 'dev.md'].map(out);
   assert.match(prd, /^# 게시글 수정 기획 PRD\n\n> 기준 문서: \[기획 PRD\]\(prd\.md\)/);
   assert.match(prd, /### <a id="r1"><\/a>R1 작성자는/);
   assert.match(prd, /쓰는 곳: \[F1\]\(spec\.md#f1\)/, '요구사항에서 그 요구사항을 다루는 트리로 간다');
@@ -248,19 +255,20 @@ test('export: 네 문서를 docs/product/{기능}/에 링크와 함께 내보내
   assert.ok(prd.indexOf('## 왜 지금') < prd.indexOf('## 페르소나') && prd.indexOf('## 요구사항') < prd.indexOf('## 범위 밖'));
   assert.match(spec, /## <a id="f1"><\/a>F1 · 게시글 수정 · \[R1\]\(prd\.md#r1\)/);
   assert.match(dev, /출처: \[F1\]\(spec\.md#f1\) › 기본 흐름 › 1\. 사용자가 수정을 누른다/);
-  assert.match(diagram, /```mermaid\n[\s\S]*A1->>A2: C1 글 수정 요청/, '그림 안은 링크하지 않는다');
-  assert.match(diagram, /계약: \[C1\]\(dev\.md#c1\)/);
-  for (const trace of [/^상태:/m, /^기능:/m, /진행표/, /정할 것/, /기획에 돌려보낼 것/]) assert.ok(![prd, spec, dev, diagram].some((text) => trace.test(text)), String(trace));
+  assert.match(flow, /^# 게시글 수정 유저 플로우\n\n> 기준 문서: .*\[유저 플로우\]\(flow\.md\)/);
+  assert.match(flow, /```mermaid\nflowchart TD\n[\s\S]*F1_3 -\.->\|"3b\. 저장이 실패한다"\| F1_3b1/, '예외 흐름은 점선이고 그림 안은 링크하지 않는다');
+  for (const trace of [/^상태:/m, /^기능:/m, /진행표/, /정할 것/, /기획에 돌려보낼 것/]) assert.ok(![prd, spec, flow, dev].some((text) => trace.test(text)), String(trace));
   assert.equal(existsSync(dir), false, '네 문서를 다 내보내면 작업 폴더를 지운다');
   assert.equal(spawnSync('node', [CLI, 'export', copyExample(), project]).status, 2, '이미 있으면 --force 없이 덮어쓰지 않는다');
   assert.equal(spawnSync('node', [CLI, 'export', copyExample(), project, '--force']).status, 0);
 });
 
-test('export: 기획만 끝났으면 두 문서만 내고 작업 폴더를 남기며, 개발을 쓰는 중이면 막는다', () => {
+test('export: 기획만 끝났으면 PRD·스펙·플로우만 내고 작업 폴더를 남기며, 개발을 쓰는 중이면 막는다', () => {
   const project = mkdtempSync(join(tmpdir(), 'pp-project-'));
-  const planOnly = copyExample({ 'dev.md': null, 'diagram.md': null });
+  const planOnly = copyExample({ 'dev.md': null });
   assert.equal(spawnSync('node', [CLI, 'export', planOnly, project]).status, 0);
   assert.equal(existsSync(join(project, 'docs/product/post-edit/dev.md')), false);
+  assert.equal(existsSync(join(project, 'docs/product/post-edit/flow.md')), true, '유저 플로우는 기획만 끝나도 나온다');
   assert.ok(!readFileSync(join(project, 'docs/product/post-edit/prd.md'), 'utf8').includes('dev.md'), '없는 문서는 기준 문서 줄에 없다');
   assert.equal(existsSync(planOnly), true);
   const writing = copyExample({ 'dev.md': (s) => s.replace('상태: 확정', '상태: 작성중') });
@@ -274,7 +282,7 @@ test('import: 내보낸 결과물을 작업 파일로 되돌린다', () => {
   assert.equal(spawnSync('node', [CLI, 'export', copyExample(), project]).status, 0);
   const dir = join(mkdtempSync(join(tmpdir(), 'pp-')), 'post-edit');
   assert.equal(spawnSync('node', [CLI, 'import', project, dir]).status, 0);
-  for (const file of ['brief.md', 'plan.md', 'dev.md', 'diagram.md']) assert.equal(readFileSync(join(dir, file), 'utf8'), read(file), file);
+  for (const file of ['brief.md', 'plan.md', 'dev.md']) assert.equal(readFileSync(join(dir, file), 'utf8'), read(file), file);
   const report = evaluate(dir);
   assert.equal(report.stage, '기획 › 4-5. 요구사항 대조', '대조 파일은 결과물에 없으므로 다시 대조한다');
   assert.equal(spawnSync('node', [CLI, 'import', project, dir]).status, 2, '작업 중인 폴더를 덮어쓰지 않는다');

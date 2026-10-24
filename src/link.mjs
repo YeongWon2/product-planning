@@ -1,8 +1,8 @@
 // 결과물의 번호 앵커와 양방향 링크 (docs/design.md 5장). 작업 파일에는 번호만 쓰고, 내보낼 때 여기서 링크로 바꾼다.
 
-const TOKEN = /(?<![A-Za-z0-9_#-])((?:BR|FN|G|P|R|F|D|A|M|C|E|N|T|V|S)\d+(?:-\d+)?)(?![A-Za-z0-9_])/g;
+const TOKEN = /(?<![A-Za-z0-9_#-])((?:BR|FN|G|P|R|F|D|A|M|C|E|N|T|V)\d+(?:-\d+)?)(?![A-Za-z0-9_])/g;
 const DEFINITIONS = [
-  /^(#{2,3} )((?:BR|FN|G|P|R|F|D|M|C|E|S)\d+)(?=\s)/,
+  /^(#{2,3} )((?:BR|FN|G|P|R|F|D|M|C|E)\d+)(?=\s)/,
   /^(- )(R\d+-\d+|N\d+|V\d+)(?=\s)/,
   /^(- \[[ x]\] )(T\d+)(?=\s)/,
   /^(\| )(A\d+)(?= \|)/,
