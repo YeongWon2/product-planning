@@ -16,7 +16,7 @@
 | `node scripts/pp.mjs unlock <폴더>` | 잠금을 푼다. 요구사항을 고친 뒤 사람이 확인하면 다시 `lock`한다 |
 | `node scripts/pp.mjs sheet <폴더>` | 요구사항 대조에 쓸 검토지를 JSON으로 낸다 (3장) |
 | `node scripts/pp.mjs quotes <폴더>` | 개발 스펙이 인용할 수 있는 원문과 번호를 JSON으로 낸다 |
-| `node scripts/pp.mjs export <폴더> <프로젝트 폴더> [--force] [--keep]` | 결과물을 `<프로젝트>/docs/product/{기능}/`에 내보낸다 (6장) |
+| `node scripts/pp.mjs export <폴더> [프로젝트 폴더] [--force] [--keep]` | 결과물을 `<프로젝트>/docs/product/{기능}/`에 내보낸다 (6장) |
 | `node scripts/pp.mjs import <프로젝트 폴더> <폴더>` | 프로젝트의 결과물을 작업 폴더로 다시 읽어 온다 (6장) |
 | `node scripts/pp.mjs discard <폴더>` | 내보내지 않고 작업 폴더를 지운다 |
 
@@ -26,10 +26,11 @@
 
 ## 2. 폴더
 
-작업 폴더는 프로젝트 밖 `~/.product-planning/work/{feature}/`에 둔다. 폴더 이름이 영어 기능 이름이다.
+작업 폴더는 대상 프로젝트의 `.product-planning/{feature}/`에 둔다. 폴더 이름이 영어 기능 이름이다.
+`init`·`import`가 `.product-planning/.gitignore`(`*`)를 만들어 작업 파일이 git에 올라가지 않게 한다. 프로젝트 `.gitignore`는 건드리지 않는다.
 
 ```text
-~/.product-planning/work/{feature}/
+<프로젝트>/.product-planning/{feature}/
 ├─ brief.md    비즈니스 요구사항 (brief-guide.md)
 ├─ plan.md     기획 요구사항 (planning-guide.md)
 ├─ lock.json   사람이 잠근 요구사항 지문
@@ -127,6 +128,8 @@
 - `export`는 기획이 완료일 때만 된다. 개발까지 완료면 네 문서를, 개발 파일이 없으면 두 문서만 낸다.
 - 개발을 쓰는 중이면(파일은 있는데 완료가 아님) 내보내지 않는다.
 - 네 문서를 냈을 때만 작업 폴더를 지운다. `--keep`이면 남긴다. 하네스 파일이 아닌 것이 든 폴더는 지우지 않는다.
+- 작업 폴더를 지워 `.product-planning/`에 `.gitignore`만 남으면 그것도 지운다.
+- 작업 폴더가 `<프로젝트>/.product-planning/{기능}/`이면 `export`의 프로젝트 폴더는 생략한다.
 - 결과 파일이 이미 있으면 `--force` 없이는 덮어쓰지 않는다. `import`로 읽어 와 고친 뒤에는 `--force`로 낸다.
 - `import`는 링크와 앵커, 쓰는 곳 줄을 떼고 PRD를 `brief.md`와 `plan.md`로 나눈다. 상태는 `확정`, 요구사항은 잠근 채로, 진행표는 트리에서 다시 만든다.
 - `trace.json`은 결과물에 없으므로 `import` 뒤에는 요구사항 대조를 다시 한다.

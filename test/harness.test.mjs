@@ -252,6 +252,26 @@ test('import: 내보낸 결과물을 작업 파일로 되돌린다', () => {
   assert.equal(spawnSync('node', [CLI, 'import', project, dir]).status, 2, '작업 중인 폴더를 덮어쓰지 않는다');
 });
 
+test('프로젝트 안 작업 폴더: git에서 빠지고, 프로젝트를 생략해 내보내면 흔적 없이 지워진다', () => {
+  const project = mkdtempSync(join(tmpdir(), 'pp-project-'));
+  const fresh = join(project, '.product-planning', 'invite');
+  assert.equal(spawnSync('node', [CLI, 'init', fresh, '초대']).status, 0);
+  assert.match(readFileSync(join(project, '.product-planning/.gitignore'), 'utf8'), /^\*$/m, '작업 파일은 git에 올라가지 않는다');
+  assert.equal(spawnSync('node', [CLI, 'discard', fresh]).status, 0);
+  assert.equal(existsSync(join(project, '.product-planning')), false, '마지막 작업 폴더를 지우면 .product-planning도 지운다');
+
+  const dir = join(project, '.product-planning', 'post-edit');
+  cpSync(copyExample(), dir, { recursive: true });
+  assert.equal(spawnSync('node', [CLI, 'export', dir]).status, 0);
+  assert.equal(existsSync(join(project, 'docs/product/post-edit/prd.md')), true);
+  assert.equal(existsSync(join(project, '.product-planning')), false);
+  assert.equal(spawnSync('node', [CLI, 'export', copyExample()]).status, 2, '프로젝트 밖 폴더는 프로젝트 경로가 있어야 한다');
+
+  const back = join(project, '.product-planning', 'post-edit');
+  assert.equal(spawnSync('node', [CLI, 'import', project, back]).status, 0);
+  assert.equal(existsSync(join(project, '.product-planning/.gitignore')), true, 'import로 다시 만든 작업 폴더도 git에서 빠진다');
+});
+
 test('discard: 하네스 파일만 든 폴더만 지운다', () => {
   const stray = copyExample();
   writeFileSync(join(stray, 'other.txt'), 'x');

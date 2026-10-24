@@ -7,7 +7,7 @@ import { checkPlan, lockFingerprint } from '../src/plan.mjs';
 import { FILES, InputError, evaluate, formatReport, load } from '../src/report.mjs';
 import { citable } from '../src/cite.mjs';
 import { sheet } from '../src/trace.mjs';
-import { discard, exportResult, importResult } from '../src/export.mjs';
+import { discard, exportResult, importResult, keepPrivate } from '../src/export.mjs';
 
 const USAGE = `사용법:
   node scripts/pp.mjs init    <폴더> [기능 이름]       지금 단계에 필요한 파일 가운데 없는 것만 빈 틀로 만든다
@@ -16,8 +16,9 @@ const USAGE = `사용법:
   node scripts/pp.mjs unlock  <폴더>                   요구사항 잠금을 푼다
   node scripts/pp.mjs sheet   <폴더>                   요구사항 대조 검토지를 JSON으로 낸다
   node scripts/pp.mjs quotes  <폴더>                   개발 스펙이 인용할 수 있는 원문 목록을 JSON으로 낸다
-  node scripts/pp.mjs export  <폴더> <프로젝트 폴더> [--force] [--keep]
+  node scripts/pp.mjs export  <폴더> [프로젝트 폴더] [--force] [--keep]
                                                        결과물을 <프로젝트>/docs/product/{기능}/에 내보낸다
+                                                       (폴더가 <프로젝트>/.product-planning/{기능}/이면 프로젝트는 생략)
   node scripts/pp.mjs import  <프로젝트 폴더> <폴더>   프로젝트의 결과물을 작업 폴더로 다시 읽어 온다
   node scripts/pp.mjs discard <폴더>                   내보내지 않고 작업 폴더를 지운다`;
 
@@ -33,6 +34,7 @@ const NEXT_FILES = { '기획 없음': ['plan'], '기획 상세 스펙 없음': [
 
 function init(folder, givenName) {
   mkdirSync(folder, { recursive: true });
+  keepPrivate(folder);
   const made = [];
   const write = (key, name, feature) => {
     const path = join(folder, FILES[key]);
@@ -100,7 +102,6 @@ function run([command, first, ...rest]) {
     return 0;
   }
   if (command === 'export') {
-    if (!args[0]) throw new InputError('프로젝트 폴더 경로가 필요하다.');
     const result = exportResult(first, args[0], { force: flags.includes('--force'), keep: flags.includes('--keep') });
     console.log(`내보냈다: ${result.paths.join(', ')}`);
     console.log(result.removed ? `지웠다: ${first}` : result.withDev ? '' : '기획만 내보냈다. 개발 스펙을 이어 쓰도록 작업 폴더는 남겼다.');

@@ -141,7 +141,7 @@
 | `skills/yw-dev/` | 개발 스펙과 다이어그램을 이끄는 스킬 |
 | `examples/post-edit/` | 끝까지 통과한 예시 |
 
-작업 폴더는 프로젝트 밖 `~/.product-planning/work/{feature}/`에 두고, 결과물만 프로젝트에 남긴다.
+작업 폴더는 그 프로젝트의 `.product-planning/{feature}/`에 두는 임시 폴더다. git에 올라가지 않고, 네 문서를 내보내면 지워진다. 남는 것은 결과물뿐이다.
 기획만 끝나 내보내면 PRD와 기획 상세 스펙만 내고 작업 폴더는 개발을 위해 남긴다. 명령은 [하네스](harness.md)에 있다.
 
 ---

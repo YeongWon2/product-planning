@@ -1,8 +1,9 @@
 // 결과물 내보내기·다시 읽어 오기와 작업 폴더 지우기 (docs/harness.md 6장).
 // 결과물은 대상 프로젝트의 docs/product/{feature}/에 prd·spec·dev·diagram 네 파일로 남는다.
 // 작업 흔적(상태 줄, 기능 줄, 진행표, 정할 것, 기획에 돌려보낼 것, trace.json)은 넣지 않는다.
+// 작업 폴더는 같은 프로젝트의 .product-planning/{feature}/에 두는 임시 폴더다. git에 올라가지 않고, 다 내보내면 지운다.
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { basename, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { FILES, InputError, evaluate, load } from './report.mjs';
 import { parseSpec } from './spec.mjs';
 import { criteriaOf, lockFingerprint, parsePlan } from './plan.mjs';
@@ -17,6 +18,29 @@ const BRIEF_TAIL = ['범위 밖', '제약'];
 const PLAN_PART = ['페르소나', '요구사항'];
 
 export const resultDir = (project, feature) => join(project, 'docs', 'product', feature);
+export const WORK_DIR = '.product-planning';
+const IGNORE = '# product-planning 작업 파일. 결과물을 내보내면 지워진다.\n*\n';
+
+// 작업 폴더가 <프로젝트>/.product-planning/{feature}/이면 그 프로젝트, 아니면 null.
+export function projectOf(folder) {
+  const parent = dirname(resolve(folder));
+  return basename(parent) === WORK_DIR ? dirname(parent) : null;
+}
+
+// .product-planning/ 안에 모든 것을 무시하는 .gitignore를 둬, 프로젝트 .gitignore를 건드리지 않고 git에서 뺀다.
+export function keepPrivate(folder) {
+  if (!projectOf(folder)) return;
+  const ignore = join(dirname(resolve(folder)), '.gitignore');
+  if (!existsSync(ignore)) writeFileSync(ignore, IGNORE);
+}
+
+// 작업 폴더를 지우고, .product-planning/에 .gitignore만 남으면 그것도 지운다.
+function removeWork(folder) {
+  rmSync(folder, { recursive: true });
+  if (!projectOf(folder)) return;
+  const parent = dirname(resolve(folder));
+  if (readdirSync(parent).every((name) => name === '.gitignore' || name === '.DS_Store')) rmSync(parent, { recursive: true });
+}
 
 // { 제목: '## 제목' 부터 다음 ## 앞까지의 줄 }
 function rawSections(source) {
@@ -92,7 +116,8 @@ function assertWorkFolder(folder) {
 
 // 기획이 끝났으면 PRD와 기획 상세 스펙을, 개발까지 끝났으면 네 문서를 낸다.
 // 개발까지 끝나 네 문서를 냈을 때만 작업 폴더를 지운다. 기획만 냈으면 개발을 이어 쓰도록 남긴다.
-export function exportResult(folder, project, { force = false, keep = false } = {}) {
+export function exportResult(folder, project = projectOf(folder), { force = false, keep = false } = {}) {
+  if (!project) throw new InputError('프로젝트 폴더 경로가 필요하다. 작업 폴더가 <프로젝트>/.product-planning/{기능}/이면 생략한다.');
   const report = evaluate(folder);
   if (!report.done.plan) throw new InputError(`아직 기획이 완료가 아니다 (단계: ${report.stage}). check로 남은 것을 먼저 끝낸다.`);
   const devStarted = existsSync(join(folder, FILES.dev)) || existsSync(join(folder, FILES.diagram));
@@ -107,7 +132,7 @@ export function exportResult(folder, project, { force = false, keep = false } = 
   if (remove) assertWorkFolder(folder);
   mkdirSync(target, { recursive: true });
   for (const [name, content] of Object.entries(outputs)) writeFileSync(join(target, name), content);
-  if (remove) rmSync(folder, { recursive: true });
+  if (remove) removeWork(folder);
   return { paths, removed: remove, withDev: report.done.dev };
 }
 
@@ -137,6 +162,7 @@ export function importResult(project, folder) {
   // 확정된 결과물이므로 요구사항도 잠근 채로 읽어 온다.
   files[FILES.lock] = `${JSON.stringify({ fingerprint: lockFingerprint(parsePlan(files[FILES.plan]), parseBrief(files[FILES.brief])) }, null, 2)}\n`;
   mkdirSync(folder, { recursive: true });
+  keepPrivate(folder);
   for (const [name, content] of Object.entries(files)) writeFileSync(join(folder, name), content);
   return { paths: Object.keys(files).map((name) => join(folder, name)) };
 }
@@ -160,5 +186,5 @@ function withProgress(text) {
 
 export function discard(folder) {
   assertWorkFolder(folder);
-  rmSync(folder, { recursive: true });
+  removeWork(folder);
 }
