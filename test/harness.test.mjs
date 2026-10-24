@@ -98,22 +98,29 @@ test('기획 문장 규칙: 두 문장, 개발 용어, 모호한 말, 긴 문장
   assert.deepEqual(sentenceIssues('오타를 발견하면 바로 고치고 싶다.'), []);
 });
 
-test('기획 상세 스펙 트리: 빠진 상태와 갈래, 없는 함수, 끝 없는 가지', () => {
+test('기획 상세 스펙 흐름: 빠진 상태와 갈래, 없는 함수, 끝 없는 흐름, 빠진 예외 흐름', () => {
   const spec = parseSpec(read('spec.md')
     .replace('| 게시글 | 잠김 |', '| 게시글 | 삭제됨 | 지운 글이다 |\n| 게시글 | 잠김 |')
-    .replace('    - **아니오**\n      - → 모달이 바로 닫힌다\n', '')
-    .replace('↪ FN1 수정 중 닫기', '↪ FN9 없는 흐름')
-    .replace('- → [수정] 단추가 비활성이다', '- [수정] 단추가 비활성이다'));
+    .replace('- 1a. 고친 내용이 있는가: 아니오\n  - 1a1. 모달이 바로 닫힌다\n  - 1a2. 끝난다\n', '')
+    .replace('3a1. FN1 수정 중 닫기를 따른다', '3a1. FN9 없는 흐름을 따른다')
+    .replace('  - 1b2. 끝난다\n', '')
+    .replace(/### 예외 흐름\n[\s\S]*?(?=## FN1)/, ''));
   const found = kinds(checkSpec(spec, plan));
-  for (const kind of ['빠진 상태', '빠진 갈래', '없는 함수', '끝 없는 가지', '안 쓰인 함수']) assert.ok(found.includes(kind), kind);
+  for (const kind of ['빠진 상태', '빠진 갈래', '없는 함수', '끝 없는 흐름', '안 쓰인 함수', '예외 흐름 없음']) assert.ok(found.includes(kind), kind);
 });
 
-test('기획 상세 스펙 트리: 표에 없는 재료와 너무 깊은 분기', () => {
-  const deep = '      - **게시됨**\n        - ? 고친 내용이 있는가\n          - **예**\n            - ? 수정 권한이 있는가\n              - **예**\n                - → 끝\n              - **아니오**\n                - → 끝\n          - **아니오**\n            - → 끝\n';
-  const spec = parseSpec(read('spec.md').replace(/      - \*\*게시됨\*\*\n(?:        .*\n)+/, deep).replace('- → [수정] 단추가 비활성이다', '- [저장] 누름 ⇒ 잠김 → 보관됨'));
+test('기획 상세 스펙 흐름: 표에 없는 재료, 너무 깊은 갈림, 기호, 없는 단계', () => {
+  const deep = '  - 1a2. 끝난다\n  - 1a2a. 수정 권한이 있는가: 예\n    - 1a2a1. 끝난다\n    - 1a2a1a. 수정 권한이 있는가: 예\n      - 1a2a1a1. 끝난다\n      - 1a2a1a1a. 수정 권한이 있는가: 예\n        - 1a2a1a1a1. 끝난다\n';
+  const spec = parseSpec(read('spec.md')
+    .replace('  - 1a2. 끝난다\n', deep)
+    .replace('1b1. 수정 단추가 비활성이다', '1b1. 게시글이 잠김에서 보관됨으로 바뀐다')
+    .replace('3b2. 2로 돌아간다', '3b2. 9로 돌아간다')
+    .replace('2. 수정 모달이 열린다', '2. → 수정 모달이 열린다'));
   const found = kinds(checkSpec(spec, plan));
-  assert.ok(found.includes('너무 깊은 트리'));
+  assert.ok(found.includes('너무 깊은 흐름'));
   assert.ok(found.includes('없는 재료'), '상태표에 없는 보관됨');
+  assert.ok(found.includes('기호'));
+  assert.ok(found.includes('없는 단계'));
 });
 
 test('요구사항이 피쳐에 없거나 진행표가 트리와 다르면 단위 나누기에서 막는다', () => {
@@ -155,7 +162,7 @@ test('개발 스펙: 기획의 행동·조건·제약을 인용한 항목이 없
   const action = stageOf({ 'dev.md': (s) => s.replace(/### D3[\s\S]*?(?=### D4)/, '').replace(', D3, D4', ', D4') });
   assert.equal(action.stage, '개발 › 5-4. 계약');
   assert.deepEqual(kinds(action.issues), ['안 물어봄']);
-  assert.match(action.issues[0].message, /\[수정\] 누름/);
+  assert.match(action.issues[0].message, /사용자가 수정을 누른다/);
   const constraint = stageOf({ 'dev.md': (s) => s.replace('출처: PRD › 제약 › 11월 말 업데이트에 함께 나가야 한다.', '출처: D1') });
   assert.deepEqual(kinds(constraint.issues), ['안 물어봄']);
 });
@@ -219,10 +226,10 @@ test('export: 네 문서를 docs/product/{기능}/에 링크와 함께 내보내
   assert.match(prd, /우선순위: P1\n/, '우선순위는 페르소나로 링크하지 않는다');
   assert.ok(prd.indexOf('## 왜 지금') < prd.indexOf('## 페르소나') && prd.indexOf('## 요구사항') < prd.indexOf('## 범위 밖'));
   assert.match(spec, /## <a id="f1"><\/a>F1 · 게시글 수정 · \[R1\]\(prd\.md#r1\)/);
-  assert.match(dev, /출처: \[F1\]\(spec\.md#f1\) › \? 수정 권한이 있는가/);
+  assert.match(dev, /출처: \[F1\]\(spec\.md#f1\) › 기본 흐름 › 1\. 사용자가 수정을 누른다/);
   assert.match(diagram, /```mermaid\n[\s\S]*A1->>A2: C1 글 수정 요청/, '그림 안은 링크하지 않는다');
   assert.match(diagram, /계약: \[C1\]\(dev\.md#c1\)/);
-  for (const trace of ['상태:', '기능:', '진행표', '정할 것', '기획에 돌려보낼 것']) assert.ok(![prd, spec, dev, diagram].some((text) => text.includes(trace)), trace);
+  for (const trace of [/^상태:/m, /^기능:/m, /진행표/, /정할 것/, /기획에 돌려보낼 것/]) assert.ok(![prd, spec, dev, diagram].some((text) => trace.test(text)), String(trace));
   assert.equal(existsSync(dir), false, '네 문서를 다 내보내면 작업 폴더를 지운다');
   assert.equal(spawnSync('node', [CLI, 'export', copyExample(), project]).status, 2, '이미 있으면 --force 없이 덮어쓰지 않는다');
   assert.equal(spawnSync('node', [CLI, 'export', copyExample(), project, '--force']).status, 0);

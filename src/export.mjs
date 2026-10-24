@@ -173,7 +173,7 @@ function withStatus(text) {
   return [title, '상태: 확정', ...rest];
 }
 
-// 진행표는 결과물에 없으므로 트리 목록에서 다시 만든다. 확정된 트리이므로 모두 완료다.
+// 진행표는 결과물에 없으므로 흐름 목록에서 다시 만든다. 확정된 흐름이므로 모두 완료다.
 function withProgress(text) {
   const parsed = parseSpec(text);
   const rows = parsed.units.map((unit) => `| ${unit.id} | ${unit.name} | ${unit.requirements.join(', ')} | 완료 |`);

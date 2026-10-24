@@ -32,9 +32,9 @@ const NEXT = {
   16: 'sheet로 검토지를 받아 완성 기준마다 근거 줄을 찾고, 빠진 것은 사람에게 묻는다.',
   17: '기획 상세 스펙 전체를 보여 주고 확정을 받는다. 확정되면 개발 스펙으로 넘어갈지 묻는다.',
   18: `quotes로 원문을 받아, PRD 제약·범위 밖을 ${QUOTE} 무엇을 정했고 왜인지 묻는다.`,
-  19: `트리의 진입·행동을 ${QUOTE} 어떤 구성 요소가 무엇을 책임지는지 묻는다.`,
+  19: `흐름의 진입·행동을 ${QUOTE} 어떤 구성 요소가 무엇을 책임지는지 묻는다.`,
   20: `상태표의 대상을 ${QUOTE} 무엇을 저장하고 깨지면 안 되는 규칙이 무엇인지 묻는다.`,
-  21: `트리의 사용자 행동을 ${QUOTE} 무엇을 보내고 성공·실패 때 무엇을 받는지 묻는다.`,
+  21: `흐름의 사용자 행동을 ${QUOTE} 무엇을 보내고 성공·실패 때 무엇을 받는지 묻는다.`,
   22: `계약을 ${QUOTE} 누가 누구를 어떤 순서로 부르는지, 조건 갈래마다 무엇이 오가는지 묻는다.`,
   23: `조건의 실패 갈래를 ${QUOTE} 실패하면 무엇이 보이고 시스템은 무엇을 하는지 묻는다.`,
   24: `PRD 지표와 페르소나 행동 패턴을 ${QUOTE} 숫자로 된 제약을 묻는다.`,
@@ -83,7 +83,7 @@ export function evaluate(folder) {
       issues.push(...checkSpec(spec, plan).map(tag(FILES.spec)));
       const traced = checkTrace(plan, spec, trace);
       progress = progressOf(plan, traced.met);
-      // 트리가 다 맞기 전에는 대조가 계속 흔들리므로 대조 결과는 트리 검사가 끝난 뒤에만 보인다.
+      // 흐름가 다 맞기 전에는 대조가 계속 흔들리므로 대조 결과는 흐름 검사가 끝난 뒤에만 보인다.
       if (!issues.some((issue) => issue.step <= 15)) issues.push(...traced.issues.map(tag(FILES.trace)));
     }
     planDone = issues.length === 0;

@@ -1,12 +1,18 @@
 // spec.md 읽기와 기획 4단계(기획 상세 스펙) 검사 (docs/spec-guide.md, docs/harness.md 5장 12~17).
+// 단위마다 유스케이스 명세 틀(기본 흐름 · 대안 흐름 · 예외 흐름)로 쓴다. 기호 없이 번호와 낱말만 쓴다.
 import { listTree, readStatus, sections, splitIds, tableRows } from './md.mjs';
 import { sentenceCount } from './text.mjs';
 
-export const SPEC_STEPS = { 12: '기획 › 4-1. 상태 수립', 13: '기획 › 4-2. 조건 수립', 14: '기획 › 4-3. 단위 나누기', 15: '기획 › 4-4. 단위별 트리', 16: '기획 › 4-5. 요구사항 대조', 17: '기획 › 4-6. 확정' };
+export const SPEC_STEPS = { 12: '기획 › 4-1. 상태 수립', 13: '기획 › 4-2. 조건 수립', 14: '기획 › 4-3. 단위 나누기', 15: '기획 › 4-4. 단위별 흐름', 16: '기획 › 4-5. 요구사항 대조', 17: '기획 › 4-6. 확정' };
 export const MAX_BRANCH_DEPTH = 3;
 export const SEP = ' › ';
+export const FLOWS = ['기본 흐름', '대안 흐름', '예외 흐름'];
 const PROGRESS = ['대기', '작성중', '완료'];
 const KIND = { F: '피쳐', FN: '함수' };
+// 예전 표기의 기호와 이모지. 어느 환경에서도 읽히게 낱말로 바꾸게 한다.
+export const SYMBOLS = /[◆⇒↪→]|\*\*|\p{Extended_Pictographic}/u;
+const STEP = /^(\d+(?:[a-z]\d+)*)\.\s+(.+)$/;
+const EXTENSION = /^(\d+(?:[a-z]\d+)*[a-z])\.\s+(.+)$/;
 
 export function parseSpec(source) {
   const lines = source.split(/\r?\n/);
@@ -20,7 +26,7 @@ export function parseSpec(source) {
     } else if (section.title === '진행표') {
       spec.progress = tableRows(section.body).map(({ cells: [id, name, requirements = '', status], line }) => ({ id, name, requirements: splitIds(requirements), status, line }));
     } else if (unit) {
-      spec.units.push({ id: unit[1], kind: KIND[unit[2]], name: unit[3].trim(), requirements: splitIds(unit[4] ?? ''), line: section.line, nodes: listTree(section.body).map(classify) });
+      spec.units.push({ id: unit[1], kind: KIND[unit[2]], name: unit[3].trim(), requirements: splitIds(unit[4] ?? ''), line: section.line, ...readUnit(section.body) });
     } else {
       spec.unknown.push({ title: section.title, line: section.line });
     }
@@ -28,32 +34,82 @@ export function parseSpec(source) {
   return spec;
 }
 
-function classify(node) {
-  const branch = node.text.match(/^\*\*(.+)\*\*$/);
-  const kind = node.text.startsWith('? ') ? 'condition' : node.text.startsWith('◆ ') ? 'state' : branch ? 'branch' : node.text.startsWith('↪ ') ? 'call' : 'step';
-  return { ...node, kind, label: branch ? branch[1].trim() : node.text.slice(2).trim(), children: node.children.map(classify) };
+// 머리 줄(시작:, 전제:)과 ### 흐름 구역을 읽는다.
+function readUnit(body) {
+  const unit = { start: null, premises: [], flows: {}, noException: null, strayFlows: [] };
+  let flow = null;
+  let chunk = [];
+  const close = () => {
+    if (flow) unit.flows[flow.name] = { line: flow.line, nodes: listTree(chunk).map(classify) };
+    chunk = [];
+  };
+  for (const { text, line } of body) {
+    const head = text.match(/^###\s+(.+)$/);
+    if (head) {
+      close();
+      flow = { name: head[1].trim(), line };
+      if (!FLOWS.includes(flow.name)) unit.strayFlows.push(flow);
+      continue;
+    }
+    if (flow) {
+      const none = text.match(/^-\s+없음:\s*(.*)$/);
+      if (none && flow.name === '예외 흐름') unit.noException = { text: none[1].trim(), line };
+      else chunk.push({ text, line });
+      continue;
+    }
+    const field = text.match(/^(시작|전제):\s*(.+)$/);
+    if (field?.[1] === '시작') unit.start = { text: field[2].trim(), line };
+    else if (field) unit.premises.push({ text: field[2].trim(), line, ...material(field[2].trim()) });
+  }
+  close();
+  return unit;
 }
 
-const isTerminal = (node) => node.kind === 'call' || node.text.includes('→') || node.text.includes('⇒');
+// "조건: 갈래" 또는 "대상 상태: 상태" 모양. 조건표·상태표의 말을 그대로 쓴다.
+function material(label) {
+  const at = label.lastIndexOf(': ');
+  if (at < 0) return { subject: null, branch: null };
+  return { subject: label.slice(0, at).trim(), branch: label.slice(at + 2).trim() };
+}
 
-// 트리의 모든 줄과 경로. 요구사항 대조의 근거 줄, 개발 스펙의 출처로 쓴다.
+function classify(node) {
+  const extension = node.text.match(EXTENSION);
+  const step = !extension && node.text.match(STEP);
+  const children = node.children.map(classify);
+  if (extension) return { ...node, kind: 'extension', id: extension[1], label: extension[2].trim(), ...material(extension[2].trim()), children };
+  if (!step) return { ...node, kind: 'unnumbered', id: null, label: node.text, children };
+  const label = step[2].trim();
+  const back = label.match(/^(\S+?)(?:으로|로) 돌아간다$/);
+  const call = label.match(/^(FN\d+)\s+(.+?)(?:을|를)\s+따른다$/);
+  const transition = label.match(/(\S+)에서\s+(\S+?)(?:으로|로)\s+바뀐다$/);
+  const kind = label === '끝난다' ? 'end' : back ? 'return' : call ? 'call' : transition ? 'transition' : /^사용자가\s/.test(label) ? 'action' : 'result';
+  return { ...node, kind, id: step[1], label, target: back?.[1], call: call && { id: call[1], name: call[2].trim() }, transition: transition && [transition[1], transition[2]], children };
+}
+
+const isEnding = (node) => ['end', 'return', 'call'].includes(node.kind);
+const walkNodes = (nodes, visit, parents = []) => nodes.forEach((node) => { visit(node, parents); walkNodes(node.children, visit, [...parents, node]); });
+
+// 흐름의 모든 줄과 경로. 요구사항 대조의 근거 줄, 개발 스펙의 출처로 쓴다.
 export function linePaths(spec) {
   const paths = [];
-  const walk = (node, prefix, unit) => {
-    const path = prefix + SEP + node.text;
-    paths.push({ path, line: node.line, node, unit });
-    node.children.forEach((child) => walk(child, path, unit));
-  };
-  for (const unit of spec.units) unit.nodes.forEach((node) => walk(node, unit.id, unit));
+  for (const unit of spec.units) {
+    for (const premise of unit.premises) paths.push({ path: `${unit.id}${SEP}전제: ${premise.text}`, line: premise.line, node: { kind: 'premise', text: premise.text }, unit });
+    for (const name of FLOWS) {
+      if (unit.flows[name]) paths.push({ path: `${unit.id}${SEP}${name}`, line: unit.flows[name].line, node: { kind: 'flow', text: name }, unit });
+      walkNodes(unit.flows[name]?.nodes ?? [], (node, parents) => {
+        paths.push({ path: [unit.id, name, ...parents.map((parent) => parent.text), node.text].join(SEP), line: node.line, node, unit });
+      });
+    }
+  }
   return paths;
 }
 
-// 사용자 행동 줄: [단추] 누름처럼 대괄호로 시작하고 "진입"이 아닌 줄이다.
-export const isAction = (node) => node.kind === 'step' && /^\[[^\]]+\]\s*(?!진입)\S/.test(node.text);
+// 사용자 행동 줄: "사용자가"로 시작하는 단계다.
+export const isAction = (node) => node.kind === 'action';
 
-// → 뒤의 화면 결과 문장들.
+// 화면에 보이는 결과 문장들.
 export function results(spec) {
-  return new Set(linePaths(spec).map(({ node }) => node.text.match(/→\s*(.+)$/)?.[1].trim()).filter(Boolean));
+  return new Set(linePaths(spec).filter(({ node }) => node.kind === 'result').map(({ node }) => node.label));
 }
 
 export function checkSpec(spec, plan) {
@@ -86,62 +142,89 @@ export function checkSpec(spec, plan) {
     for (const id of unit.requirements) if (!requirementIds.has(id)) add(14, '없는 요구사항', `${unit.id} ${unit.name}의 ${id}가 기획에 없다.`, unit.line);
     const row = spec.progress.find((entry) => entry.id === unit.id);
     if (!row) add(14, '진행표 불일치', `${unit.id} ${unit.name}이 진행표에 없다.`, unit.line);
-    else if (row.name !== unit.name) add(14, '진행표 불일치', `진행표에서 ${unit.id}의 이름이 "${row.name}"인데 트리는 "${unit.name}"이다.`, row.line);
+    else if (row.name !== unit.name) add(14, '진행표 불일치', `진행표에서 ${unit.id}의 이름이 "${row.name}"인데 흐름은 "${unit.name}"이다.`, row.line);
   }
   for (const row of spec.progress) {
-    if (!spec.units.some((unit) => unit.id === row.id)) add(14, '진행표 불일치', `진행표의 ${row.id} 트리가 없다.`, row.line);
+    if (!spec.units.some((unit) => unit.id === row.id)) add(14, '진행표 불일치', `진행표의 ${row.id} 흐름이 없다.`, row.line);
     if (!PROGRESS.includes(row.status)) add(14, '진행표 불일치', `${row.id}의 진행은 ${PROGRESS.join(', ')} 중 하나여야 한다.`, row.line);
   }
 
-  const walk = (node, unit, depth, parent, isLast) => {
-    const where = `${unit.id}${SEP}${node.text}`;
-    if (sentenceCount(node.kind === 'branch' ? node.label : node.text.replace(/^(\?|◆|↪)\s+/, '')) > 1) add(15, '한 줄 두 문장', `${where}를 한 줄에 한 문장으로 나눈다.`, node.line);
-    if (node.kind === 'branch' && parent?.kind !== 'condition' && parent?.kind !== 'state') add(15, '갈래 위치', `${where}는 ? 또는 ◆ 바로 아래에만 쓴다.`, node.line);
-    // 형제 줄은 위에서 아래로 이어지는 순서이므로, 끝은 마지막 줄에서만 본다.
-    if (node.children.length === 0 && isLast && !isTerminal(node)) add(15, '끝 없는 가지', `${where} 다음에 무엇이 되는지(→, ⇒, ↪) 있어야 완성이다.`, node.line);
-    const nextDepth = node.kind === 'condition' || node.kind === 'state' ? depth + 1 : depth;
-    if (nextDepth > MAX_BRANCH_DEPTH && nextDepth > depth) add(15, '너무 깊은 트리', `${where}에서 분기가 ${MAX_BRANCH_DEPTH}단계를 넘는다. 함수로 잘라낸다.`, node.line);
-    if (node.kind === 'condition') checkBranches(node, conditions.get(node.label)?.branches, `조건표에 "${node.label}"가 없다.`, '빠진 갈래', where, used.conditions, add);
-    if (node.kind === 'state') {
-      const target = node.label.replace(/\s*상태$/, '');
-      checkBranches(node, statesOf.get(target), `상태표에 대상 "${target}"가 없다.`, '빠진 상태', where, used.states, add, true);
-    }
-    if (node.kind === 'condition' && conditions.has(node.label)) used.conditions.add(node.label);
-    if (node.kind === 'call') {
-      const [id, ...rest] = node.label.split(/\s+/);
-      used.functions.add(id);
-      const target = functions.get(id);
-      if (!target) add(15, '없는 함수', `${where}가 부르는 FN 트리가 없다.`, node.line);
-      else if (rest.length && rest.join(' ') !== target.name) add(15, '없는 함수', `${where}의 이름이 ${id} "${target.name}"과 다르다.`, node.line);
-    }
-    const transition = node.text.match(/⇒\s*(.+?)\s*→\s*(.+)$/);
-    if (transition) {
-      for (const state of [transition[1].trim(), transition[2].trim()]) {
-        if (allStates.has(state)) used.states.add(state);
-        else add(15, '없는 재료', `${where}의 상태 "${state}"가 상태표에 없다.`, node.line);
-      }
-    }
-    node.children.forEach((child, index) => walk(child, unit, nextDepth, node, index === node.children.length - 1));
+  // 조건표·상태표의 말인지 보고, 단위마다 나온 갈래를 모은다.
+  const useMaterial = (subject, branch, where, line, seen) => {
+    const target = subject.replace(/\s*상태$/, '');
+    const isState = subject.endsWith(' 상태') && statesOf.has(target);
+    const expected = isState ? statesOf.get(target) : conditions.get(subject)?.branches;
+    if (!expected) return add(15, '없는 재료', `${where}: 조건표에 "${subject}"가 없고 상태표에 대상 "${target}"도 없다.`, line);
+    if (!expected.includes(branch)) return add(15, '없는 재료', `${where}의 '${branch}'는 표에 없는 갈래다.`, line);
+    if (isState) used.states.add(branch);
+    else used.conditions.add(subject);
+    const key = isState ? `${target} 상태` : subject;
+    seen.set(key, { expected, isState, line, found: new Set([...(seen.get(key)?.found ?? []), branch]) });
   };
+
   for (const unit of spec.units) {
-    if (unit.nodes.length === 0) add(15, '빈 트리', `${unit.id} ${unit.name}에 줄이 있어야 완성이다.`, unit.line);
-    unit.nodes.forEach((node, index) => walk(node, unit, 0, null, index === unit.nodes.length - 1));
+    const label = `${unit.id} ${unit.name}`;
+    const seen = new Map();
+    for (const { line } of unit.strayFlows) add(15, '모르는 머리', `${label}의 ### 머리는 ${FLOWS.join(', ')} 중 하나로 쓴다.`, line);
+    if (unit.kind === '피쳐' && !unit.start) add(15, '시작 없음', `${label}에 사용자가 어디서 시작하는지 \`시작:\` 줄이 있어야 완성이다.`, unit.line);
+    const main = unit.flows['기본 흐름']?.nodes ?? [];
+    if (main.length === 0) add(15, '빈 흐름', `${label}에 ### 기본 흐름 단계가 있어야 완성이다.`, unit.line);
+    if (unit.kind === '피쳐' && !unit.noException && !(unit.flows['예외 흐름']?.nodes.length)) add(15, '예외 흐름 없음', `${label}에서 실패하거나 끊기면 어떻게 되는지 ### 예외 흐름이 있어야 완성이다. 없으면 "- 없음: 이유"로 쓴다.`, unit.line);
+    main.forEach((node, index) => {
+      if (node.kind === 'extension' || node.kind === 'unnumbered') return;
+      if (node.id !== String(index + 1)) add(15, '번호 순서', `${label} 기본 흐름의 "${node.text}"는 ${index + 1}번이어야 한다.`, node.line);
+    });
+    for (const premise of unit.premises) {
+      if (!premise.subject) add(15, '없는 재료', `${label}의 전제 "${premise.text}"는 "조건: 갈래" 모양으로 쓴다.`, premise.line);
+      else useMaterial(premise.subject, premise.branch, `${label}의 전제 "${premise.text}"`, premise.line, seen);
+    }
+
+    const stepIds = new Set();
+    for (const name of FLOWS) walkNodes(unit.flows[name]?.nodes ?? [], (node) => node.kind !== 'extension' && node.id && stepIds.add(node.id));
+    for (const name of FLOWS) {
+      walkNodes(unit.flows[name]?.nodes ?? [], (node, parents) => {
+        const where = `${unit.id}${SEP}${name}${SEP}${node.text}`;
+        if (SYMBOLS.test(node.text)) add(15, '기호', `${where}에서 기호를 빼고 번호와 낱말로 쓴다.`, node.line);
+        if (sentenceCount(node.label) > 1) add(15, '한 줄 두 문장', `${where}를 한 줄에 한 문장으로 나눈다.`, node.line);
+        if (node.kind === 'unnumbered') return add(15, '번호 없는 줄', `${where}에 1. 또는 2a. 같은 단계 번호를 붙인다.`, node.line);
+        if (node.kind === 'extension') {
+          if (name === '기본 흐름') add(15, '흐름 위치', `${where}처럼 갈라지는 줄은 대안 흐름이나 예외 흐름에 쓴다.`, node.line);
+          const from = node.id.slice(0, -1);
+          if (!stepIds.has(from)) add(15, '없는 단계', `${where}가 갈라져 나오는 ${from}번 단계가 없다.`, node.line);
+          const depth = (node.id.match(/[a-z]/g) ?? []).length;
+          if (depth > MAX_BRANCH_DEPTH) add(15, '너무 깊은 흐름', `${where}에서 갈림이 ${MAX_BRANCH_DEPTH}단계를 넘는다. 함수로 잘라낸다.`, node.line);
+          if (node.subject) useMaterial(node.subject, node.branch, where, node.line, seen);
+          const steps = node.children.filter((child) => child.kind !== 'extension');
+          if (!steps.length || !isEnding(steps.at(-1))) add(15, '끝 없는 흐름', `${where} 끝에 "N으로 돌아간다", "끝난다", "FN번호 이름을 따른다" 중 하나가 있어야 완성이다.`, node.line);
+          return;
+        }
+        const owner = parents.findLast((parent) => parent.kind === 'extension');
+        if (owner && !node.id.startsWith(owner.id)) add(15, '번호 순서', `${where}의 번호는 ${owner.id}로 시작해야 한다.`, node.line);
+        if (node.kind === 'return' && !stepIds.has(node.target)) add(15, '없는 단계', `${where}가 돌아가는 ${node.target}번 단계가 없다.`, node.line);
+        if (node.kind === 'call') {
+          used.functions.add(node.call.id);
+          const target = functions.get(node.call.id);
+          if (!target) add(15, '없는 함수', `${where}가 부르는 FN 흐름이 없다.`, node.line);
+          else if (node.call.name !== target.name) add(15, '없는 함수', `${where}의 이름이 ${node.call.id} "${target.name}"과 다르다.`, node.line);
+        }
+        if (node.kind === 'transition') {
+          for (const state of node.transition) {
+            if (allStates.has(state)) used.states.add(state);
+            else add(15, '없는 재료', `${where}의 상태 "${state}"가 상태표에 없다.`, node.line);
+          }
+        }
+      });
+    }
+    for (const [key, { expected, isState, line, found }] of seen) {
+      for (const branch of expected) if (!found.has(branch)) add(15, isState ? '빠진 상태' : '빠진 갈래', `${label}에 "${key}: ${branch}"일 때의 흐름이 없다. 전제나 대안 흐름에 있어야 완성이다.`, line);
+    }
   }
   if (spec.units.length) {
-    for (const state of allStates) if (!used.states.has(state)) add(15, '안 쓰인 재료', `상태 "${state}"가 어느 트리에도 없다. 빠졌는지 표에서 뺄지 정해야 완성이다.`);
-    for (const { name, line } of spec.conditions) if (!used.conditions.has(name)) add(15, '안 쓰인 재료', `조건 "${name}"가 어느 트리에도 없다. 빠졌는지 표에서 뺄지 정해야 완성이다.`, line);
+    for (const state of allStates) if (!used.states.has(state)) add(15, '안 쓰인 재료', `상태 "${state}"가 어느 흐름에도 없다. 빠졌는지 표에서 뺄지 정해야 완성이다.`);
+    for (const { name, line } of spec.conditions) if (!used.conditions.has(name)) add(15, '안 쓰인 재료', `조건 "${name}"가 어느 흐름에도 없다. 빠졌는지 표에서 뺄지 정해야 완성이다.`, line);
     for (const [id, unit] of functions) if (!used.functions.has(id)) add(15, '안 쓰인 함수', `${id} ${unit.name}을 부르는 곳이 없다.`, unit.line);
   }
 
   if (spec.status !== '확정') add(17, '확정 전', '사람이 기획 상세 스펙을 읽고 확정하면 상태: 확정으로 바꾼다.');
   return issues;
-}
-
-function checkBranches(node, expected, unknownMessage, missingKind, where, used, add, markEach = false) {
-  const branches = node.children.filter((child) => child.kind === 'branch').map((child) => child.label);
-  for (const child of node.children) if (child.kind !== 'branch') add(15, '갈래 위치', `${where} 바로 아래는 **갈래**만 쓴다.`, child.line);
-  if (!expected) return add(15, '없는 재료', `${where}: ${unknownMessage}`, node.line);
-  for (const branch of expected) if (!branches.includes(branch)) add(15, missingKind, `${where} 아래 '${branch}' 갈래가 없다.`, node.line);
-  for (const branch of branches) if (!expected.includes(branch)) add(15, '없는 재료', `${where} 아래 '${branch}'는 표에 없는 갈래다.`, node.line);
-  if (markEach) branches.filter((branch) => expected.includes(branch)).forEach((branch) => used.add(branch));
 }

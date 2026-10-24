@@ -112,7 +112,7 @@ export function checkDev(dev, { brief, plan, spec, sources, diagram }) {
   }
 
   for (const { target } of uniqueTargets(spec)) {
-    if (!askedAbout((path) => path === `상태표${SEP}${target}` || path.includes(`◆ ${target} 상태`))) add(20, '안 물어봄', `상태표의 대상 "${target}"를 인용한 데이터 모델이 없다.`);
+    if (!askedAbout((path) => path === `상태표${SEP}${target}` || path.includes(`${target} 상태: `))) add(20, '안 물어봄', `상태표의 대상 "${target}"를 인용한 데이터 모델이 없다.`);
   }
 
   duplicates(dev.contracts, (id, line) => add(21, '번호 겹침', `계약 번호 ${id}가 두 번 나온다.`, line));
@@ -137,7 +137,7 @@ export function checkDev(dev, { brief, plan, spec, sources, diagram }) {
     for (const id of contract.failures) if (!errors.has(id)) add(23, '이름 없는 실패', `${contract.id}의 실패 ${id}가 오류·경계에 없다.`, contract.fields['실패']?.line);
   }
   for (const { name } of spec.conditions) {
-    if (!askedAbout((path) => path === `조건표${SEP}${name}` || path.includes(`? ${name}`))) add(23, '안 물어봄', `조건 "${name}"를 인용한 계약이나 오류가 없다.`);
+    if (!askedAbout((path) => path === `조건표${SEP}${name}` || path.includes(`${name}: `))) add(23, '안 물어봄', `조건 "${name}"를 인용한 계약이나 오류가 없다.`);
   }
 
   if (dev.tasks.length === 0) add(25, '작업 없음', '기반 작업과 P1부터의 작업이 작업 계획에 하나 이상 있어야 완성이다.');

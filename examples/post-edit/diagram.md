@@ -10,7 +10,7 @@ sequenceDiagram
   participant A1 as 글 화면
   participant A2 as 글 서버
   participant A3 as 글 저장소
-  P1->>A1: [저장] 누름
+  P1->>A1: 글을 고치고 저장을 누른다
   A1->>A2: C1 글 수정 요청
   alt 수정 권한이 있는가: 아니오
     A2-->>A1: C1 실패 · E1
@@ -23,4 +23,4 @@ sequenceDiagram
   end
 ```
 
-계약: C1 · 트리: F1 › ? 수정 권한이 있는가
+계약: C1 · 흐름: F1 › 기본 흐름 › 3. 사용자가 글을 고치고 저장을 누른다

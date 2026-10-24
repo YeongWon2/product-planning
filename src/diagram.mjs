@@ -29,7 +29,7 @@ export function parseDiagram(source) {
       } else if (inside) {
         sequence.code.push({ text: text.trim(), line });
       } else {
-        const basis = text.trim().match(/^계약:\s*(.+?)\s*·\s*트리:\s*(.+)$/);
+        const basis = text.trim().match(/^계약:\s*(.+?)\s*·\s*(?:흐름|트리):\s*(.+)$/);
         if (basis) sequence.basis = { contracts: splitIds(basis[1]), tree: basis[2].trim(), line };
       }
     }
@@ -118,14 +118,14 @@ export function checkDiagram(diagram, { plan, spec, dev, sources, ids }) {
       } else if (!message.reply && components.has(message.from) && components.has(message.to) && !components.get(message.from).deps.includes(message.to)) {
         add(22, '없는 의존', `${where}인데 ${message.from}의 기대는 곳에 ${message.to}가 없다.`, message.line);
       }
-      if (parsed.participants.get(message.to)?.kind === 'actor' && !shown.has(plain(message.text))) add(22, '다른 결과 문장', `${where}가 트리의 → 결과나 오류의 보이는 것과 다르다.`, message.line);
+      if (parsed.participants.get(message.to)?.kind === 'actor' && !shown.has(plain(message.text))) add(22, '다른 결과 문장', `${where}가 흐름의 화면 결과 문장이나 오류의 보이는 것과 다르다.`, message.line);
     }
     for (const block of parsed.blocks.filter((item) => item.kind === 'alt')) checkAlt(block, conditions, label, add);
 
-    if (!sequence.basis) add(22, '근거 줄 없음', `${label} 그림 아래에 \`계약: … · 트리: …\` 줄이 있어야 완성이다.`, sequence.line);
+    if (!sequence.basis) add(22, '근거 줄 없음', `${label} 그림 아래에 \`계약: … · 흐름: …\` 줄이 있어야 완성이다.`, sequence.line);
     else {
       for (const id of sequence.basis.contracts) if (!contracts.has(id)) add(22, '없는 계약', `${label} 근거 줄의 ${id}가 개발 스펙 계약에 없다.`, sequence.basis.line);
-      if (!resolve(sequence.basis.tree, sources, ids).ok) add(22, '근거 줄 없음', `${label} 근거 줄의 트리 "${sequence.basis.tree}"가 기획 상세 스펙에 없다.`, sequence.basis.line);
+      if (!resolve(sequence.basis.tree, sources, ids).ok) add(22, '근거 줄 없음', `${label} 근거 줄의 흐름 "${sequence.basis.tree}"가 기획 상세 스펙에 없다.`, sequence.basis.line);
     }
   }
   for (const contract of dev.contracts) if (!drawn.has(contract.id)) add(22, '그림 없는 계약', `${contract.id} ${contract.title}이 어느 시퀀스에도 나오지 않는다.`, contract.line);

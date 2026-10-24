@@ -48,5 +48,5 @@ export function resolve(text, sources, devIds = new Set()) {
   return { ok: false, ids: [], path: value };
 }
 
-// 출처 경로가 트리의 그 줄이거나 그 아래 줄을 가리키는가.
+// 출처 경로가 흐름의 그 줄이거나 그 아래 줄을 가리키는가.
 export const covers = (path, target) => path === target || path.startsWith(target + SEP);
