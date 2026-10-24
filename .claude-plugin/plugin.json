@@ -1,6 +1,6 @@
 {
   "name": "product-planning",
-  "description": "사람과 대화하며 기획(페르소나·요구사항·완성 기준)과 SDD 스펙(상태·조건 분기 트리)을 단계별로 같이 쓰고, 하네스가 매 답마다 빠진 것을 알려 주는 플러그인",
+  "description": "사람을 인터뷰하며 기획(비즈니스 요구사항·PRD·기획 상세 스펙)과 개발 스펙(결정·아키텍처·계약·시퀀스 다이어그램)을 원문 인용으로 같이 쓰고, 하네스가 매 답마다 빠진 것을 알려 주는 플러그인",
   "version": "1.4.0",
   "author": {
     "name": "YeongWon2"
@@ -11,7 +11,9 @@
     "planning",
     "persona",
     "requirements",
+    "prd",
+    "spec",
     "sdd",
-    "user-flow"
+    "sequence-diagram"
   ]
 }
