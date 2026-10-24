@@ -1,11 +1,11 @@
-// 요구사항 대조 (docs/harness.md 3장). 모델이 쓴 trace.json이 지금 기획·트리와 맞는지 센다.
+// 요구사항 대조 (docs/harness.md 3장). 모델이 쓴 trace.json이 지금 기획과 기획 상세 스펙 트리와 맞는지 센다.
 import { createHash } from 'node:crypto';
 import { criteriaOf } from './plan.mjs';
-import { linePaths } from './sdd.mjs';
+import { linePaths } from './spec.mjs';
 
 export const fingerprint = (criterion) => createHash('sha1').update(`${criterion.id}\n${criterion.text}`).digest('hex').slice(0, 12);
 
-export function sheet(plan, sdd) {
+export function sheet(plan, spec) {
   return {
     instructions: [
       '완성 기준마다 그 기준을 만족하는 트리 줄을 lines에서 찾아 trace.json에 적는다.',
@@ -15,16 +15,16 @@ export function sheet(plan, sdd) {
       '트리를 직접 고치지 않는다.',
     ],
     criteria: criteriaOf(plan).filter((criterion) => !criterion.excluded).map((criterion) => ({ id: criterion.id, requirement: criterion.requirement, text: criterion.text, fingerprint: fingerprint(criterion) })),
-    lines: linePaths(sdd).map(({ path }) => path),
+    lines: linePaths(spec).map(({ path }) => path),
   };
 }
 
 // 결과: { issues, met: Set(기준 ID) }
-export function checkTrace(plan, sdd, trace) {
+export function checkTrace(plan, spec, trace) {
   const issues = [];
   const met = new Set();
-  const add = (kind, message) => issues.push({ step: 10, kind, message });
-  const paths = new Set(linePaths(sdd).map(({ path }) => path));
+  const add = (kind, message) => issues.push({ step: 16, kind, message });
+  const paths = new Set(linePaths(spec).map(({ path }) => path));
   for (const criterion of criteriaOf(plan)) {
     if (criterion.excluded) continue;
     const entry = trace?.[criterion.id];
