@@ -123,10 +123,19 @@ test('기획 상세 스펙 흐름: 표에 없는 재료, 너무 깊은 갈림, �
   assert.ok(found.includes('없는 단계'));
 });
 
-test('요구사항이 피쳐에 없거나 진행표가 트리와 다르면 단위 나누기에서 막는다', () => {
+test('기획 상세 스펙 항목 표: 빠진 항목, 없는 행위자, 모르는 항목', () => {
+  const spec = parseSpec(read('spec.md')
+    .replace('| 실패 시 보장 | 저장하지 못하면 원래 글이 그대로 남는다 |\n', '')
+    .replace('| 행위자 | P1 |', '| 행위자 | P9 |')
+    .replace('| 사전 조건 |', '| 빈도 | 하루 두세 번이다 |\n| 사전 조건 |'));
+  const found = kinds(checkSpec(spec, plan));
+  for (const kind of ['빠진 항목', '없는 행위자', '모르는 항목']) assert.ok(found.includes(kind), kind);
+});
+
+test('요구사항이 유스케이스에 없거나 진행표가 흐름과 다르면 단위 나누기에서 막는다', () => {
   const report = stageOf({ 'spec.md': (s) => s.replace('## F1 · 게시글 수정 · R1', '## F1 · 게시글 수정').replace('| FN1 | 수정 중 닫기 | R1 | 완료 |', '| FN1 | 수정 중 닫기 | R1 | 끝 |') });
   assert.equal(report.stage, '기획 › 4-3. 단위 나누기');
-  assert.deepEqual(kinds(report.issues), ['피쳐 없는 요구사항', '진행표 불일치']);
+  assert.deepEqual(kinds(report.issues), ['유스케이스 없는 요구사항', '진행표 불일치']);
 });
 
 test('대조: 빠진 것은 그대로 보여 주고, 바뀐 기준과 근거 줄은 낡은 것으로 본다', () => {
